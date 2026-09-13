@@ -1,0 +1,17 @@
+{
+  "name": "Blacklist",
+  "type": "object",
+  "properties": {
+    "phone": {
+      "type": "string",
+      "description": "\u0417\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 \u043d\u043e\u043c\u0435\u0440 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0430"
+    },
+    "reason": {
+      "type": "string",
+      "description": "\u041f\u0440\u0438\u0447\u0438\u043d\u0430 \u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u043a\u0438"
+    }
+  },
+  "required": [
+    "phone"
+  ]
+}

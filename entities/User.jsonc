@@ -1,0 +1,59 @@
+{
+  "properties": {
+    "role": {
+      "type": "string",
+      "description": "The role of the user in the app",
+      "enum": [
+        "admin",
+        "user",
+        "\u0417\u0430\u0432\u043e\u0434"
+      ]
+    },
+    "account_type": {
+      "type": "string",
+      "enum": [
+        "client",
+        "driver"
+      ],
+      "description": "\u0422\u0438\u043f \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430: \u0437\u0430\u043a\u0430\u0437\u0447\u0438\u043a \u0438\u043b\u0438 \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u044c"
+    },
+    "driver_name": {
+      "type": "string",
+      "description": "\u0418\u043c\u044f \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u044f / \u043c\u0430\u0441\u0442\u0435\u0440\u0430"
+    },
+    "phone": {
+      "type": "string",
+      "description": "\u0422\u0435\u043b\u0435\u0444\u043e\u043d"
+    },
+    "vehicle_plate": {
+      "type": "string",
+      "description": "\u0413\u043e\u0441. \u043d\u043e\u043c\u0435\u0440 \u043c\u0430\u0448\u0438\u043d\u044b"
+    },
+    "equipment_type": {
+      "type": "string",
+      "enum": [
+        "mixer",
+        "pump_16",
+        "pump_24",
+        "pump_36",
+        "pump_52"
+      ],
+      "description": "\u0422\u0438\u043f \u0442\u0435\u0445\u043d\u0438\u043a\u0438"
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending",
+      "description": "\u0421\u0442\u0430\u0442\u0443\u0441 \u043e\u0434\u043e\u0431\u0440\u0435\u043d\u0438\u044f \u043f\u0430\u0440\u0442\u043d\u0451\u0440\u0430"
+    }
+  },
+  "required": [
+    "role"
+  ],
+  "name": "User",
+  "type": "object"
+}
