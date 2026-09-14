@@ -15,7 +15,7 @@ export default function RoleSelect() {
 
   const choose = (role) => {
     localStorage.setItem(ROLE_KEY, role);
-    navigate("/register", { replace: true });
+    navigate("/login", { replace: true });
   };
 
   return (
