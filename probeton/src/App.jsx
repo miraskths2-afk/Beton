@@ -1,6 +1,8 @@
 // Этот файл заменяет src/App.jsx.
 // Убраны страницы Register / ForgotPassword / ResetPassword — они
 // использовали email+пароль+Google, что нам больше не нужно.
+// Добавлены /onboarding (имя + согласие с офертой при первом входе)
+// и /profile (личный профиль, куда переехала юридическая информация).
 
 import { Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
@@ -20,7 +22,8 @@ import RoleSelect from "@/pages/RoleSelect";
 import RoleHome from "@/pages/RoleHome";
 import DriverBalance from "@/pages/DriverBalance";
 import Kubovik from "@/pages/Kubovik";
-import Legal from "@/pages/Legal";
+import Profile from "@/pages/Profile";
+import Onboarding from "@/pages/Onboarding";
 import BlacklistPage from "@/pages/BlacklistPage";
 import Login from "@/pages/Login";
 
@@ -39,6 +42,18 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route path="/choose-role" element={<RoleSelect />} />
       <Route path="/login" element={<Login />} />
+
+      <Route
+        element={
+          <ProtectedRoute
+            unauthenticatedElement={<Navigate to="/choose-role" replace />}
+            skipOnboardingCheck
+          />
+        }
+      >
+        <Route path="/onboarding" element={<Onboarding />} />
+      </Route>
+
       <Route
         element={
           <ProtectedRoute
@@ -53,7 +68,7 @@ const AuthenticatedApp = () => {
           <Route path="/zavod" element={<Plant />} />
           <Route path="/balance" element={<DriverBalance />} />
           <Route path="/kubovik" element={<Kubovik />} />
-          <Route path="/legal" element={<Legal />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/blacklist" element={<BlacklistPage />} />
         </Route>
       </Route>

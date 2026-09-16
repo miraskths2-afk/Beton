@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 import {
   Inbox,
@@ -18,6 +19,7 @@ import {
 import TransferToPlantDialog from "@/components/TransferToPlantDialog";
 import DriverApproval from "@/components/DriverApproval";
 import CommissionApproval from "@/components/CommissionApproval";
+import LiveDriverMap from "@/components/LiveDriverMap";
 
 const STATUS = {
   new: { label: "Поиск машины", icon: Inbox, cls: "bg-blue-100 text-blue-700" },
@@ -29,6 +31,7 @@ const STATUS = {
 };
 
 export default function Admin() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -103,8 +106,15 @@ export default function Admin() {
   return (
     <div className="p-4 space-y-4">
       <div className="px-1">
-        <h1 className="text-xl font-black text-neutral-900">Панель администратора</h1>
-        <p className="text-sm text-neutral-500">Султан · все входящие заявки</p>
+        <h1 className="text-xl font-black text-neutral-900">
+          Здравствуйте, {user?.full_name || "администратор"}
+        </h1>
+        <p className="text-sm text-neutral-500">Все входящие заявки</p>
+      </div>
+
+      <div className="space-y-2">
+        <h2 className="font-bold text-neutral-900 px-1">Водители на линии</h2>
+        <LiveDriverMap />
       </div>
 
       <DriverApproval />

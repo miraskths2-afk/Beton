@@ -16,6 +16,7 @@ import {
   Hourglass,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import LiveDriverMap from "@/components/LiveDriverMap";
 
 function Stars({ value, onChange }) {
   return (
@@ -187,11 +188,16 @@ export default function OrderTracking() {
                 </div>
 
                 {isEnRoute && (
-                  <div className="flex items-center gap-2 bg-green-600 text-white rounded-lg px-3 py-2.5">
-                    <Truck className="w-5 h-5" />
-                    <span className="font-bold text-sm">
-                      Миксер выехал — ожидайте подачи!
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 bg-green-600 text-white rounded-lg px-3 py-2.5">
+                      <Truck className="w-5 h-5" />
+                      <span className="font-bold text-sm">
+                        Миксер выехал — ожидайте подачи!
+                      </span>
+                    </div>
+                    {o.driver_id && (
+                      <LiveDriverMap driverIds={[o.driver_id]} height="35vh" />
+                    )}
                   </div>
                 )}
 

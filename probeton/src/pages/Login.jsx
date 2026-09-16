@@ -3,10 +3,11 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogIn, Phone, Loader2 } from "lucide-react";
+import { Phone, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import AuthLayout from "@/components/AuthLayout";
+import MixerIcon from "@/components/MixerIcon";
 
 const ROLE_KEY = "probeton_role";
 
@@ -42,7 +43,7 @@ export default function Login() {
 
   return (
     <AuthLayout
-      icon={LogIn}
+      icon={MixerIcon}
       title="Вход"
       subtitle="Введите номер телефона, чтобы продолжить"
     >

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Truck, Wrench, ChevronRight } from "lucide-react";
+import MixerIcon from "@/components/MixerIcon";
 
 const ROLE_KEY = "probeton_role";
 
@@ -21,8 +22,8 @@ export default function RoleSelect() {
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       <header className="bg-neutral-900 text-white px-5 py-5 flex items-center gap-2">
-        <div className="w-9 h-9 rounded-lg bg-amber-400 flex items-center justify-center font-black text-neutral-900 text-sm">
-          PRO
+        <div className="w-9 h-9 rounded-lg bg-amber-400 flex items-center justify-center text-neutral-900">
+          <MixerIcon className="w-5 h-5" />
         </div>
         <div className="leading-none">
           <div className="font-black text-lg tracking-tight">PROBETON</div>

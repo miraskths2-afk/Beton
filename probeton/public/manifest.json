@@ -1,0 +1,11 @@
+{
+  "name": "Кубовик",
+  "short_name": "Кубовик",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#171717",
+  "theme_color": "#171717",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

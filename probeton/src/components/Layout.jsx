@@ -8,23 +8,25 @@ import {
   List,
   Wallet,
   Flame,
-  ShieldCheck,
   Ban,
+  UserCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
+import DriverLocationBroadcaster from "@/components/DriverLocationBroadcaster";
+import MixerIcon from "@/components/MixerIcon";
 
 const ALL_ITEMS = [
   { to: "/", label: "Заказ", icon: Truck, end: true, roles: ["client"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["client"] },
   { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["client"] },
-  { to: "/legal", label: "Юр.", icon: ShieldCheck, end: false, roles: ["client", "driver", "admin"] },
   { to: "/", label: "Лента", icon: List, end: true, roles: ["driver"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["driver"] },
   { to: "/balance", label: "Баланс", icon: Wallet, end: false, roles: ["driver"] },
   { to: "/", label: "Админ", icon: LayoutDashboard, end: true, roles: ["admin"] },
   { to: "/zavod", label: "Завод", icon: Factory, end: false, roles: ["admin"] },
   { to: "/blacklist", label: "ЧС", icon: Ban, end: false, roles: ["admin"] },
+  { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "admin"] },
 ];
 
 export default function Layout() {
@@ -41,8 +43,8 @@ export default function Layout() {
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       <header className="sticky top-0 z-30 bg-neutral-900 text-white px-5 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-lg bg-amber-400 flex items-center justify-center font-black text-neutral-900 text-sm tracking-tight">
-            PRO
+          <div className="w-9 h-9 rounded-lg bg-amber-400 flex items-center justify-center text-neutral-900">
+            <MixerIcon className="w-5 h-5" />
           </div>
           <div className="leading-none">
             <div className="font-black text-lg tracking-tight">PROBETON</div>
@@ -59,6 +61,8 @@ export default function Layout() {
           Алматинская область
         </div>
       </header>
+
+      {role === "driver" && <DriverLocationBroadcaster />}
 
       <main className="flex-1 pb-24 max-w-md w-full mx-auto">
         <Outlet />
