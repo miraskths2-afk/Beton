@@ -26,6 +26,7 @@ export default function QuickOrderForm() {
   const [neededBy, setNeededBy] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
   const isValid =
     cubes && Number(cubes) > 0 && address.trim() && phone.trim();
@@ -39,6 +40,7 @@ export default function QuickOrderForm() {
       return;
     }
     setLoading(true);
+    setError("");
     try {
       await base44.entities.Order.create({
         order_number: "PB-" + Date.now().toString().slice(-6),
@@ -64,6 +66,10 @@ export default function QuickOrderForm() {
       setTimeout(() => setSuccess(false), 4000);
     } catch (err) {
       console.error(err);
+      setError(
+        err?.message ||
+          "Не удалось сохранить заявку. Проверьте подключение и попробуйте ещё раз."
+      );
     } finally {
       setLoading(false);
     }
@@ -223,6 +229,12 @@ export default function QuickOrderForm() {
           />
         )}
       </div>
+
+      {error && (
+        <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error}
+        </div>
+      )}
 
       <Button
         type="submit"

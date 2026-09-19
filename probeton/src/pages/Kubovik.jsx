@@ -59,6 +59,7 @@ export default function Kubovik() {
   const [phone, setPhone] = useState(user?.phone || "");
   const [duration, setDuration] = useState(30);
   const [submitting, setSubmitting] = useState(false);
+  const [postError, setPostError] = useState("");
   const [done, setDone] = useState(false);
 
   const [clientPhone, setClientPhone] = useState("");
@@ -90,6 +91,7 @@ export default function Kubovik() {
     e.preventDefault();
     if (!cubes || !direction.trim() || !price || !phone.trim()) return;
     setSubmitting(true);
+    setPostError("");
     try {
       await base44.entities.Leftover.create({
         grade,
@@ -109,6 +111,10 @@ export default function Kubovik() {
       setTimeout(() => setDone(false), 3500);
     } catch (e) {
       console.error(e);
+      setPostError(
+        e?.message ||
+          "Не удалось опубликовать остаток. Проверьте подключение и попробуйте ещё раз."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -275,6 +281,12 @@ export default function Kubovik() {
               required
             />
           </div>
+
+          {postError && (
+            <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {postError}
+            </div>
+          )}
 
           <Button
             type="submit"

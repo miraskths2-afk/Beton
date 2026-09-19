@@ -26,6 +26,7 @@ export default function ConcreteCalculator() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
   const selectedGrade = useMemo(
     () => GRADES.find((g) => g.value === grade) ?? GRADES[1],
@@ -46,6 +47,7 @@ export default function ConcreteCalculator() {
       return;
     }
     setLoading(true);
+    setError("");
     try {
       await base44.entities.Order.create({
         order_number: "PB-" + Date.now().toString().slice(-6),
@@ -66,6 +68,10 @@ export default function ConcreteCalculator() {
       setTimeout(() => setSuccess(false), 4000);
     } catch (err) {
       console.error(err);
+      setError(
+        err?.message ||
+          "Не удалось сохранить заявку. Проверьте подключение и попробуйте ещё раз."
+      );
     } finally {
       setLoading(false);
     }
@@ -161,6 +167,12 @@ export default function ConcreteCalculator() {
           required
         />
       </div>
+
+      {error && (
+        <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error}
+        </div>
+      )}
 
       <Button
         type="submit"
