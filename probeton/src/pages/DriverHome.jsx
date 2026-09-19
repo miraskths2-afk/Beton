@@ -15,8 +15,10 @@ import {
   Star,
   Flag,
   Headphones,
+  Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { notify } from "@/lib/notifications";
 
 function Stars({ value, onChange }) {
   return (
@@ -88,9 +90,22 @@ export default function DriverHome() {
 
   useEffect(() => {
     load();
-    const unsub = base44.entities.Order.subscribe(() => load());
+    const unsub = base44.entities.Order.subscribe((payload) => {
+      load();
+      if (
+        user?.notifications_enabled !== false &&
+        payload?.eventType === "INSERT" &&
+        (payload.new?.status || "new") === "new"
+      ) {
+        notify(
+          "Новая заявка!",
+          payload.new?.what_needed || "Появился новый заказ на бетон"
+        );
+      }
+    });
     return unsub;
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.notifications_enabled]);
 
   if (user?.approval_status !== "approved") {
     return <PendingScreen status={user?.approval_status} />;
@@ -103,13 +118,22 @@ export default function DriverHome() {
   const completed = orders.filter(
     (o) => o.driver_id === user?.id && o.status === "done"
   );
+  // Пока у водителя есть незавершённый заказ (не оплачен или ждёт
+  // подтверждения менеджера) — новые заявки принимать нельзя.
+  const hasUnfinishedOrder = orders.some(
+    (o) => o.driver_id === user?.id && o.status !== "done"
+  );
 
   const accept = async (o) => {
+    if (hasUnfinishedOrder) {
+      alert("Сначала завершите и оплатите текущий заказ — новые заявки пока недоступны.");
+      return;
+    }
     setBusy(o.id);
     try {
       await base44.entities.Order.update(o.id, {
         driver_id: user.id,
-        driver_name: user.driver_name || user.phone || "Водитель",
+        driver_name: user.full_name || user.driver_name || user.phone || "Водитель",
         status: "in_progress",
       });
     } catch (e) {
@@ -119,10 +143,11 @@ export default function DriverHome() {
     }
   };
 
-  const complete = async (id) => {
+  const payCommission = async (id) => {
+    if (!confirm("Подтвердите, что оплатили сервисный сбор PROBETON. После этого менеджер проверит оплату и завершит заказ.")) return;
     setBusy(id);
     try {
-      await base44.entities.Order.update(id, { status: "done" });
+      await base44.entities.Order.update(id, { driver_paid: true });
     } catch (e) {
       console.error(e);
     } finally {
@@ -168,7 +193,9 @@ export default function DriverHome() {
   return (
     <div className="p-4 space-y-5">
       <div className="px-1">
-        <h1 className="text-xl font-black text-neutral-900">Лента заказов</h1>
+        <h1 className="text-xl font-black text-neutral-900">
+          Здравствуйте, {user?.full_name || "партнёр"}
+        </h1>
         <p className="text-sm text-neutral-500">
           Биржа бетона — первый взявший заказ забирает его
         </p>
@@ -212,20 +239,45 @@ export default function DriverHome() {
                 <Phone className="w-4 h-4" />
                 Клиент: {o.phone}
               </a>
-              <button
-                onClick={() => complete(o.id)}
-                disabled={busy === o.id}
-                className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 inline-flex items-center justify-center gap-1"
-              >
-                {busy === o.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    Заливка завершена — отметить доставленным
-                  </>
-                )}
-              </button>
+              {o.driver_payment_confirmed ? (
+                <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-100 text-green-700 inline-flex items-center justify-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Оплата подтверждена — завершается
+                </div>
+              ) : o.driver_paid ? (
+                <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-amber-100 text-amber-700 inline-flex items-center justify-center gap-1">
+                  <Hourglass className="w-4 h-4 animate-pulse" />
+                  Ожидает подтверждения менеджером
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-center">
+                    <div className="text-xs font-bold text-amber-700 uppercase tracking-wide">
+                      Сервисный сбор PROBETON
+                    </div>
+                    <div className="text-lg font-black text-neutral-900">
+                      {((o.cubes || 0) * 1000).toLocaleString("ru-RU")} ₸
+                    </div>
+                    <div className="text-[10px] text-neutral-500">
+                      {o.cubes || 0} куб × 1 000 ₸ · оплата на Kaspi PROBETON
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => payCommission(o.id)}
+                    disabled={busy === o.id}
+                    className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                  >
+                    {busy === o.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Я оплатил — завершить заказ
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -296,6 +348,14 @@ export default function DriverHome() {
         Свободные заказы ({free.length})
       </div>
 
+      {hasUnfinishedOrder && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          <Ban className="w-4 h-4 shrink-0" />
+          У вас есть незавершённый заказ — заверьте оплату и дождитесь
+          подтверждения менеджера, чтобы принимать новые заявки.
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-16 text-neutral-400">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
@@ -343,15 +403,20 @@ export default function DriverHome() {
               )}
               <div className="flex items-center gap-2 text-xs text-neutral-500 bg-neutral-50 rounded-lg px-3 py-2">
                 <Headphones className="w-3.5 h-3.5 text-neutral-400" />
-                Контакты скрыты — связь через диспетчера Султана
+                Контакты скрыты — связь через диспетчера
               </div>
               <button
                 onClick={() => accept(o)}
-                disabled={busy === o.id}
-                className="w-full text-sm font-bold py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                disabled={busy === o.id || hasUnfinishedOrder}
+                className="w-full text-sm font-bold py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
               >
                 {busy === o.id ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
+                ) : hasUnfinishedOrder ? (
+                  <>
+                    <Ban className="w-4 h-4" />
+                    Сначала завершите текущий заказ
+                  </>
                 ) : (
                   <>
                     <Truck className="w-4 h-4" />

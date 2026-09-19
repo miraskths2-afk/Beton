@@ -12,10 +12,17 @@ import {
   Pencil,
   Check,
   X,
+  Ban,
+  History,
+  LayoutDashboard,
+  RefreshCcw,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
 import TermsContent from "@/components/TermsContent";
+import BlacklistManager from "@/components/BlacklistManager";
+import DriverHistory from "@/components/DriverHistory";
+import { requestNotificationPermission } from "@/lib/notifications";
 
 function roleLabel(user) {
   if (user?.role === "admin") return "Администратор";
@@ -30,7 +37,7 @@ function approvalLabel(status) {
 }
 
 export default function Profile() {
-  const { user, logout, checkUserAuth } = useAuth();
+  const { user, logout, checkUserAuth, viewMode, setViewMode } = useAuth();
   const [openSection, setOpenSection] = useState(null);
   const [notif, setNotif] = useState(user?.notifications_enabled !== false);
   const [savingNotif, setSavingNotif] = useState(false);
@@ -74,6 +81,9 @@ export default function Profile() {
     try {
       await base44.auth.updateMe({ notifications_enabled: next });
       await checkUserAuth();
+      if (next) {
+        await requestNotificationPermission();
+      }
     } catch (err) {
       console.error(err);
       setNotif(!next);
@@ -173,6 +183,39 @@ export default function Profile() {
         </div>
       </section>
 
+      {user?.role === "admin" && (
+        <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <RefreshCcw className="w-4 h-4 text-neutral-500" />
+            <span className="font-bold text-neutral-900">Режим просмотра</span>
+          </div>
+          <p className="text-xs text-neutral-500 -mt-2">
+            Ваша роль остаётся администратором — это просто переключение,
+            какой интерфейс сейчас показывать.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: "admin", label: "Админ", icon: LayoutDashboard },
+              { id: "client", label: "Заказчик", icon: Truck },
+              { id: "driver", label: "Водитель", icon: UserCircle },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => setViewMode(opt.id)}
+                className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-bold transition-colors ${
+                  (viewMode || "admin") === opt.id
+                    ? "bg-neutral-900 text-white border-neutral-900"
+                    : "bg-white text-neutral-600 border-neutral-200"
+                }`}
+              >
+                <opt.icon className="w-4 h-4" />
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
         <button
           onClick={() => toggle("settings")}
@@ -216,6 +259,54 @@ export default function Profile() {
           </div>
         )}
       </section>
+
+      {user?.role === "admin" && (
+        <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+          <button
+            onClick={() => toggle("blacklist")}
+            className="w-full flex items-center justify-between p-4"
+          >
+            <span className="font-bold text-neutral-900 flex items-center gap-2">
+              <Ban className="w-4 h-4 text-red-500" />
+              Чёрный список
+            </span>
+            {openSection === "blacklist" ? (
+              <ChevronUp className="w-4 h-4 text-neutral-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
+            )}
+          </button>
+          {openSection === "blacklist" && (
+            <div className="px-4 pb-4 pt-3 border-t border-neutral-100">
+              <BlacklistManager />
+            </div>
+          )}
+        </section>
+      )}
+
+      {user?.role === "admin" && (
+        <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+          <button
+            onClick={() => toggle("driverHistory")}
+            className="w-full flex items-center justify-between p-4"
+          >
+            <span className="font-bold text-neutral-900 flex items-center gap-2">
+              <History className="w-4 h-4 text-neutral-500" />
+              История миксеристов
+            </span>
+            {openSection === "driverHistory" ? (
+              <ChevronUp className="w-4 h-4 text-neutral-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
+            )}
+          </button>
+          {openSection === "driverHistory" && (
+            <div className="px-4 pb-4 pt-3 border-t border-neutral-100">
+              <DriverHistory />
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
         <button

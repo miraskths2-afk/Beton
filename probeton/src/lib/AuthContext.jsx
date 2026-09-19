@@ -12,11 +12,21 @@ import { base44 } from "@/api/base44Client";
 
 const AuthContext = createContext();
 
+const VIEW_MODE_KEY = "admin_view_mode";
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
+  const [viewMode, setViewModeState] = useState(
+    () => localStorage.getItem(VIEW_MODE_KEY) || "admin"
+  );
+
+  const setViewMode = (mode) => {
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+    setViewModeState(mode);
+  };
 
   const checkUserAuth = useCallback(async () => {
     setIsLoadingAuth(true);
@@ -39,9 +49,10 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     base44.auth.logout();
+    localStorage.removeItem("probeton_role");
     setUser(null);
     setIsAuthenticated(false);
-    window.location.href = "/login";
+    window.location.href = "/choose-role";
   };
 
   const navigateToLogin = () => {
@@ -61,6 +72,8 @@ export const AuthProvider = ({ children }) => {
         navigateToLogin,
         checkUserAuth,
         checkAppState: checkUserAuth,
+        viewMode,
+        setViewMode,
       }}
     >
       {children}

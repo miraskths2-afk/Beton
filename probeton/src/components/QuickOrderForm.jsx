@@ -4,18 +4,36 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Zap, Loader2, CheckCircle2, Clock } from "lucide-react";
 import { isBlacklisted } from "@/lib/blacklist";
 
+const GRADES = ["М150", "М200", "М300", "М400"];
+
 export default function QuickOrderForm() {
-  const [whatNeeded, setWhatNeeded] = useState("");
+  const [grade, setGrade] = useState("М200");
+  const [cubes, setCubes] = useState("");
+  const [address, setAddress] = useState("");
+  const [comment, setComment] = useState("");
   const [phone, setPhone] = useState("");
+  const [timing, setTiming] = useState("asap"); // "asap" | "scheduled"
+  const [neededBy, setNeededBy] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const isValid =
+    cubes && Number(cubes) > 0 && address.trim() && phone.trim();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!whatNeeded.trim() || !phone.trim()) return;
+    if (!isValid) return;
+    if (timing === "scheduled" && !neededBy) return;
     if (await isBlacklisted(phone.trim())) {
       alert("Этот номер в чёрном списке PROBETON. Заказ недоступен.");
       return;
@@ -24,14 +42,25 @@ export default function QuickOrderForm() {
     try {
       await base44.entities.Order.create({
         order_number: "PB-" + Date.now().toString().slice(-6),
-        what_needed: whatNeeded.trim(),
+        what_needed: `${cubes} м³ бетона ${grade}, адрес: ${address.trim()}`,
+        grade,
+        cubes: parseFloat(cubes),
+        delivery_address: address.trim(),
+        comment: comment.trim() || null,
         phone: phone.trim(),
         order_type: "quick",
         status: "new",
+        needed_by:
+          timing === "scheduled" ? new Date(neededBy).toISOString() : null,
       });
       setSuccess(true);
-      setWhatNeeded("");
+      setGrade("М200");
+      setCubes("");
+      setAddress("");
+      setComment("");
       setPhone("");
+      setTiming("asap");
+      setNeededBy("");
       setTimeout(() => setSuccess(false), 4000);
     } catch (err) {
       console.error(err);
@@ -54,6 +83,9 @@ export default function QuickOrderForm() {
     );
   }
 
+  // Минимальное допустимое время в поле "выбрать время" — через 30 минут от сейчас.
+  const minDateTime = new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16);
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -65,22 +97,74 @@ export default function QuickOrderForm() {
         </div>
         <div>
           <h2 className="font-bold text-neutral-900">Заказ в один клик</h2>
-          <p className="text-xs text-neutral-500">Заполните два поля — мы перезвоним</p>
+          <p className="text-xs text-neutral-500">
+            Заполните поля — мы перезвоним
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold text-neutral-700">
+            Марка бетона
+          </Label>
+          <Select value={grade} onValueChange={setGrade}>
+            <SelectTrigger className="h-11 rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GRADES.map((g) => (
+                <SelectItem key={g} value={g}>
+                  {g}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="cubes" className="text-sm font-semibold text-neutral-700">
+            Кубов
+          </Label>
+          <Input
+            id="cubes"
+            type="number"
+            min="0.5"
+            step="0.5"
+            value={cubes}
+            onChange={(e) => setCubes(e.target.value)}
+            placeholder="Напр. 5"
+            className="h-11"
+            required
+          />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="what" className="text-sm font-semibold text-neutral-700">
-          Что нужно и куда везти
+        <Label htmlFor="address" className="text-sm font-semibold text-neutral-700">
+          Адрес / место доставки
+        </Label>
+        <Input
+          id="address"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Напр.: Наурызбайский р-н, ул. Абая 10"
+          className="h-11"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="comment" className="text-sm font-semibold text-neutral-700">
+          Дополнительные комментарии
         </Label>
         <Textarea
-          id="what"
-          value={whatNeeded}
-          onChange={(e) => setWhatNeeded(e.target.value)}
-          placeholder="Напр.: 5 кубов М200 на стройку в Наурызбайском районе"
-          rows={3}
+          id="comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Необязательно: подъезд, ориентир, пожелания к подаче..."
+          rows={2}
           className="resize-none"
-          required
         />
       </div>
 
@@ -94,13 +178,55 @@ export default function QuickOrderForm() {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="+7 (___) ___-__-__"
+          className="h-11"
           required
         />
       </div>
 
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-neutral-700 flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5" />
+          Когда нужен бетон
+        </Label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setTiming("asap")}
+            className={`h-11 rounded-xl text-sm font-semibold border transition-colors ${
+              timing === "asap"
+                ? "bg-neutral-900 text-white border-neutral-900"
+                : "bg-white text-neutral-600 border-neutral-200"
+            }`}
+          >
+            Как можно скорее
+          </button>
+          <button
+            type="button"
+            onClick={() => setTiming("scheduled")}
+            className={`h-11 rounded-xl text-sm font-semibold border transition-colors ${
+              timing === "scheduled"
+                ? "bg-neutral-900 text-white border-neutral-900"
+                : "bg-white text-neutral-600 border-neutral-200"
+            }`}
+          >
+            Выбрать время
+          </button>
+        </div>
+        {timing === "scheduled" && (
+          <Input
+            type="datetime-local"
+            value={neededBy}
+            min={minDateTime}
+            onChange={(e) => setNeededBy(e.target.value)}
+            className="h-11"
+            required
+          />
+        )}
+      </div>
+
       <Button
         type="submit"
-        disabled={loading || !whatNeeded.trim() || !phone.trim()}
+        disabled={loading || !isValid || (timing === "scheduled" && !neededBy)}
         className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-semibold h-12 rounded-xl"
       >
         {loading ? (

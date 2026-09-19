@@ -4,14 +4,14 @@ import {
   Truck,
   MapPin,
   LayoutDashboard,
-  Factory,
+  ClipboardList,
   List,
   Wallet,
   Flame,
-  Ban,
   UserCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import { getEffectiveRole } from "@/lib/effectiveRole";
 import { cn } from "@/lib/utils";
 import DriverLocationBroadcaster from "@/components/DriverLocationBroadcaster";
 import MixerIcon from "@/components/MixerIcon";
@@ -23,20 +23,15 @@ const ALL_ITEMS = [
   { to: "/", label: "Лента", icon: List, end: true, roles: ["driver"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["driver"] },
   { to: "/balance", label: "Баланс", icon: Wallet, end: false, roles: ["driver"] },
-  { to: "/", label: "Админ", icon: LayoutDashboard, end: true, roles: ["admin"] },
-  { to: "/zavod", label: "Завод", icon: Factory, end: false, roles: ["admin"] },
-  { to: "/blacklist", label: "ЧС", icon: Ban, end: false, roles: ["admin"] },
+  { to: "/", label: "Главная", icon: LayoutDashboard, end: true, roles: ["admin"] },
+  { to: "/orders", label: "Заявки", icon: ClipboardList, end: false, roles: ["admin"] },
+  { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["admin"] },
   { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "admin"] },
 ];
 
 export default function Layout() {
-  const { user } = useAuth();
-  const role =
-    user?.role === "admin"
-      ? "admin"
-      : user?.account_type === "driver"
-      ? "driver"
-      : "client";
+  const { user, viewMode } = useAuth();
+  const role = getEffectiveRole(user, viewMode);
   const items = ALL_ITEMS.filter((it) => it.roles.includes(role));
 
   return (

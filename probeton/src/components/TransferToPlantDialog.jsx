@@ -66,7 +66,7 @@ export default function TransferToPlantDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Передать заказ на завод</DialogTitle>
+          <DialogTitle>Назначить миксер на заказ</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
@@ -129,7 +129,7 @@ export default function TransferToPlantDialog({
             ) : (
               <Send className="w-4 h-4 mr-2" />
             )}
-            Передать на завод
+            Назначить миксер
           </Button>
         </DialogFooter>
       </DialogContent>

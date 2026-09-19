@@ -5,6 +5,7 @@ export const ORDER_STATUSES = {
   manufacturing: { label: "Бетон изготавливается", cls: "bg-orange-100 text-orange-700" },
   en_route: { label: "Машина в пути", cls: "bg-green-100 text-green-700" },
   done: { label: "Готов", cls: "bg-neutral-200 text-neutral-700" },
+  cancelled: { label: "Отменён клиентом", cls: "bg-red-100 text-red-700" },
 };
 
 export const STATUS_FLOW = [

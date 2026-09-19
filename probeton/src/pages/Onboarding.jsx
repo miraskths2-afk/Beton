@@ -101,7 +101,7 @@ export default function Onboarding() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Например, Мирас"
+              placeholder="Ваше имя"
               className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-800"
               autoFocus
             />
