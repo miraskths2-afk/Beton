@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, lazy, Suspense } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,8 @@ import {
   Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { normPhone } from "@/lib/orderStatuses";
+const LazyStaticPointMap = lazy(() => import("@/components/StaticPointMap"));
 
 const GRADES = ["М150", "М200", "М300", "М400"];
 const DURATIONS = [
@@ -46,6 +49,7 @@ function formatRemaining(ms) {
 }
 
 export default function Kubovik() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isDriver = user?.account_type === "driver";
   const [leftovers, setLeftovers] = useState([]);
@@ -87,6 +91,14 @@ export default function Kubovik() {
     return unsub;
   }, []);
 
+  const finishLeftover = async (id) => {
+    try {
+      await base44.entities.Leftover.update(id, { status: "gone" });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const post = async (e) => {
     e.preventDefault();
     if (!cubes || !direction.trim() || !price || !phone.trim()) return;
@@ -120,15 +132,31 @@ export default function Kubovik() {
     }
   };
 
+  const getCurrentPosition = () =>
+    new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve(null), // отказ/ошибка — не блокируем перехват
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    });
+
   const intercept = async (l) => {
     if (clientPhone.trim().length < 6) {
       alert("Введите ваш номер телефона, чтобы перехватить остаток");
       return;
     }
     try {
+      const pos = await getCurrentPosition();
       await base44.entities.Leftover.update(l.id, {
         status: "intercepted",
         intercepted_by_phone: clientPhone.trim(),
+        intercepted_lat: pos?.lat ?? null,
+        intercepted_lng: pos?.lng ?? null,
       });
       setRevealed((p) => ({ ...p, [l.id]: true }));
     } catch (e) {
@@ -136,11 +164,15 @@ export default function Kubovik() {
     }
   };
 
-  const available = leftovers.filter(
-    (l) =>
-      l.status === "available" &&
-      (!l.expires_at || new Date(l.expires_at).getTime() > now)
-  );
+  // В общей ленте остаются и свободные, и уже перехваченные остатки —
+  // пропадают только те, что водитель явно отметил завершёнными ("gone").
+  const feed = leftovers.filter((l) => {
+    if (l.status === "gone") return false;
+    if (l.status === "available") {
+      return !l.expires_at || new Date(l.expires_at).getTime() > now;
+    }
+    return true;
+  });
   const mine = leftovers.filter((l) => l.driver_id === user?.id);
 
   // ===== Водитель =====
@@ -312,7 +344,8 @@ export default function Kubovik() {
             {mine.map((l) => (
               <div
                 key={l.id}
-                className="bg-white rounded-2xl p-4 border border-neutral-200 shadow-sm"
+                onClick={() => navigate(`/leftover/${l.id}`)}
+                className="bg-white rounded-2xl p-4 border border-neutral-200 shadow-sm cursor-pointer hover:border-neutral-300 transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-neutral-900">
@@ -321,12 +354,18 @@ export default function Kubovik() {
                   <span
                     className={cn(
                       "px-2 py-0.5 rounded-md text-[10px] font-bold",
-                      l.status === "intercepted"
+                      l.status === "gone"
+                        ? "bg-neutral-200 text-neutral-500"
+                        : l.status === "intercepted"
                         ? "bg-green-100 text-green-700"
                         : "bg-blue-100 text-blue-700"
                     )}
                   >
-                    {l.status === "intercepted" ? "Перехвачен" : "В ленте"}
+                    {l.status === "gone"
+                      ? "Завершён"
+                      : l.status === "intercepted"
+                      ? "Перехвачен"
+                      : "В ленте"}
                   </span>
                 </div>
                 <div className="text-sm text-neutral-600 mt-1 flex items-center gap-1">
@@ -345,11 +384,41 @@ export default function Kubovik() {
                 {l.status === "intercepted" && l.intercepted_by_phone && (
                   <a
                     href={`tel:${l.intercepted_by_phone}`}
+                    onClick={(e) => e.stopPropagation()}
                     className="mt-2 flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
                   >
                     <Phone className="w-4 h-4" />
                     Прораб: {l.intercepted_by_phone}
                   </a>
+                )}
+                {l.status === "intercepted" &&
+                  l.intercepted_lat != null &&
+                  l.intercepted_lng != null && (
+                    <div className="mt-2">
+                      <Suspense
+                        fallback={
+                          <div className="h-[28vh] rounded-xl bg-neutral-100 animate-pulse" />
+                        }
+                      >
+                        <LazyStaticPointMap
+                          lat={l.intercepted_lat}
+                          lng={l.intercepted_lng}
+                          label={`Прораб: ${l.intercepted_by_phone || ""}`}
+                        />
+                      </Suspense>
+                    </div>
+                  )}
+                {l.status === "intercepted" && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      finishLeftover(l.id);
+                    }}
+                    className="mt-2 w-full text-xs font-bold py-2 rounded-lg bg-neutral-900 text-white inline-flex items-center justify-center gap-1"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Завершить (остаток забрали)
+                  </button>
                 )}
               </div>
             ))}
@@ -390,7 +459,7 @@ export default function Kubovik() {
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
           Загрузка остатков...
         </div>
-      ) : available.length === 0 ? (
+      ) : feed.length === 0 ? (
         <div className="text-center py-16 text-neutral-400">
           <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />
           <p className="text-sm">Свободных остатков пока нет</p>
@@ -398,22 +467,37 @@ export default function Kubovik() {
         </div>
       ) : (
         <div className="space-y-3">
-          {available.map((l) => {
+          {feed.map((l) => {
             const isRevealed = revealed[l.id];
+            const isTaken = l.status === "intercepted";
+            const isMyIntercept =
+              isTaken &&
+              clientPhone &&
+              normPhone(l.intercepted_by_phone) === normPhone(clientPhone);
             return (
               <div
                 key={l.id}
-                className="bg-white rounded-2xl p-4 border border-orange-200 shadow-sm space-y-2"
+                onClick={() => navigate(`/leftover/${l.id}`)}
+                className={cn(
+                  "bg-white rounded-2xl p-4 border shadow-sm space-y-2 cursor-pointer hover:border-neutral-300 transition-colors",
+                  isTaken ? "border-neutral-200 opacity-75" : "border-orange-200"
+                )}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-black text-neutral-900 text-lg">
                     {l.grade} · {l.cubes} куб
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-orange-100 text-orange-700">
-                    <Flame className="w-3 h-3" /> Горит
-                  </span>
+                  {isTaken ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-neutral-200 text-neutral-600">
+                      Занято
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-orange-100 text-orange-700">
+                      <Flame className="w-3 h-3" /> Горит
+                    </span>
+                  )}
                 </div>
-                {l.expires_at && (
+                {!isTaken && l.expires_at && (
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-xs font-bold">
                     <Timer className="w-3.5 h-3.5" />
                     Осталось: {formatRemaining(new Date(l.expires_at).getTime() - now)}
@@ -430,9 +514,25 @@ export default function Kubovik() {
                   <span className="text-xs text-neutral-400">цена со скидкой</span>
                 </div>
 
-                {isRevealed ? (
+                {isTaken ? (
+                  isMyIntercept ? (
+                    <a
+                      href={`tel:${l.phone}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2.5"
+                    >
+                      <Phone className="w-4 h-4" />
+                      Позвонить водителю: {l.phone}
+                    </a>
+                  ) : (
+                    <div className="text-xs font-semibold text-neutral-400 text-center py-2">
+                      Этот остаток уже перехватил другой прораб
+                    </div>
+                  )
+                ) : isRevealed ? (
                   <a
                     href={`tel:${l.phone}`}
+                    onClick={(e) => e.stopPropagation()}
                     className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2.5"
                   >
                     <Phone className="w-4 h-4" />
@@ -440,7 +540,10 @@ export default function Kubovik() {
                   </a>
                 ) : (
                   <Button
-                    onClick={() => intercept(l)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      intercept(l);
+                    }}
                     className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-bold h-11 rounded-xl inline-flex items-center justify-center gap-1"
                   >
                     <Truck className="w-4 h-4" />

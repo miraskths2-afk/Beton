@@ -14,6 +14,7 @@ import {
   X,
   Ban,
   History,
+  Flame,
   LayoutDashboard,
   RefreshCcw,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { base44 } from "@/api/base44Client";
 import TermsContent from "@/components/TermsContent";
 import BlacklistManager from "@/components/BlacklistManager";
 import DriverHistory from "@/components/DriverHistory";
+import MyIntercepts from "@/components/MyIntercepts";
 import { requestNotificationPermission } from "@/lib/notifications";
 
 function roleLabel(user) {
@@ -259,6 +261,30 @@ export default function Profile() {
           </div>
         )}
       </section>
+
+      {user?.role !== "admin" && user?.account_type !== "driver" && (
+        <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+          <button
+            onClick={() => toggle("myIntercepts")}
+            className="w-full flex items-center justify-between p-4"
+          >
+            <span className="font-bold text-neutral-900 flex items-center gap-2">
+              <Flame className="w-4 h-4 text-orange-500" />
+              Перехваченные остатки
+            </span>
+            {openSection === "myIntercepts" ? (
+              <ChevronUp className="w-4 h-4 text-neutral-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-neutral-400" />
+            )}
+          </button>
+          {openSection === "myIntercepts" && (
+            <div className="px-4 pb-4 pt-3 border-t border-neutral-100">
+              <MyIntercepts phone={user?.phone} />
+            </div>
+          )}
+        </section>
+      )}
 
       {user?.role === "admin" && (
         <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">

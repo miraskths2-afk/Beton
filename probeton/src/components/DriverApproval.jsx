@@ -19,7 +19,7 @@ export default function DriverApproval() {
   const load = async () => {
     try {
       const all = await base44.entities.User.list();
-      setDrivers(all.filter((u) => u.account_type === "driver"));
+      setDrivers(all.filter((u) => u.role !== "admin"));
     } catch (e) {
       console.error(e);
     } finally {
@@ -63,7 +63,7 @@ export default function DriverApproval() {
       <div className="flex items-center gap-2 px-1">
         <UserCheck className="w-4 h-4 text-purple-600" />
         <h2 className="text-sm font-black text-neutral-900">
-          Заявки партнёров
+          Заявки на одобрение
           {pending.length > 0 && (
             <span className="ml-2 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold">
               {pending.length} новых
@@ -79,11 +79,14 @@ export default function DriverApproval() {
         >
           <div className="flex items-center justify-between">
             <div className="font-bold text-neutral-900">
-              {d.driver_name || d.email}
+              {d.full_name || d.driver_name || d.phone}
             </div>
             <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold">
               На одобрении
             </span>
+          </div>
+          <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
+            {d.account_type === "driver" ? "Водитель" : "Заказчик"}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
             {d.phone && (
@@ -92,13 +95,13 @@ export default function DriverApproval() {
                 {d.phone}
               </span>
             )}
-            {d.vehicle_plate && (
+            {d.account_type === "driver" && d.vehicle_plate && (
               <span className="inline-flex items-center gap-1">
                 <Car className="w-3 h-3" />
                 {d.vehicle_plate}
               </span>
             )}
-            {d.equipment_type && (
+            {d.account_type === "driver" && d.equipment_type && (
               <span className="inline-flex items-center gap-1">
                 <UserCheck className="w-3 h-3" />
                 {EQUIPMENT[d.equipment_type] || d.equipment_type}
@@ -129,7 +132,7 @@ export default function DriverApproval() {
       {approved.length > 0 && (
         <div className="space-y-2">
           <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide px-1 pt-2">
-            Одобренные партнёры ({approved.length})
+            Одобренные ({approved.length})
           </div>
           {approved.map((d) => (
             <div
@@ -137,11 +140,11 @@ export default function DriverApproval() {
               className="bg-white rounded-xl p-3 border border-neutral-200 flex items-center justify-between"
             >
               <div className="text-sm font-semibold text-neutral-800">
-                {d.driver_name || d.email}
+                {d.full_name || d.driver_name || d.phone}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-neutral-500">
-                  {d.vehicle_plate}
+                  {d.account_type === "driver" ? d.vehicle_plate : "Заказчик"}
                 </span>
                 <button
                   onClick={() => setStatus(d.id, "pending")}

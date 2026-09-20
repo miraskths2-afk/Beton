@@ -25,6 +25,7 @@ const ALL_ITEMS = [
   { to: "/balance", label: "Баланс", icon: Wallet, end: false, roles: ["driver"] },
   { to: "/", label: "Главная", icon: LayoutDashboard, end: true, roles: ["admin"] },
   { to: "/orders", label: "Заявки", icon: ClipboardList, end: false, roles: ["admin"] },
+  { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["admin"] },
   { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["admin"] },
   { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "admin"] },
 ];

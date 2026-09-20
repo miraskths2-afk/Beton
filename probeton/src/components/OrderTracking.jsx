@@ -1,11 +1,10 @@
 import React, { useEffect, useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44, supabase } from "@/api/base44Client";
-import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ORDER_STATUSES, STATUS_FLOW, normPhone } from "@/lib/orderStatuses";
 import {
-  Search,
   Package,
   Truck,
   Loader2,
@@ -283,11 +282,10 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
 }
 
 export default function OrderTracking() {
-  const [phone, setPhone] = useState("");
-  const [activePhone, setActivePhone] = useState("");
+  const { user } = useAuth();
+  const activePhone = normPhone(user?.phone);
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [ratePick, setRatePick] = useState({});
   const [driverPhones, setDriverPhones] = useState({});
@@ -306,14 +304,14 @@ export default function OrderTracking() {
     }
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    const num = normPhone(phone);
-    if (num.length < 6) return;
-    setSearched(true);
-    setActivePhone(num);
-    fetchMine(num);
-  };
+  useEffect(() => {
+    if (!activePhone) {
+      setLoading(false);
+      return;
+    }
+    fetchMine(activePhone);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePhone]);
 
   useEffect(() => {
     if (!activePhone) return;
@@ -415,36 +413,23 @@ export default function OrderTracking() {
           <Truck className="w-4 h-4 text-green-600" />
         </div>
         <div>
-          <h2 className="font-bold text-neutral-900">Отслеживание заказа</h2>
+          <h2 className="font-bold text-neutral-900">Мой заказ</h2>
           <p className="text-xs text-neutral-500">
-            Введите ваш телефон — статус и оплата в реальном времени
+            Статус и оплата в реальном времени
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <Input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+7 (___) ___-__-__"
-          className="h-11"
-        />
-        <Button
-          type="submit"
-          disabled={loading}
-          className="bg-neutral-900 text-white h-11 px-4"
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-        </Button>
-      </form>
-
-      {searched && !loading && orders.length === 0 && (
+      {loading ? (
+        <div className="text-center py-8 text-neutral-400">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+        </div>
+      ) : orders.length === 0 ? (
         <div className="text-center py-8 text-neutral-400">
           <Package className="w-9 h-9 mx-auto mb-2 opacity-40" />
-          <p className="text-sm">Заказов по этому номеру не найдено</p>
+          <p className="text-sm">У вас пока нет заказов</p>
         </div>
-      )}
+      ) : null}
 
       {activeOrders.length > 0 && (
         <div className="space-y-2">

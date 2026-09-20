@@ -30,6 +30,7 @@ const RoleHome = lazy(() => import("@/pages/RoleHome"));
 const MapPage = lazy(() => import("@/pages/MapPage"));
 const AdminOrders = lazy(() => import("@/pages/AdminOrders"));
 const OrderDetail = lazy(() => import("@/pages/OrderDetail"));
+const LeftoverDetail = lazy(() => import("@/pages/LeftoverDetail"));
 const DriverBalance = lazy(() => import("@/pages/DriverBalance"));
 const Kubovik = lazy(() => import("@/pages/Kubovik"));
 const Profile = lazy(() => import("@/pages/Profile"));
@@ -82,6 +83,7 @@ const AuthenticatedApp = () => {
             <Route path="/mapa" element={<MapPage />} />
             <Route path="/orders" element={<AdminOrders />} />
             <Route path="/order/:id" element={<OrderDetail />} />
+            <Route path="/leftover/:id" element={<LeftoverDetail />} />
             <Route path="/balance" element={<DriverBalance />} />
             <Route path="/kubovik" element={<Kubovik />} />
             <Route path="/profile" element={<Profile />} />

@@ -222,7 +222,19 @@ export default function OrderDetail() {
         {o.delivery_address && (
           <div className="flex items-start gap-2">
             <MapPin className="w-4 h-4 text-neutral-400 mt-0.5 shrink-0" />
-            <p className="text-sm text-neutral-700">{o.delivery_address}</p>
+            <div className="text-sm text-neutral-700">
+              <p>{o.delivery_address}</p>
+              {o.delivery_lat != null && o.delivery_lng != null && (
+                <a
+                  href={`https://www.google.com/maps?q=${o.delivery_lat},${o.delivery_lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-blue-600 underline"
+                >
+                  Открыть точку на карте
+                </a>
+              )}
+            </div>
           </div>
         )}
 

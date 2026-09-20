@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,12 +14,15 @@ import {
 import { Zap, Loader2, CheckCircle2, Clock } from "lucide-react";
 import { isBlacklisted } from "@/lib/blacklist";
 
+const LocationPicker = lazy(() => import("@/components/LocationPicker"));
+
 const GRADES = ["М150", "М200", "М300", "М400"];
 
 export default function QuickOrderForm() {
   const [grade, setGrade] = useState("М200");
   const [cubes, setCubes] = useState("");
   const [address, setAddress] = useState("");
+  const [location, setLocation] = useState(null);
   const [comment, setComment] = useState("");
   const [phone, setPhone] = useState("");
   const [timing, setTiming] = useState("asap"); // "asap" | "scheduled"
@@ -29,7 +32,7 @@ export default function QuickOrderForm() {
   const [error, setError] = useState("");
 
   const isValid =
-    cubes && Number(cubes) > 0 && address.trim() && phone.trim();
+    cubes && Number(cubes) > 0 && address.trim() && phone.trim() && !!location;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -48,6 +51,8 @@ export default function QuickOrderForm() {
         grade,
         cubes: parseFloat(cubes),
         delivery_address: address.trim(),
+        delivery_lat: location?.lat ?? null,
+        delivery_lng: location?.lng ?? null,
         comment: comment.trim() || null,
         phone: phone.trim(),
         order_type: "quick",
@@ -59,6 +64,7 @@ export default function QuickOrderForm() {
       setGrade("М200");
       setCubes("");
       setAddress("");
+      setLocation(null);
       setComment("");
       setPhone("");
       setTiming("asap");
@@ -158,6 +164,19 @@ export default function QuickOrderForm() {
           className="h-11"
           required
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-neutral-700">
+          Место объекта на карте
+        </Label>
+        <Suspense
+          fallback={
+            <div className="h-[35vh] rounded-xl bg-neutral-100 animate-pulse" />
+          }
+        >
+          <LocationPicker value={location} onChange={setLocation} />
+        </Suspense>
       </div>
 
       <div className="space-y-2">

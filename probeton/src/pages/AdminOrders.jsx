@@ -204,6 +204,16 @@ export default function AdminOrders() {
                   {o.delivery_address && (
                     <div className="text-xs text-neutral-500 pl-6">
                       Адрес: {o.delivery_address}
+                      {o.delivery_lat != null && o.delivery_lng != null && (
+                        <a
+                          href={`https://www.google.com/maps?q=${o.delivery_lat},${o.delivery_lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-2 text-blue-600 underline font-semibold"
+                        >
+                          на карте
+                        </a>
+                      )}
                     </div>
                   )}
                   {o.comment && (

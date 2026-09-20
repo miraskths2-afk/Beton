@@ -124,7 +124,9 @@ async function findOrCreateUserByPhone(phone, extra = {}) {
     .insert({
       phone: phoneDigits,
       role: "user",
-      approval_status: "pending",
+      // Заказчик получает доступ сразу при первом входе. Водителю, как и
+      // раньше, для первого входа нужно одобрение диспетчера.
+      approval_status: extra.account_type === "driver" ? "pending" : "approved",
       ...extra,
     })
     .select()
@@ -192,7 +194,21 @@ export const base44 = {
       return data;
     },
 
-    logout() {
+    async logout() {
+      const phone = localStorage.getItem(CURRENT_PHONE_KEY);
+      if (phone) {
+        try {
+          // При следующем входе этому номеру снова понадобится одобрение
+          // диспетчера. Админов эта логика не касается.
+          await supabase
+            .from(USERS_TABLE)
+            .update({ approval_status: "pending" })
+            .eq("phone", phone)
+            .neq("role", "admin");
+        } catch (e) {
+          console.error(e);
+        }
+      }
       localStorage.removeItem(CURRENT_PHONE_KEY);
     },
 

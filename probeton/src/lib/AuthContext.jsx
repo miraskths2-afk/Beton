@@ -47,8 +47,8 @@ export const AuthProvider = ({ children }) => {
     checkUserAuth();
   }, [checkUserAuth]);
 
-  const logout = () => {
-    base44.auth.logout();
+  const logout = async () => {
+    await base44.auth.logout();
     localStorage.removeItem("probeton_role");
     setUser(null);
     setIsAuthenticated(false);

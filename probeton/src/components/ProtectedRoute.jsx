@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
+import PendingScreen from "@/components/PendingScreen";
 
 const DefaultFallback = () => (
   <div className="fixed inset-0 flex items-center justify-center">
@@ -40,6 +41,20 @@ export default function ProtectedRoute({
 
   if (needsOnboarding && !skipOnboardingCheck && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
+  }
+
+  const needsApproval =
+    user && user.role !== "admin" && user.approval_status !== "approved";
+
+  useEffect(() => {
+    if (!needsApproval) return;
+    const interval = setInterval(() => checkUserAuth(), 8000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsApproval]);
+
+  if (needsApproval && !skipOnboardingCheck) {
+    return <PendingScreen status={user.approval_status} reapproval />;
   }
 
   return <Outlet />;
