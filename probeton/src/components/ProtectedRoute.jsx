@@ -19,11 +19,24 @@ export default function ProtectedRoute({
     useAuth();
   const location = useLocation();
 
+  // ВАЖНО: все хуки должны вызываться всегда, в одном и том же порядке,
+  // до любых условных return — иначе React падает с ошибкой #310.
+  // Поэтому и needsApproval, и оба useEffect стоят здесь, до проверок ниже.
+  const needsApproval =
+    !!user && user.role !== "admin" && user.approval_status !== "approved";
+
   useEffect(() => {
     if (!authChecked && !isLoadingAuth) {
       checkUserAuth();
     }
   }, [authChecked, isLoadingAuth, checkUserAuth]);
+
+  useEffect(() => {
+    if (!needsApproval) return;
+    const interval = setInterval(() => checkUserAuth(), 8000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsApproval]);
 
   if (isLoadingAuth || !authChecked) {
     return fallback;
@@ -42,16 +55,6 @@ export default function ProtectedRoute({
   if (needsOnboarding && !skipOnboardingCheck && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
-
-  const needsApproval =
-    user && user.role !== "admin" && user.approval_status !== "approved";
-
-  useEffect(() => {
-    if (!needsApproval) return;
-    const interval = setInterval(() => checkUserAuth(), 8000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsApproval]);
 
   if (needsApproval && !skipOnboardingCheck) {
     return <PendingScreen status={user.approval_status} reapproval />;
