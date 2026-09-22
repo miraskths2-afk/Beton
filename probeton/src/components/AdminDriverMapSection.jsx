@@ -3,8 +3,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLocations, subscribeToLocations } from "@/lib/driverLocation";
-import { supabase } from "@/api/base44Client";
-import { Phone, Eye } from "lucide-react";
+import { base44, supabase } from "@/api/base44Client";
+import { Phone, Eye, LogOut, Trash2, Loader2 } from "lucide-react";
 
 const truckIcon = (highlighted) =>
   L.divIcon({
@@ -26,9 +26,10 @@ function FlyTo({ position }) {
 
 const ALMATY = [43.238, 76.945];
 
-export default function AdminDriverMapSection() {
+export default function AdminDriverMapSection({ showContact = true }) {
   const [drivers, setDrivers] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -38,6 +39,12 @@ export default function AdminDriverMapSection() {
       if (!mounted) return;
       if (locs.length === 0) {
         setDrivers([]);
+        return;
+      }
+      if (!showContact) {
+        // Заказчику контакты водителя не нужны и не должны даже
+        // приходить в браузер — просто точки на карте с именем.
+        setDrivers(locs);
         return;
       }
       const ids = locs.map((l) => l.driver_id);
@@ -58,10 +65,43 @@ export default function AdminDriverMapSection() {
       mounted = false;
       unsub();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showContact]);
 
   const selected = drivers.find((d) => d.driver_id === selectedId);
   const center = drivers[0] ? [drivers[0].lat, drivers[0].lng] : ALMATY;
+
+  const removeFromLine = async (driverId) => {
+    setBusyId(driverId);
+    try {
+      await supabase
+        .from("driver_locations")
+        .update({ is_online: false })
+        .eq("driver_id", driverId);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const deleteDriver = async (driverId, name) => {
+    if (
+      !confirm(
+        `Удалить аккаунт водителя${name ? ` "${name}"` : ""} безвозвратно? Это действие нельзя отменить.`
+      )
+    )
+      return;
+    setBusyId(driverId);
+    try {
+      await supabase.from("driver_locations").delete().eq("driver_id", driverId);
+      await base44.entities.User.delete(driverId);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -122,7 +162,7 @@ export default function AdminDriverMapSection() {
                   <div className="font-bold text-sm text-neutral-900 truncate">
                     {d.driver_name || "Водитель"}
                   </div>
-                  {d.vehicle_plate && (
+                  {showContact && d.vehicle_plate && (
                     <div className="text-xs text-neutral-500">{d.vehicle_plate}</div>
                   )}
                 </div>
@@ -134,7 +174,7 @@ export default function AdminDriverMapSection() {
                   >
                     <Eye className="w-4 h-4" />
                   </button>
-                  {d.phone && (
+                  {showContact && d.phone && (
                     <a
                       href={`tel:${d.phone}`}
                       className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
@@ -142,6 +182,30 @@ export default function AdminDriverMapSection() {
                     >
                       <Phone className="w-4 h-4" />
                     </a>
+                  )}
+                  {showContact && (
+                    <>
+                      <button
+                        onClick={() => removeFromLine(d.driver_id)}
+                        disabled={busyId === d.driver_id}
+                        className="p-2 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40"
+                        title="Убрать с линии"
+                      >
+                        {busyId === d.driver_id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <LogOut className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => deleteDriver(d.driver_id, d.driver_name)}
+                        disabled={busyId === d.driver_id}
+                        className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-40"
+                        title="Удалить аккаунт"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

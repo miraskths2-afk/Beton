@@ -36,6 +36,7 @@ export default function DriverPaymentApproval() {
       await base44.entities.Order.update(id, {
         driver_payment_confirmed: true,
         status: "done",
+        completed_at: new Date().toISOString(),
       });
     } catch (e) {
       console.error(e);

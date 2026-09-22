@@ -105,6 +105,7 @@ export default function DriverHome() {
         driver_id: user.id,
         driver_name: user.full_name || user.driver_name || user.phone || "Водитель",
         status: "in_progress",
+        accepted_at: new Date().toISOString(),
       });
     } catch (e) {
       console.error(e);
@@ -199,7 +200,19 @@ export default function DriverHome() {
               {o.delivery_address && (
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-neutral-400 mt-0.5 shrink-0" />
-                  <p className="text-sm text-neutral-600">{o.delivery_address}</p>
+                  <p className="text-sm text-neutral-600">
+                    {o.delivery_address}
+                    {o.delivery_lat != null && o.delivery_lng != null && (
+                      <a
+                        href={`https://www.google.com/maps?q=${o.delivery_lat},${o.delivery_lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-blue-600 underline font-semibold"
+                      >
+                        на карте
+                      </a>
+                    )}
+                  </p>
                 </div>
               )}
               <a
@@ -368,7 +381,20 @@ export default function DriverHome() {
               {o.delivery_address && (
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-neutral-400 mt-0.5 shrink-0" />
-                  <p className="text-sm text-neutral-600">{o.delivery_address}</p>
+                  <p className="text-sm text-neutral-600">
+                    {o.delivery_address}
+                    {o.delivery_lat != null && o.delivery_lng != null && (
+                      <a
+                        href={`https://www.google.com/maps?q=${o.delivery_lat},${o.delivery_lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="ml-2 text-blue-600 underline font-semibold"
+                      >
+                        на карте
+                      </a>
+                    )}
+                  </p>
                 </div>
               )}
               <div className="flex items-center gap-2 text-xs text-neutral-500 bg-neutral-50 rounded-lg px-3 py-2">

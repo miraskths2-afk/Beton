@@ -7,6 +7,7 @@ import {
   ClipboardList,
   List,
   Wallet,
+  BarChart3,
   Flame,
   UserCircle,
 } from "lucide-react";
@@ -22,7 +23,7 @@ const ALL_ITEMS = [
   { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["client"] },
   { to: "/", label: "Лента", icon: List, end: true, roles: ["driver"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["driver"] },
-  { to: "/balance", label: "Баланс", icon: Wallet, end: false, roles: ["driver"] },
+  { to: "/balance", label: "Статистика", icon: BarChart3, end: false, roles: ["driver"] },
   { to: "/", label: "Главная", icon: LayoutDashboard, end: true, roles: ["admin"] },
   { to: "/orders", label: "Заявки", icon: ClipboardList, end: false, roles: ["admin"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["admin"] },

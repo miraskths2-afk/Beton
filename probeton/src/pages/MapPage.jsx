@@ -1,9 +1,19 @@
 import React from "react";
+import { useAuth } from "@/lib/AuthContext";
+import { getEffectiveRole } from "@/lib/effectiveRole";
 import AdminDriverMapSection from "@/components/AdminDriverMapSection";
+import OfflineDriversList from "@/components/OfflineDriversList";
 
 // Раздел "Заводы-партнёры / РБУ" полностью убран.
 // Вместо него — живая карта миксеристов, доступная и заказчику, и админу.
+// Заказчик видит только точки на карте — без номера телефона и без
+// госномера машины; звонить и наблюдать за конкретным миксеристом
+// может только админ.
 export default function MapPage() {
+  const { user, viewMode } = useAuth();
+  const role = getEffectiveRole(user, viewMode);
+  const showContact = role === "admin";
+
   return (
     <div className="p-4 space-y-4">
       <div className="px-1">
@@ -12,7 +22,16 @@ export default function MapPage() {
           Местоположение водителей в реальном времени
         </p>
       </div>
-      <AdminDriverMapSection />
+      <AdminDriverMapSection showContact={showContact} />
+
+      {role === "admin" && (
+        <div className="space-y-2">
+          <h2 className="font-bold text-neutral-900 px-1 text-sm">
+            Водители не на линии
+          </h2>
+          <OfflineDriversList />
+        </div>
+      )}
     </div>
   );
 }

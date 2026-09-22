@@ -4,6 +4,7 @@ import ConcreteCalculator from "@/components/ConcreteCalculator";
 import OrderTracking from "@/components/OrderTracking";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
+import { Zap } from "lucide-react";
 
 const TABS = [
   { id: "quick", label: "Быстрый заказ" },
@@ -14,6 +15,7 @@ const TABS = [
 export default function Home() {
   const { user } = useAuth();
   const [tab, setTab] = useState("quick");
+  const [showQuickForm, setShowQuickForm] = useState(false);
 
   return (
     <div className="p-4 space-y-5">
@@ -41,7 +43,27 @@ export default function Home() {
       </div>
 
       {tab === "quick" ? (
-        <QuickOrderForm />
+        showQuickForm ? (
+          <QuickOrderForm />
+        ) : (
+          <div className="bg-white rounded-2xl p-5 border border-neutral-200 shadow-sm text-center space-y-3">
+            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center mx-auto">
+              <Zap className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-neutral-900">Заказ в один клик</h2>
+              <p className="text-xs text-neutral-500 mt-1">
+                Марка, кубы, адрес и телефон — мы перезвоним
+              </p>
+            </div>
+            <button
+              onClick={() => setShowQuickForm(true)}
+              className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-semibold h-12 rounded-xl"
+            >
+              Заказать
+            </button>
+          </div>
+        )
       ) : tab === "calc" ? (
         <ConcreteCalculator />
       ) : (

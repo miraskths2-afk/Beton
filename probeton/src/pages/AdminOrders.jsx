@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
 import {
@@ -46,6 +47,7 @@ const CATEGORIES = [
 ];
 
 export default function AdminOrders() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("all");
@@ -70,8 +72,13 @@ export default function AdminOrders() {
 
   const updateStatus = async (id, status) => {
     try {
-      await base44.entities.Order.update(id, { status });
-      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+      const extra = {};
+      if (status === "in_progress") extra.accepted_at = new Date().toISOString();
+      if (status === "done") extra.completed_at = new Date().toISOString();
+      await base44.entities.Order.update(id, { status, ...extra });
+      setOrders((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, status, ...extra } : o))
+      );
     } catch (err) {
       console.error(err);
     }
@@ -159,7 +166,8 @@ export default function AdminOrders() {
             return (
               <div
                 key={o.id}
-                className="bg-white rounded-2xl p-4 border border-neutral-200 shadow-sm space-y-3"
+                onClick={() => navigate(`/order/${o.id}`)}
+                className="bg-white rounded-2xl p-4 border border-neutral-200 shadow-sm space-y-3 cursor-pointer hover:border-neutral-300 transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -209,6 +217,7 @@ export default function AdminOrders() {
                           href={`https://www.google.com/maps?q=${o.delivery_lat},${o.delivery_lng}`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="ml-2 text-blue-600 underline font-semibold"
                         >
                           на карте
@@ -231,6 +240,7 @@ export default function AdminOrders() {
 
                 <a
                   href={`tel:${o.phone}`}
+                  onClick={(e) => e.stopPropagation()}
                   className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
                 >
                   <Phone className="w-4 h-4" />
@@ -243,7 +253,10 @@ export default function AdminOrders() {
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div
+                  className="flex flex-wrap gap-2 pt-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {o.status === "new" && (
                     <button
                       onClick={() => updateStatus(o.id, "in_progress")}

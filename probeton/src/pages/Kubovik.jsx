@@ -68,6 +68,8 @@ export default function Kubovik() {
 
   const [clientPhone, setClientPhone] = useState("");
   const [revealed, setRevealed] = useState({});
+  const [category, setCategory] = useState("available");
+  const [driverCategory, setDriverCategory] = useState("available");
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -166,14 +168,21 @@ export default function Kubovik() {
 
   // В общей ленте остаются и свободные, и уже перехваченные остатки —
   // пропадают только те, что водитель явно отметил завершёнными ("gone").
-  const feed = leftovers.filter((l) => {
-    if (l.status === "gone") return false;
+  const categorized = leftovers.filter((l) => {
     if (l.status === "available") {
       return !l.expires_at || new Date(l.expires_at).getTime() > now;
     }
     return true;
   });
+  const CATEGORIES = [
+    { id: "available", label: "Новые" },
+    { id: "intercepted", label: "В работе" },
+    { id: "gone", label: "Выполнены" },
+  ];
+  const catCount = (list, id) => list.filter((l) => l.status === id).length;
+  const feed = categorized.filter((l) => l.status === category);
   const mine = leftovers.filter((l) => l.driver_id === user?.id);
+  const mineCategorized = mine.filter((l) => l.status === driverCategory);
 
   // ===== Водитель =====
   if (isDriver) {
@@ -341,7 +350,33 @@ export default function Kubovik() {
             <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1">
               Мои остатки
             </div>
-            {mine.map((l) => (
+            <div className="grid grid-cols-3 gap-1.5">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setDriverCategory(c.id)}
+                  className={cn(
+                    "rounded-xl py-2 px-0.5 text-center transition-all border",
+                    driverCategory === c.id
+                      ? "bg-neutral-900 text-white border-neutral-900"
+                      : "bg-white text-neutral-600 border-neutral-200"
+                  )}
+                >
+                  <div className="text-base font-black tabular-nums">
+                    {catCount(mine, c.id)}
+                  </div>
+                  <div className="text-[9px] font-semibold uppercase tracking-wide leading-tight">
+                    {c.label}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {mineCategorized.length === 0 ? (
+              <div className="text-center py-8 text-neutral-400 text-sm">
+                В этой категории пока пусто
+              </div>
+            ) : (
+              mineCategorized.map((l) => (
               <div
                 key={l.id}
                 onClick={() => navigate(`/leftover/${l.id}`)}
@@ -421,7 +456,8 @@ export default function Kubovik() {
                   </button>
                 )}
               </div>
-            ))}
+              ))
+            )}
           </div>
         )}
       </div>
@@ -454,6 +490,28 @@ export default function Kubovik() {
         />
       </div>
 
+      <div className="grid grid-cols-3 gap-1.5">
+        {CATEGORIES.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setCategory(c.id)}
+            className={cn(
+              "rounded-xl py-2 px-0.5 text-center transition-all border",
+              category === c.id
+                ? "bg-neutral-900 text-white border-neutral-900"
+                : "bg-white text-neutral-600 border-neutral-200"
+            )}
+          >
+            <div className="text-base font-black tabular-nums">
+              {catCount(categorized, c.id)}
+            </div>
+            <div className="text-[9px] font-semibold uppercase tracking-wide leading-tight">
+              {c.label}
+            </div>
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="text-center py-16 text-neutral-400">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
@@ -462,14 +520,14 @@ export default function Kubovik() {
       ) : feed.length === 0 ? (
         <div className="text-center py-16 text-neutral-400">
           <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />
-          <p className="text-sm">Свободных остатков пока нет</p>
-          <p className="text-xs mt-1">Как только водители сольют остаток — он появится здесь</p>
+          <p className="text-sm">В этой категории пока пусто</p>
         </div>
       ) : (
         <div className="space-y-3">
           {feed.map((l) => {
             const isRevealed = revealed[l.id];
             const isTaken = l.status === "intercepted";
+            const isDone = l.status === "gone";
             const isMyIntercept =
               isTaken &&
               clientPhone &&
@@ -480,14 +538,22 @@ export default function Kubovik() {
                 onClick={() => navigate(`/leftover/${l.id}`)}
                 className={cn(
                   "bg-white rounded-2xl p-4 border shadow-sm space-y-2 cursor-pointer hover:border-neutral-300 transition-colors",
-                  isTaken ? "border-neutral-200 opacity-75" : "border-orange-200"
+                  isDone
+                    ? "border-neutral-200 opacity-60"
+                    : isTaken
+                    ? "border-neutral-200 opacity-75"
+                    : "border-orange-200"
                 )}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-black text-neutral-900 text-lg">
                     {l.grade} · {l.cubes} куб
                   </span>
-                  {isTaken ? (
+                  {isDone ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-green-100 text-green-700">
+                      <CheckCircle2 className="w-3 h-3" /> Выполнен
+                    </span>
+                  ) : isTaken ? (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-neutral-200 text-neutral-600">
                       Занято
                     </span>
@@ -497,7 +563,7 @@ export default function Kubovik() {
                     </span>
                   )}
                 </div>
-                {!isTaken && l.expires_at && (
+                {!isTaken && !isDone && l.expires_at && (
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-xs font-bold">
                     <Timer className="w-3.5 h-3.5" />
                     Осталось: {formatRemaining(new Date(l.expires_at).getTime() - now)}
@@ -514,7 +580,7 @@ export default function Kubovik() {
                   <span className="text-xs text-neutral-400">цена со скидкой</span>
                 </div>
 
-                {isTaken ? (
+                {isDone ? null : isTaken ? (
                   isMyIntercept ? (
                     <a
                       href={`tel:${l.phone}`}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -15,6 +15,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
 
 const STATUS = {
   available: { label: "Новый", icon: Inbox, cls: "bg-blue-100 text-blue-700" },
@@ -172,6 +174,26 @@ export default function LeftoverDetail() {
           Опубликован: {fmtDate(l.created_date)}
         </div>
       </div>
+
+      {l.intercepted_lat != null && l.intercepted_lng != null && (
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
+            Место, откуда перехватили
+          </div>
+          <Suspense
+            fallback={
+              <div className="h-[28vh] rounded-2xl bg-neutral-100 animate-pulse" />
+            }
+          >
+            <StaticPointMap
+              lat={l.intercepted_lat}
+              lng={l.intercepted_lng}
+              label={l.intercepted_by_phone}
+              height="28vh"
+            />
+          </Suspense>
+        </div>
+      )}
 
       {canManage && (
         <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-2">
