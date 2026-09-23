@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Inbox, Loader, Clock, CheckCircle2, Plus, X } from "lucide-react";
+import { Inbox, Loader, Clock, CheckCircle2, Plus, X, ChevronDown, ChevronUp, Bell, BarChart3 } from "lucide-react";
 import DriverApproval from "@/components/DriverApproval";
 import CommissionApproval from "@/components/CommissionApproval";
 import DriverPaymentApproval from "@/components/DriverPaymentApproval";
@@ -13,6 +13,7 @@ export default function AdminHome() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const load = async () => {
     try {
@@ -115,10 +116,41 @@ export default function AdminHome() {
 
       {showForm && <QuickOrderForm />}
 
-      <DriverApproval />
-      <DriverPaymentApproval />
-      <CommissionApproval />
-      <AdminAnalytics />
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-1 space-y-1">
+        <div className="flex items-center gap-2 px-3 pt-2">
+          <Bell className="w-4 h-4 text-neutral-500" />
+          <span className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
+            Требует внимания
+          </span>
+        </div>
+        <div className="p-2 space-y-3">
+          <DriverApproval />
+          <DriverPaymentApproval />
+          <CommissionApproval />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+        <button
+          onClick={() => setShowAnalytics((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-neutral-900">
+            <BarChart3 className="w-4 h-4 text-neutral-500" />
+            Аналитика
+          </span>
+          {showAnalytics ? (
+            <ChevronUp className="w-4 h-4 text-neutral-400" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-neutral-400" />
+          )}
+        </button>
+        {showAnalytics && (
+          <div className="px-4 pb-4">
+            <AdminAnalytics />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

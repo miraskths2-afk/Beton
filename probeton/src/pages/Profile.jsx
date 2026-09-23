@@ -25,6 +25,7 @@ import TermsContent from "@/components/TermsContent";
 import BlacklistManager from "@/components/BlacklistManager";
 import DriverHistory from "@/components/DriverHistory";
 import MyIntercepts from "@/components/MyIntercepts";
+import InstallAppCard from "@/components/InstallAppCard";
 import { requestNotificationPermission } from "@/lib/notifications";
 
 function roleLabel(user) {
@@ -125,6 +126,8 @@ export default function Profile() {
       <div className="px-1">
         <h1 className="text-xl font-black text-neutral-900">Мой профиль</h1>
       </div>
+
+      <InstallAppCard />
 
       <h2 className="font-bold text-neutral-900 px-1">Личные данные</h2>
       <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-5 space-y-4">

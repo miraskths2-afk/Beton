@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import {
@@ -43,6 +44,7 @@ function Stars({ value, onChange }) {
 }
 
 export default function DriverHome() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -191,6 +193,13 @@ export default function DriverHome() {
                   {fmtDate(o.created_date)}
                 </span>
               </div>
+              <button
+                onClick={() => navigate(`/order/${o.id}`)}
+                className="w-full flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-lg bg-neutral-900 text-white"
+              >
+                <MapPin className="w-4 h-4" />
+                Открыть — карта, маршрут и чат
+              </button>
               <div className="flex items-start gap-2">
                 <Package className="w-4 h-4 text-neutral-400 mt-0.5 shrink-0" />
                 <p className="text-sm text-neutral-800 font-medium leading-snug">

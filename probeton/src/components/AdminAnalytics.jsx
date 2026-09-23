@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { BarChart3, Loader2, Trophy } from "lucide-react";
+import { Loader2, Trophy } from "lucide-react";
 
 const DAYS = 14;
 
@@ -75,10 +75,7 @@ export default function AdminAnalytics() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 px-1">
-        <BarChart3 className="w-4 h-4 text-neutral-500" />
-        <h2 className="text-sm font-black text-neutral-900">Аналитика (14 дней)</h2>
-      </div>
+      <p className="text-xs text-neutral-400 px-1">За последние 14 дней</p>
 
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-3">
         <div className="grid grid-cols-2 gap-2">
@@ -112,7 +109,7 @@ export default function AdminAnalytics() {
             return (
               <div
                 key={d}
-                className="flex-1 flex flex-col items-center justify-end gap-1 group relative"
+                className="flex-1 h-full flex flex-col items-center justify-end gap-1 group relative"
               >
                 <div
                   className={`w-full rounded-t transition-all ${

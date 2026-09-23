@@ -111,7 +111,10 @@ export default function OrderDetail() {
   // водителем — не только когда миксер уже в пути.
   const hasDriverMap = isOrderActive && !!o.driver_id;
   const hasDeliveryPoint = o.delivery_lat != null && o.delivery_lng != null;
-  const canManage = user?.role === "admin" || user?.id === o.driver_id;
+  // Прямая смена статуса и удаление — только у настоящего админа.
+  // Сам водитель завершает заказ через оплату (см. кнопку ниже),
+  // а не напрямую — иначе можно было бы обойти проверку оплаты.
+  const canManage = user?.role === "admin";
 
   const cancelOrder = async () => {
     if (!confirm("Отменить этот заказ? Действие нельзя будет вернуть.")) return;

@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { DetailPageSkeleton } from "@/components/Skeleton";
 
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
+const OrderRouteMap = lazy(() => import("@/components/OrderRouteMap"));
 
 const STATUS = {
   available: { label: "Новый", icon: Inbox, cls: "bg-blue-100 text-blue-700" },
@@ -154,7 +155,44 @@ export default function LeftoverDetail() {
         ))}
       </div>
 
-      {hasInterceptPoint && (
+      {hasInterceptPoint && l.status === "intercepted" && (
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
+            Водитель и место, откуда перехватили
+          </div>
+          <Suspense
+            fallback={
+              <div className="h-[45vh] rounded-2xl bg-neutral-100 animate-pulse" />
+            }
+          >
+            <OrderRouteMap
+              driverId={l.driver_id}
+              destination={{ lat: l.intercepted_lat, lng: l.intercepted_lng }}
+              height="45vh"
+            />
+          </Suspense>
+          <div className="grid grid-cols-2 gap-2">
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${l.intercepted_lat},${l.intercepted_lng}&travelmode=driving`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-lg bg-neutral-100 text-neutral-700"
+            >
+              Google Maps
+            </a>
+            <a
+              href={`https://2gis.kz/directions/points/%7C${l.intercepted_lng},${l.intercepted_lat}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-lg bg-neutral-100 text-neutral-700"
+            >
+              2ГИС
+            </a>
+          </div>
+        </div>
+      )}
+
+      {hasInterceptPoint && l.status !== "intercepted" && (
         <div className="space-y-2">
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
             Место, откуда перехватили

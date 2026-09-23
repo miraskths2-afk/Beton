@@ -37,8 +37,22 @@ export default function TransferToPlantDialog({
           setDrivers([]);
           return;
         }
-        const all = await base44.entities.User.list();
-        setDrivers(all.filter((u) => ids.includes(u.id)));
+        const [all, activeOrders] = await Promise.all([
+          base44.entities.User.list(),
+          base44.entities.Order.list("-created_date", 500),
+        ]);
+        // Водитель, у которого уже есть незавершённый заказ, занят —
+        // нельзя выдать ему ещё один поверх текущего.
+        const busyIds = new Set(
+          activeOrders
+            .filter((o) => o.driver_id && o.status !== "done" && o.status !== "cancelled")
+            .map((o) => o.driver_id)
+        );
+        setDrivers(
+          all
+            .filter((u) => ids.includes(u.id))
+            .map((u) => ({ ...u, isBusy: busyIds.has(u.id) }))
+        );
       } catch (err) {
         console.error(err);
       } finally {
@@ -50,6 +64,7 @@ export default function TransferToPlantDialog({
   const handleSubmit = async () => {
     if (!selectedId) return;
     const driver = drivers.find((d) => d.id === selectedId);
+    if (!driver || driver.isBusy) return;
     setLoading(true);
     try {
       await base44.entities.Order.update(order.id, {
@@ -91,10 +106,13 @@ export default function TransferToPlantDialog({
               {drivers.map((d) => (
                 <button
                   key={d.id}
-                  onClick={() => setSelectedId(d.id)}
+                  onClick={() => !d.isBusy && setSelectedId(d.id)}
+                  disabled={d.isBusy}
                   className={cn(
                     "w-full text-left rounded-xl border p-3 transition-colors flex items-center justify-between",
-                    selectedId === d.id
+                    d.isBusy
+                      ? "border-neutral-100 bg-neutral-50 opacity-50 cursor-not-allowed"
+                      : selectedId === d.id
                       ? "border-neutral-900 bg-neutral-50"
                       : "border-neutral-200"
                   )}
@@ -105,10 +123,10 @@ export default function TransferToPlantDialog({
                     </div>
                     <div className="text-xs text-neutral-500 flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
-                      {d.vehicle_plate || "На линии"}
+                      {d.isBusy ? "Занят другим заказом" : d.vehicle_plate || "На линии"}
                     </div>
                   </div>
-                  {selectedId === d.id && (
+                  {!d.isBusy && selectedId === d.id && (
                     <div className="w-5 h-5 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
                       <div className="w-2 h-2 rounded-full bg-white" />
                     </div>
