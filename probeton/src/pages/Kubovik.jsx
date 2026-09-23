@@ -13,7 +13,6 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import {
-  Droplets,
   MapPin,
   Loader2,
   Package,
@@ -26,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normPhone } from "@/lib/orderStatuses";
+import { ListSkeleton } from "@/components/Skeleton";
 const LazyStaticPointMap = lazy(() => import("@/components/StaticPointMap"));
 
 const GRADES = ["М150", "М200", "М300", "М400"];
@@ -65,6 +65,8 @@ export default function Kubovik() {
   const [submitting, setSubmitting] = useState(false);
   const [postError, setPostError] = useState("");
   const [done, setDone] = useState(false);
+  const [sortBy, setSortBy] = useState("new"); // "new" | "price_asc" | "price_desc"
+  const [gradeFilter, setGradeFilter] = useState("all");
 
   const [clientPhone, setClientPhone] = useState("");
   const [revealed, setRevealed] = useState({});
@@ -95,7 +97,10 @@ export default function Kubovik() {
 
   const finishLeftover = async (id) => {
     try {
-      await base44.entities.Leftover.update(id, { status: "gone" });
+      await base44.entities.Leftover.update(id, {
+        status: "gone",
+        completed_at: new Date().toISOString(),
+      });
     } catch (e) {
       console.error(e);
     }
@@ -159,6 +164,7 @@ export default function Kubovik() {
         intercepted_by_phone: clientPhone.trim(),
         intercepted_lat: pos?.lat ?? null,
         intercepted_lng: pos?.lng ?? null,
+        intercepted_at: new Date().toISOString(),
       });
       setRevealed((p) => ({ ...p, [l.id]: true }));
     } catch (e) {
@@ -180,7 +186,14 @@ export default function Kubovik() {
     { id: "gone", label: "Выполнены" },
   ];
   const catCount = (list, id) => list.filter((l) => l.status === id).length;
-  const feed = categorized.filter((l) => l.status === category);
+  const feed = categorized
+    .filter((l) => l.status === category)
+    .filter((l) => gradeFilter === "all" || l.grade === gradeFilter)
+    .sort((a, b) => {
+      if (sortBy === "price_asc") return (a.price || 0) - (b.price || 0);
+      if (sortBy === "price_desc") return (b.price || 0) - (a.price || 0);
+      return new Date(b.created_date) - new Date(a.created_date);
+    });
   const mine = leftovers.filter((l) => l.driver_id === user?.id);
   const mineCategorized = mine.filter((l) => l.status === driverCategory);
 
@@ -490,6 +503,32 @@ export default function Kubovik() {
         />
       </div>
 
+      <div className="flex gap-2">
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="h-10 rounded-xl flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="new">Сначала новые</SelectItem>
+            <SelectItem value="price_asc">Цена: дешевле</SelectItem>
+            <SelectItem value="price_desc">Цена: дороже</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={gradeFilter} onValueChange={setGradeFilter}>
+          <SelectTrigger className="h-10 rounded-xl flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все марки</SelectItem>
+            {GRADES.map((g) => (
+              <SelectItem key={g} value={g}>
+                {g}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid grid-cols-3 gap-1.5">
         {CATEGORIES.map((c) => (
           <button
@@ -513,10 +552,7 @@ export default function Kubovik() {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-neutral-400">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-          Загрузка остатков...
-        </div>
+        <ListSkeleton />
       ) : feed.length === 0 ? (
         <div className="text-center py-16 text-neutral-400">
           <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />

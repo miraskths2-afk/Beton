@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Check, X, UserCheck, Loader2, Phone, Car } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const EQUIPMENT = {
   mixer: "Миксер (АБС)",

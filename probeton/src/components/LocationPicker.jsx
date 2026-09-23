@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapPin } from "lucide-react";
+import { MapPin, Loader2 } from "lucide-react";
 
 const pinIcon = L.divIcon({
   className: "",
@@ -22,9 +22,42 @@ function ClickHandler({ onPick }) {
   return null;
 }
 
+// Бесплатное обратное геокодирование через Nominatim (OpenStreetMap) —
+// превращает координаты в читаемый адрес.
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ru`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.display_name || null;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
+
 // value: {lat, lng} | null. onChange({lat, lng}).
-export default function LocationPicker({ value, onChange, height = "35vh" }) {
+// onAddress (необязательно): вызывается с готовой строкой адреса,
+// как только карта определит её по выбранной точке.
+export default function LocationPicker({
+  value,
+  onChange,
+  onAddress,
+  height = "35vh",
+}) {
   const [center] = useState(value || { lat: ALMATY[0], lng: ALMATY[1] });
+  const [resolving, setResolving] = useState(false);
+
+  const handlePick = async (point) => {
+    onChange(point);
+    if (!onAddress) return;
+    setResolving(true);
+    const address = await reverseGeocode(point.lat, point.lng);
+    setResolving(false);
+    if (address) onAddress(address);
+  };
 
   return (
     <div className="space-y-1.5">
@@ -39,15 +72,24 @@ export default function LocationPicker({ value, onChange, height = "35vh" }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution="&copy; OpenStreetMap"
           />
-          <ClickHandler onPick={onChange} />
+          <ClickHandler onPick={handlePick} />
           {value && <Marker position={[value.lat, value.lng]} icon={pinIcon} />}
         </MapContainer>
       </div>
       <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-        <MapPin className="w-3.5 h-3.5 shrink-0" />
-        {value
-          ? `Точка выбрана: ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}`
-          : "Нажмите на карту, чтобы отметить место объекта"}
+        {resolving ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
+            Определяем адрес...
+          </>
+        ) : (
+          <>
+            <MapPin className="w-3.5 h-3.5 shrink-0" />
+            {value
+              ? `Точка выбрана: ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}`
+              : "Нажмите на карту, чтобы отметить место объекта"}
+          </>
+        )}
       </div>
     </div>
   );

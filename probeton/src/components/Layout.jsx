@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   ClipboardList,
   List,
-  Wallet,
   BarChart3,
   Flame,
   UserCircle,

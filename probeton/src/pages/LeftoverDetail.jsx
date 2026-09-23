@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DetailPageSkeleton } from "@/components/Skeleton";
 
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
 
@@ -23,6 +24,7 @@ const STATUS = {
   intercepted: { label: "В работе", icon: Loader, cls: "bg-amber-100 text-amber-700" },
   gone: { label: "Выполнен", icon: CheckCircle2, cls: "bg-green-100 text-green-700" },
 };
+const STATUS_FLOW = ["available", "intercepted", "gone"];
 
 export default function LeftoverDetail() {
   const { id } = useParams();
@@ -50,7 +52,7 @@ export default function LeftoverDetail() {
     load();
     const unsub = base44.entities.Leftover.subscribe(() => load());
     return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
   const canManage = user?.role === "admin" || user?.id === item?.driver_id;
@@ -58,7 +60,11 @@ export default function LeftoverDetail() {
   const setStatus = async (status) => {
     setBusy(true);
     try {
-      await base44.entities.Leftover.update(id, { status });
+      const extra = {};
+      if (status === "intercepted" && !item.intercepted_at)
+        extra.intercepted_at = new Date().toISOString();
+      if (status === "gone") extra.completed_at = new Date().toISOString();
+      await base44.entities.Leftover.update(id, { status, ...extra });
     } catch (err) {
       console.error(err);
     } finally {
@@ -79,11 +85,7 @@ export default function LeftoverDetail() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (notFound || !item) {
@@ -104,6 +106,8 @@ export default function LeftoverDetail() {
   const l = item;
   const st = STATUS[l.status] || STATUS.available;
   const StIcon = st.icon;
+  const currentIdx = STATUS_FLOW.indexOf(l.status || "available");
+  const hasInterceptPoint = l.intercepted_lat != null && l.intercepted_lng != null;
 
   const fmtDate = (d) =>
     new Date(d).toLocaleString("ru-RU", {
@@ -133,6 +137,42 @@ export default function LeftoverDetail() {
           {st.label}
         </span>
       </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {STATUS_FLOW.map((s, i) => (
+          <span
+            key={s}
+            className={cn(
+              "text-[10px] font-semibold px-1.5 py-0.5 rounded",
+              i <= currentIdx
+                ? "bg-neutral-900 text-white"
+                : "bg-neutral-200 text-neutral-400"
+            )}
+          >
+            {STATUS[s].label}
+          </span>
+        ))}
+      </div>
+
+      {hasInterceptPoint && (
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
+            Место, откуда перехватили
+          </div>
+          <Suspense
+            fallback={
+              <div className="h-[28vh] rounded-2xl bg-neutral-100 animate-pulse" />
+            }
+          >
+            <StaticPointMap
+              lat={l.intercepted_lat}
+              lng={l.intercepted_lng}
+              label={l.intercepted_by_phone}
+              height="28vh"
+            />
+          </Suspense>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-3">
         <div className="flex items-start gap-2">
@@ -169,31 +209,73 @@ export default function LeftoverDetail() {
             Перехватил: {l.intercepted_by_phone}
           </a>
         )}
-
-        <div className="text-xs text-neutral-400">
-          Опубликован: {fmtDate(l.created_date)}
-        </div>
       </div>
 
-      {l.intercepted_lat != null && l.intercepted_lng != null && (
-        <div className="space-y-2">
-          <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
-            Место, откуда перехватили
-          </div>
-          <Suspense
-            fallback={
-              <div className="h-[28vh] rounded-2xl bg-neutral-100 animate-pulse" />
-            }
-          >
-            <StaticPointMap
-              lat={l.intercepted_lat}
-              lng={l.intercepted_lng}
-              label={l.intercepted_by_phone}
-              height="28vh"
-            />
-          </Suspense>
+      <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-3">
+        <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
+          История действий
         </div>
-      )}
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <div className="w-2.5 h-2.5 rounded-full bg-neutral-900 mt-1" />
+              {(l.intercepted_at || l.completed_at) && (
+                <div className="w-px flex-1 bg-neutral-200 my-1" />
+              )}
+            </div>
+            <div className="pb-1">
+              <div className="text-sm font-semibold text-neutral-800">
+                Остаток опубликован
+              </div>
+              <div className="text-xs text-neutral-400">
+                {fmtDate(l.created_date)}
+              </div>
+            </div>
+          </div>
+
+          {l.intercepted_at && (
+            <div className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500 mt-1" />
+                {l.completed_at && (
+                  <div className="w-px flex-1 bg-neutral-200 my-1" />
+                )}
+              </div>
+              <div className="pb-1">
+                <div className="text-sm font-semibold text-neutral-800">
+                  Перехвачен прорабом
+                  {l.intercepted_by_phone ? ` — ${l.intercepted_by_phone}` : ""}
+                </div>
+                <div className="text-xs text-neutral-400">
+                  {fmtDate(l.intercepted_at)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {l.completed_at && (
+            <div className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-green-600 mt-1" />
+              </div>
+              <div className="pb-1">
+                <div className="text-sm font-semibold text-neutral-800">
+                  Остаток забрали
+                </div>
+                <div className="text-xs text-neutral-400">
+                  {fmtDate(l.completed_at)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!l.intercepted_at && !l.completed_at && (
+            <div className="text-xs text-neutral-400 pl-5">
+              Пока никто не перехватил этот остаток
+            </div>
+          )}
+        </div>
+      </div>
 
       {canManage && (
         <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-2">

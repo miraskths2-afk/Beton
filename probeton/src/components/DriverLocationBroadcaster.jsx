@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
-import { upsertMyLocation, setOffline } from "@/lib/driverLocation";
+import { upsertMyLocation, setOffline, subscribeToLocations } from "@/lib/driverLocation";
 import { Navigation, NavigationOff } from "lucide-react";
 
 // Показывается только водителям. Даёт им переключатель "На линии" —
@@ -19,7 +19,7 @@ export default function DriverLocationBroadcaster() {
       }
       if (user?.id) setOffline(user.id);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const goOnline = () => {
@@ -55,6 +55,27 @@ export default function DriverLocationBroadcaster() {
     if (user?.id) setOffline(user.id);
     setOnline(false);
   };
+
+  // Если админ снял водителя с линии на своей карте — браузер должен
+  // сразу перестать слать координаты, иначе следующее обновление GPS
+  // тут же вернёт его обратно на линию без его ведома. Здесь setOffline
+  // уже не нужен — запись в базе и так обновил админ, тут только
+  // останавливаем сам браузер и обновляем кнопку.
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsub = subscribeToLocations((payload) => {
+      if (
+        payload?.new?.driver_id === user.id &&
+        payload.new.is_online === false &&
+        watchIdRef.current !== null
+      ) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+        setOnline(false);
+      }
+    });
+    return unsub;
+  }, [user?.id]);
 
   if (!user) return null;
 

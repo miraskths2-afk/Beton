@@ -9,7 +9,6 @@ import {
   Truck,
   Loader2,
   Star,
-  Wallet,
   QrCode,
   CheckCircle2,
   Hourglass,
@@ -310,7 +309,7 @@ export default function OrderTracking() {
       return;
     }
     fetchMine(activePhone);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activePhone]);
 
   useEffect(() => {

@@ -15,11 +15,14 @@ import {
   Ban,
   XCircle,
   Trash2,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DetailPageSkeleton } from "@/components/Skeleton";
 
-const LiveDriverMap = lazy(() => import("@/components/LiveDriverMap"));
+const OrderRouteMap = lazy(() => import("@/components/OrderRouteMap"));
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
+const OrderChat = lazy(() => import("@/components/OrderChat"));
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -31,6 +34,7 @@ export default function OrderDetail() {
   const [cancelling, setCancelling] = useState(false);
   const [busy, setBusy] = useState(false);
   const [driverPhone, setDriverPhone] = useState(null);
+  const [driverPhoto, setDriverPhoto] = useState(null);
 
   const load = async () => {
     try {
@@ -52,22 +56,26 @@ export default function OrderDetail() {
     load();
     const unsub = base44.entities.Order.subscribe(() => load());
     return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
   useEffect(() => {
     if (!order?.driver_id) {
       setDriverPhone(null);
+      setDriverPhoto(null);
       return;
     }
     let mounted = true;
     supabase
       .from("app_users")
-      .select("phone")
+      .select("phone, photo_url")
       .eq("id", order.driver_id)
       .maybeSingle()
       .then(({ data }) => {
-        if (mounted) setDriverPhone(data?.phone || null);
+        if (mounted) {
+          setDriverPhone(data?.phone || null);
+          setDriverPhoto(data?.photo_url || null);
+        }
       });
     return () => {
       mounted = false;
@@ -75,11 +83,7 @@ export default function OrderDetail() {
   }, [order?.driver_id]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (notFound || !order) {
@@ -209,17 +213,34 @@ export default function OrderDetail() {
             </div>
           )}
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
-            Местоположение миксериста сейчас
+            Миксерист и маршрут до объекта
           </div>
           <Suspense
             fallback={
-              <div className="h-[40vh] rounded-2xl bg-neutral-100 animate-pulse" />
+              <div className="h-[45vh] rounded-2xl bg-neutral-100 animate-pulse" />
             }
           >
-            <LiveDriverMap driverIds={[o.driver_id]} height="40vh" />
+            <OrderRouteMap
+              driverId={o.driver_id}
+              destination={
+                hasDeliveryPoint
+                  ? { lat: o.delivery_lat, lng: o.delivery_lng }
+                  : null
+              }
+              height="45vh"
+            />
           </Suspense>
           {o.driver_name && (
-            <div className="text-xs text-neutral-500 text-center">
+            <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+              {driverPhoto ? (
+                <img
+                  src={driverPhoto}
+                  alt=""
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+              ) : (
+                <UserCircle className="w-5 h-5 text-neutral-300" />
+              )}
               Водитель: {o.driver_name}
             </div>
           )}
@@ -241,7 +262,7 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {hasDeliveryPoint && (
+      {!hasDriverMap && hasDeliveryPoint && (
         <div className="space-y-2">
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
             Место доставки
@@ -414,6 +435,24 @@ export default function OrderDetail() {
             Удалить заявку
           </button>
         </div>
+      )}
+
+      {o.driver_id && (
+        <Suspense
+          fallback={<div className="h-40 rounded-2xl bg-neutral-100 animate-pulse" />}
+        >
+          <OrderChat
+            orderId={o.id}
+            myRole={user?.role === "admin" ? "admin" : user?.id === o.driver_id ? "driver" : "client"}
+            myName={
+              user?.role === "admin"
+                ? "Диспетчер"
+                : user?.id === o.driver_id
+                ? user?.full_name || "Миксерист"
+                : user?.full_name || "Заказчик"
+            }
+          />
+        </Suspense>
       )}
 
       {isOrderActive && (

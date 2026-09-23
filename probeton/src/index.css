@@ -90,3 +90,22 @@
     @apply bg-background text-foreground font-body;
   }
 }
+
+/* Карты (Leaflet) сами по себе используют очень высокий z-index для
+   своих внутренних слоёв (до 1000) — из-за этого при прокрутке они
+   перекрывали "прилипающую" шапку сайта. Прижимаем всё, что относится
+   к карте, ниже шапки (у шапки z-30 в Layout.jsx). */
+.leaflet-container {
+  z-index: 0;
+  isolation: isolate;
+}
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 10 !important;
+}
+.leaflet-popup,
+.leaflet-control {
+  z-index: 15 !important;
+}
+

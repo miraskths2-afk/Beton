@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
+import { ListSkeleton } from "@/components/Skeleton";
 import {
   Inbox,
   Phone,
@@ -149,10 +150,7 @@ export default function AdminOrders() {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-neutral-400">
-          <Loader className="w-6 h-6 animate-spin mx-auto mb-2" />
-          Загрузка заказов...
-        </div>
+        <ListSkeleton />
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-neutral-400">
           <Inbox className="w-10 h-10 mx-auto mb-2 opacity-40" />

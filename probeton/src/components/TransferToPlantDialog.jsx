@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { base44, supabase } from "@/api/base44Client";
 import {
   Dialog,
   DialogContent,
@@ -8,18 +8,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Loader2, Send } from "lucide-react";
-
-const GRADES = ["М150", "М200", "М300", "М400"];
+import { Loader2, Send, Truck, MapPin } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function TransferToPlantDialog({
   order,
@@ -27,31 +17,46 @@ export default function TransferToPlantDialog({
   onOpenChange,
   onTransferred,
 }) {
-  const [grade, setGrade] = useState("М200");
-  const [cubes, setCubes] = useState("");
-  const [address, setAddress] = useState("");
-  const [mixerTime, setMixerTime] = useState("");
+  const [drivers, setDrivers] = useState([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(true);
+  const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (order) {
-      setGrade(order.grade || "М200");
-      setCubes(order.cubes != null ? String(order.cubes) : "");
-      setAddress(order.delivery_address || "");
-      setMixerTime(order.mixer_time || "");
-    }
-  }, [order]);
+    if (!open) return;
+    setSelectedId(null);
+    setLoadingDrivers(true);
+    (async () => {
+      try {
+        const { data: online } = await supabase
+          .from("driver_locations")
+          .select("driver_id")
+          .eq("is_online", true);
+        const ids = (online || []).map((r) => r.driver_id);
+        if (ids.length === 0) {
+          setDrivers([]);
+          return;
+        }
+        const all = await base44.entities.User.list();
+        setDrivers(all.filter((u) => ids.includes(u.id)));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingDrivers(false);
+      }
+    })();
+  }, [open]);
 
   const handleSubmit = async () => {
-    if (!cubes || !address.trim() || !mixerTime.trim()) return;
+    if (!selectedId) return;
+    const driver = drivers.find((d) => d.id === selectedId);
     setLoading(true);
     try {
       await base44.entities.Order.update(order.id, {
-        grade,
-        cubes: parseFloat(cubes),
-        delivery_address: address.trim(),
-        mixer_time: mixerTime.trim(),
-        status: "sent_to_plant",
+        driver_id: driver.id,
+        driver_name: driver.full_name || driver.driver_name || driver.phone || "Водитель",
+        status: "in_progress",
+        accepted_at: new Date().toISOString(),
       });
       onTransferred?.();
       onOpenChange(false);
@@ -68,60 +73,59 @@ export default function TransferToPlantDialog({
         <DialogHeader>
           <DialogTitle>Назначить миксер на заказ</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Марка бетона</Label>
-            <Select value={grade} onValueChange={setGrade}>
-              <SelectTrigger className="h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GRADES.map((g) => (
-                  <SelectItem key={g} value={g}>
-                    {g}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Объём (кубы)</Label>
-            <Input
-              type="number"
-              min="0"
-              step="0.5"
-              value={cubes}
-              onChange={(e) => setCubes(e.target.value)}
-              placeholder="Напр.: 7.5"
-              className="h-11"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Адрес доставки</Label>
-            <Input
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Напр.: ул. Абая 150, Алматы"
-              className="h-11"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Время подачи миксера</Label>
-            <Input
-              type="datetime-local"
-              value={mixerTime}
-              onChange={(e) => setMixerTime(e.target.value)}
-              className="h-11"
-            />
-          </div>
+
+        <div className="py-2">
+          {loadingDrivers ? (
+            <div className="text-center py-8 text-neutral-400">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+            </div>
+          ) : drivers.length === 0 ? (
+            <div className="text-center py-8 text-neutral-400 text-sm">
+              <Truck className="w-8 h-8 mx-auto mb-2 opacity-40" />
+              Сейчас никто не на линии.
+              <br />
+              Попробуйте позже, когда появятся свободные миксеристы.
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+              {drivers.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => setSelectedId(d.id)}
+                  className={cn(
+                    "w-full text-left rounded-xl border p-3 transition-colors flex items-center justify-between",
+                    selectedId === d.id
+                      ? "border-neutral-900 bg-neutral-50"
+                      : "border-neutral-200"
+                  )}
+                >
+                  <div>
+                    <div className="font-bold text-sm text-neutral-900">
+                      {d.full_name || d.driver_name || d.phone}
+                    </div>
+                    <div className="text-xs text-neutral-500 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {d.vehicle_plate || "На линии"}
+                    </div>
+                  </div>
+                  {selectedId === d.id && (
+                    <div className="w-5 h-5 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
+                      <div className="w-2 h-2 rounded-full bg-white" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Отмена
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={loading || !cubes || !address.trim() || !mixerTime.trim()}
+            disabled={loading || !selectedId}
             className="bg-purple-600 hover:bg-purple-700 text-white"
           >
             {loading ? (

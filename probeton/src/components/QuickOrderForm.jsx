@@ -18,13 +18,17 @@ const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
 const GRADES = ["М150", "М200", "М300", "М400"];
 
-export default function QuickOrderForm() {
-  const [grade, setGrade] = useState("М200");
-  const [cubes, setCubes] = useState("");
-  const [address, setAddress] = useState("");
-  const [location, setLocation] = useState(null);
+export default function QuickOrderForm({ prefill }) {
+  const [grade, setGrade] = useState(prefill?.grade || "М200");
+  const [cubes, setCubes] = useState(prefill?.cubes ? String(prefill.cubes) : "");
+  const [address, setAddress] = useState(prefill?.delivery_address || "");
+  const [location, setLocation] = useState(
+    prefill?.delivery_lat != null && prefill?.delivery_lng != null
+      ? { lat: prefill.delivery_lat, lng: prefill.delivery_lng }
+      : null
+  );
   const [comment, setComment] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(prefill?.phone || "");
   const [timing, setTiming] = useState("asap"); // "asap" | "scheduled"
   const [neededBy, setNeededBy] = useState("");
   const [loading, setLoading] = useState(false);
@@ -175,7 +179,11 @@ export default function QuickOrderForm() {
             <div className="h-[35vh] rounded-xl bg-neutral-100 animate-pulse" />
           }
         >
-          <LocationPicker value={location} onChange={setLocation} />
+          <LocationPicker
+            value={location}
+            onChange={setLocation}
+            onAddress={setAddress}
+          />
         </Suspense>
       </div>
 

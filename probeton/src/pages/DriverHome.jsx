@@ -10,12 +10,12 @@ import {
   Loader2,
   Clock,
   Hourglass,
-  XCircle,
   Truck,
   Star,
   Flag,
   Headphones,
   Ban,
+  Navigation,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
@@ -76,7 +76,7 @@ export default function DriverHome() {
       }
     });
     return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [user?.notifications_enabled]);
 
   // Проверка одобрения теперь общая для всех ролей — в ProtectedRoute.
@@ -213,6 +213,28 @@ export default function DriverHome() {
                       </a>
                     )}
                   </p>
+                </div>
+              )}
+              {o.delivery_lat != null && o.delivery_lng != null && (
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${o.delivery_lat},${o.delivery_lng}&travelmode=driving`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-lg bg-neutral-100 text-neutral-700"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    Google Maps
+                  </a>
+                  <a
+                    href={`https://2gis.kz/directions/points/%7C${o.delivery_lng},${o.delivery_lat}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-lg bg-neutral-100 text-neutral-700"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    2ГИС
+                  </a>
                 </div>
               )}
               <a

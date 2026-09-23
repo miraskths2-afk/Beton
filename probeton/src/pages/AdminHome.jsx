@@ -5,6 +5,7 @@ import { Inbox, Loader, Clock, CheckCircle2, Plus, X } from "lucide-react";
 import DriverApproval from "@/components/DriverApproval";
 import CommissionApproval from "@/components/CommissionApproval";
 import DriverPaymentApproval from "@/components/DriverPaymentApproval";
+import AdminAnalytics from "@/components/AdminAnalytics";
 import QuickOrderForm from "@/components/QuickOrderForm";
 
 export default function AdminHome() {
@@ -117,6 +118,7 @@ export default function AdminHome() {
       <DriverApproval />
       <DriverPaymentApproval />
       <CommissionApproval />
+      <AdminAnalytics />
     </div>
   );
 }

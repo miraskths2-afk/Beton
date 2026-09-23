@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   UserCircle,
   Phone,
@@ -15,11 +15,12 @@ import {
   Ban,
   History,
   Flame,
+  Loader2,
   LayoutDashboard,
   RefreshCcw,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { base44 } from "@/api/base44Client";
+import { base44, supabase } from "@/api/base44Client";
 import TermsContent from "@/components/TermsContent";
 import BlacklistManager from "@/components/BlacklistManager";
 import DriverHistory from "@/components/DriverHistory";
@@ -47,6 +48,31 @@ export default function Profile() {
   const [nameDraft, setNameDraft] = useState(user?.full_name || "");
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handlePhotoPick = () => fileInputRef.current?.click();
+
+  const uploadPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const path = `${user.id}-${Date.now()}.${file.name.split(".").pop()}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      await base44.auth.updateMe({ photo_url: data.publicUrl });
+      await checkUserAuth();
+    } catch (err) {
+      console.error(err);
+      alert("Не удалось загрузить фото. Попробуйте ещё раз.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const startEditName = () => {
     setNameDraft(user?.full_name || "");
@@ -103,8 +129,41 @@ export default function Profile() {
       <h2 className="font-bold text-neutral-900 px-1">Личные данные</h2>
       <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-5 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-            <UserCircle className="w-8 h-8 text-amber-600" />
+          <div className="relative shrink-0">
+            <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center overflow-hidden">
+              {user?.photo_url ? (
+                <img
+                  src={user.photo_url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <UserCircle className="w-8 h-8 text-amber-600" />
+              )}
+            </div>
+            {user?.account_type === "driver" && (
+              <>
+                <button
+                  onClick={handlePhotoPick}
+                  disabled={uploadingPhoto}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-neutral-900 text-white flex items-center justify-center border-2 border-white"
+                  aria-label="Изменить фото"
+                >
+                  {uploadingPhoto ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Pencil className="w-3 h-3" />
+                  )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={uploadPhoto}
+                />
+              </>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             {editingName ? (
