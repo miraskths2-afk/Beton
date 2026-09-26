@@ -7,6 +7,8 @@ import CommissionApproval from "@/components/CommissionApproval";
 import DriverPaymentApproval from "@/components/DriverPaymentApproval";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import QuickOrderForm from "@/components/QuickOrderForm";
+import { runRecurringNow } from "@/components/RecurringOrdersManager";
+import { t } from "@/lib/i18n";
 
 export default function AdminHome() {
   const { user } = useAuth();
@@ -27,6 +29,9 @@ export default function AdminHome() {
   };
 
   useEffect(() => {
+    // Страховка к таймеру в Supabase: при открытии Главной админом
+    // создаём заявки по расписанию, если время подошло.
+    runRecurringNow();
     load();
     const unsub = base44.entities.Order.subscribe(() => load());
     return unsub;
@@ -45,9 +50,9 @@ export default function AdminHome() {
     <div className="p-4 space-y-4">
       <div className="px-1">
         <h1 className="text-xl font-black text-neutral-900">
-          Здравствуйте, {user?.full_name || "администратор"}
+          {t("Здравствуйте, {name}", { name: user?.full_name || t("администратор") })}
         </h1>
-        <p className="text-sm text-neutral-500">Обзор работы за всё время</p>
+        <p className="text-sm text-neutral-500">{t("Обзор работы за всё время")}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -55,7 +60,7 @@ export default function AdminHome() {
           <div className="flex items-center gap-2 text-neutral-400 mb-1">
             <Inbox className="w-4 h-4" />
             <span className="text-xs font-semibold uppercase tracking-wide">
-              Всего заявок
+              {t("Всего заявок")}
             </span>
           </div>
           <div className="text-2xl font-black text-neutral-900 tabular-nums">
@@ -66,7 +71,7 @@ export default function AdminHome() {
           <div className="flex items-center gap-2 text-neutral-400 mb-1">
             <Clock className="w-4 h-4" />
             <span className="text-xs font-semibold uppercase tracking-wide">
-              Сегодня
+              {t("Сегодня")}
             </span>
           </div>
           <div className="text-2xl font-black text-neutral-900 tabular-nums">
@@ -77,7 +82,7 @@ export default function AdminHome() {
           <div className="flex items-center gap-2 text-amber-500 mb-1">
             <Loader className="w-4 h-4" />
             <span className="text-xs font-semibold uppercase tracking-wide">
-              В работе сейчас
+              {t("В работе сейчас")}
             </span>
           </div>
           <div className="text-2xl font-black text-neutral-900 tabular-nums">
@@ -88,7 +93,7 @@ export default function AdminHome() {
           <div className="flex items-center gap-2 text-green-600 mb-1">
             <CheckCircle2 className="w-4 h-4" />
             <span className="text-xs font-semibold uppercase tracking-wide">
-              Завершено
+              {t("Завершено")}
             </span>
           </div>
           <div className="text-2xl font-black text-neutral-900 tabular-nums">
@@ -104,12 +109,12 @@ export default function AdminHome() {
         {showForm ? (
           <>
             <X className="w-4 h-4" />
-            Закрыть форму
+            {t("Закрыть форму")}
           </>
         ) : (
           <>
             <Plus className="w-4 h-4" />
-            Добавить заявку
+            {t("Добавить заявку")}
           </>
         )}
       </button>
@@ -120,7 +125,7 @@ export default function AdminHome() {
         <div className="flex items-center gap-2 px-3 pt-2">
           <Bell className="w-4 h-4 text-neutral-500" />
           <span className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
-            Требует внимания
+            {t("Требует внимания")}
           </span>
         </div>
         <div className="p-2 space-y-3">
@@ -137,7 +142,7 @@ export default function AdminHome() {
         >
           <span className="flex items-center gap-2 text-sm font-bold text-neutral-900">
             <BarChart3 className="w-4 h-4 text-neutral-500" />
-            Аналитика
+            {t("Аналитика")}
           </span>
           {showAnalytics ? (
             <ChevronUp className="w-4 h-4 text-neutral-400" />

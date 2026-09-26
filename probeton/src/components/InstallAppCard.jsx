@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { usePwaInstall } from "@/lib/usePwaInstall";
 import { Download, Share, CheckCircle2, X } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 export default function InstallAppCard() {
   const { canInstall, installed, isIOS, promptInstall } = usePwaInstall();
@@ -15,7 +16,7 @@ export default function InstallAppCard() {
       <button
         onClick={() => setDismissed(true)}
         className="absolute top-3 right-3 text-neutral-300 hover:text-neutral-500"
-        aria-label="Скрыть"
+        aria-label={t("Скрыть")}
       >
         <X className="w-4 h-4" />
       </button>
@@ -26,10 +27,10 @@ export default function InstallAppCard() {
         </div>
         <div>
           <div className="font-bold text-sm text-neutral-900">
-            Установить как приложение
+            {t("Установить как приложение")}
           </div>
           <div className="text-xs text-neutral-500">
-            Быстрый доступ с экрана телефона, без браузера
+            {t("Быстрый доступ с экрана телефона, без браузера")}
           </div>
         </div>
       </div>
@@ -39,7 +40,7 @@ export default function InstallAppCard() {
           onClick={promptInstall}
           className="w-full bg-neutral-900 text-white font-semibold text-sm py-2.5 rounded-xl"
         >
-          Установить
+          {t("Установить")}
         </button>
       )}
 
@@ -49,18 +50,18 @@ export default function InstallAppCard() {
             onClick={() => setShowIosHint((v) => !v)}
             className="w-full bg-neutral-900 text-white font-semibold text-sm py-2.5 rounded-xl"
           >
-            Как установить на iPhone
+            {t("Как установить на iPhone")}
           </button>
           {showIosHint && (
             <div className="mt-2 text-xs text-neutral-600 bg-neutral-50 rounded-xl p-3 space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <Share className="w-3.5 h-3.5 shrink-0" />
-                1. Нажмите кнопку "Поделиться" внизу экрана Safari
+                {t("1. Нажмите кнопку «Поделиться» внизу экрана Safari")}
               </div>
-              <div>2. Выберите "На экран «Домой»"</div>
+              <div>{t("2. Выберите «На экран «Домой»»")}</div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                3. Готово — иконка появится на рабочем столе
+                {t("3. Готово — иконка появится на рабочем столе")}
               </div>
             </div>
           )}

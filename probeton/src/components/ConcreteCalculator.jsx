@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Calculator, Loader2, CheckCircle2 } from "lucide-react";
 import { isBlacklisted } from "@/lib/blacklist";
+import { t, locale } from "@/lib/i18n";
 
 const GRADES = [
   { value: "М150", price: 21000 },
@@ -43,7 +44,7 @@ export default function ConcreteCalculator() {
     e.preventDefault();
     if (!cubesNum || !phone.trim()) return;
     if (await isBlacklisted(phone.trim())) {
-      alert("Этот номер в чёрном списке PROBETON. Заказ недоступен.");
+      alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен."));
       return;
     }
     setLoading(true);
@@ -70,7 +71,7 @@ export default function ConcreteCalculator() {
       console.error(err);
       setError(
         err?.message ||
-          "Не удалось сохранить заявку. Проверьте подключение и попробуйте ещё раз."
+          t("Не удалось сохранить заявку. Проверьте подключение и попробуйте ещё раз.")
       );
     } finally {
       setLoading(false);
@@ -83,9 +84,9 @@ export default function ConcreteCalculator() {
         <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
           <CheckCircle2 className="w-8 h-8 text-green-600" />
         </div>
-        <h3 className="font-bold text-lg text-neutral-900">Заказ рассчитан и отправлен!</h3>
+        <h3 className="font-bold text-lg text-neutral-900">{t("Заказ рассчитан и отправлен!")}</h3>
         <p className="text-sm text-neutral-500 mt-1">
-          Менеджер перезвонит для подтверждения доставки.
+          {t("Менеджер перезвонит для подтверждения доставки.")}
         </p>
       </div>
     );
@@ -101,13 +102,13 @@ export default function ConcreteCalculator() {
           <Calculator className="w-4 h-4 text-blue-600" />
         </div>
         <div>
-          <h2 className="font-bold text-neutral-900">Калькулятор бетона</h2>
-          <p className="text-xs text-neutral-500">Выберите марку и укажите объём</p>
+          <h2 className="font-bold text-neutral-900">{t("Калькулятор бетона")}</h2>
+          <p className="text-xs text-neutral-500">{t("Выберите марку и укажите объём")}</p>
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-semibold text-neutral-700">Марка бетона</Label>
+        <Label className="text-sm font-semibold text-neutral-700">{t("Марка бетона")}</Label>
         <Select value={grade} onValueChange={setGrade}>
           <SelectTrigger className="h-12 rounded-xl">
             <SelectValue />
@@ -115,7 +116,7 @@ export default function ConcreteCalculator() {
           <SelectContent>
             {GRADES.map((g) => (
               <SelectItem key={g.value} value={g.value}>
-                {g.value} — {g.price.toLocaleString("ru-RU")} ₸/куб
+                {g.value} — {g.price.toLocaleString(locale())} {t("₸/куб")}
               </SelectItem>
             ))}
           </SelectContent>
@@ -124,7 +125,7 @@ export default function ConcreteCalculator() {
 
       <div className="space-y-2">
         <Label htmlFor="cubes" className="text-sm font-semibold text-neutral-700">
-          Количество кубов
+          {t("Количество кубов")}
         </Label>
         <Input
           id="cubes"
@@ -133,7 +134,7 @@ export default function ConcreteCalculator() {
           step="0.5"
           value={cubes}
           onChange={(e) => setCubes(e.target.value)}
-          placeholder="Напр.: 7.5"
+          placeholder={t("Напр.: 7.5")}
           className="h-12 rounded-xl"
           required
         />
@@ -142,20 +143,20 @@ export default function ConcreteCalculator() {
       <div className="rounded-xl bg-neutral-900 text-white p-4 flex items-center justify-between">
         <div>
           <div className="text-[11px] uppercase tracking-widest text-neutral-400 font-semibold">
-            Итого
+            {t("Итого")}
           </div>
           <div className="text-2xl font-black tabular-nums">
-            {total.toLocaleString("ru-RU")} ₸
+            {total.toLocaleString(locale())} ₸
           </div>
         </div>
         <div className="text-right text-xs text-neutral-400">
-          {selectedGrade.price.toLocaleString("ru-RU")} ₸ × {cubesNum || 0} куб
+          {selectedGrade.price.toLocaleString(locale())} ₸ × {cubesNum || 0} {t("куб")}
         </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="cphone" className="text-sm font-semibold text-neutral-700">
-          Номер телефона клиента
+          {t("Номер телефона клиента")}
         </Label>
         <Input
           id="cphone"
@@ -182,10 +183,10 @@ export default function ConcreteCalculator() {
         {loading ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Отправка...
+            {t("Отправка...")}
           </>
         ) : (
-          "Оформить заказ"
+          t("Оформить заказ")
         )}
       </Button>
     </form>

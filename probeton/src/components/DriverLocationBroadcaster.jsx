@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { upsertMyLocation, setOffline, subscribeToLocations } from "@/lib/driverLocation";
 import { Navigation, NavigationOff } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 // Показывается только водителям. Даёт им переключатель "На линии" —
 // пока он включён, браузер каждые несколько секунд отправляет координаты
@@ -24,7 +25,7 @@ export default function DriverLocationBroadcaster() {
 
   const goOnline = () => {
     if (!navigator.geolocation) {
-      setError("Ваш браузер не поддерживает геолокацию");
+      setError(t("Ваш браузер не поддерживает геолокацию"));
       return;
     }
     setError("");
@@ -39,7 +40,7 @@ export default function DriverLocationBroadcaster() {
       },
       (err) => {
         console.error(err);
-        setError("Не удалось получить доступ к геолокации. Разрешите доступ в настройках браузера.");
+        setError(t("Не удалось получить доступ к геолокации. Разрешите доступ в настройках браузера."));
         setOnline(false);
       },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
@@ -92,12 +93,12 @@ export default function DriverLocationBroadcaster() {
         {online ? (
           <>
             <Navigation className="w-4 h-4" />
-            На линии — местоположение видно заказчику
+            {t("На линии — местоположение видно заказчику")}
           </>
         ) : (
           <>
             <NavigationOff className="w-4 h-4" />
-            Выйти на линию (показывать геолокацию)
+            {t("Выйти на линию (показывать геолокацию)")}
           </>
         )}
       </button>

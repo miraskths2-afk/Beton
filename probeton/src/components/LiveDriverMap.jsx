@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLocations, subscribeToLocations } from "@/lib/driverLocation";
+import { t, locale } from "@/lib/i18n";
 
 const truckIcon = L.divIcon({
   className: "",
@@ -35,7 +36,7 @@ export default function LiveDriverMap({ driverIds, height = "40vh" }) {
   if (drivers.length === 0) {
     return (
       <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-neutral-400">
-        Пока нет водителей на линии
+        {t("Пока нет водителей на линии")}
       </div>
     );
   }
@@ -59,10 +60,10 @@ export default function LiveDriverMap({ driverIds, height = "40vh" }) {
             <Popup>
               <div style={{ minWidth: "140px" }}>
                 <div style={{ fontWeight: 700, fontSize: "14px" }}>
-                  {d.driver_name || "Водитель"}
+                  {d.driver_name || t("Водитель")}
                 </div>
                 <div style={{ color: "#666", fontSize: "11px" }}>
-                  Обновлено: {new Date(d.updated_at).toLocaleTimeString("ru-RU")}
+                  {t("Обновлено: {time}", { time: new Date(d.updated_at).toLocaleTimeString(locale()) })}
                 </div>
               </div>
             </Popup>
