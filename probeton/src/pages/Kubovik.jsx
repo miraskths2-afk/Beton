@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
 import {
   Select,
   SelectTrigger,
@@ -288,13 +289,19 @@ export default function Kubovik() {
             <Label className="text-sm font-semibold text-neutral-700">
               Направление / район
             </Label>
-            <Input
-              value={direction}
-              onChange={(e) => setDirection(e.target.value)}
-              placeholder="напр. Талгарская трасса, Бесагаш"
-              className="h-12 rounded-xl"
-              required
-            />
+            <div className="flex gap-2">
+              <Input
+                value={direction}
+                onChange={(e) => setDirection(e.target.value)}
+                placeholder="напр. Талгарская трасса, Бесагаш"
+                className="h-12 rounded-xl"
+                required
+              />
+              <VoiceInputButton
+                className="h-12 w-12"
+                onText={(txt) => setDirection((prev) => appendSpoken(prev, txt))}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

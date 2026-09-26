@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Zap, Loader2, CheckCircle2, Clock } from "lucide-react";
 import { isBlacklisted } from "@/lib/blacklist";
+import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
 
 const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
@@ -160,14 +161,20 @@ export default function QuickOrderForm({ prefill }) {
         <Label htmlFor="address" className="text-sm font-semibold text-neutral-700">
           Адрес / место доставки
         </Label>
-        <Input
-          id="address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Напр.: Наурызбайский р-н, ул. Абая 10"
-          className="h-11"
-          required
-        />
+        <div className="flex gap-2">
+          <Input
+            id="address"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Напр.: Наурызбайский р-н, ул. Абая 10"
+            className="h-11"
+            required
+          />
+          <VoiceInputButton
+            className="h-11 w-11"
+            onText={(txt) => setAddress((prev) => appendSpoken(prev, txt))}
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -191,14 +198,19 @@ export default function QuickOrderForm({ prefill }) {
         <Label htmlFor="comment" className="text-sm font-semibold text-neutral-700">
           Дополнительные комментарии
         </Label>
-        <Textarea
-          id="comment"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Необязательно: подъезд, ориентир, пожелания к подаче..."
-          rows={2}
-          className="resize-none"
-        />
+        <div className="flex gap-2 items-start">
+          <Textarea
+            id="comment"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Необязательно: подъезд, ориентир, пожелания к подаче..."
+            rows={2}
+            className="resize-none"
+          />
+          <VoiceInputButton
+            onText={(txt) => setComment((prev) => appendSpoken(prev, txt))}
+          />
+        </div>
       </div>
 
       <div className="space-y-2">

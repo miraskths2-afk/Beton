@@ -7,6 +7,7 @@ import CommissionApproval from "@/components/CommissionApproval";
 import DriverPaymentApproval from "@/components/DriverPaymentApproval";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import QuickOrderForm from "@/components/QuickOrderForm";
+import { runRecurringNow } from "@/components/RecurringOrdersManager";
 
 export default function AdminHome() {
   const { user } = useAuth();
@@ -27,6 +28,9 @@ export default function AdminHome() {
   };
 
   useEffect(() => {
+    // Страховка к таймеру в Supabase: при открытии Главной админом
+    // создаём заявки по расписанию, если время подошло.
+    runRecurringNow();
     load();
     const unsub = base44.entities.Order.subscribe(() => load());
     return unsub;

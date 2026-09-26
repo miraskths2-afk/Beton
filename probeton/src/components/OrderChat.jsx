@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "@/api/base44Client";
 import { Send, MessageCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
 
 const ROLE_LABEL = {
   client: "Заказчик",
@@ -135,6 +136,10 @@ export default function OrderChat({ orderId, myRole, myName }) {
           onChange={(e) => setText(e.target.value)}
           placeholder="Написать сообщение..."
           className="flex-1 px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-800"
+        />
+        <VoiceInputButton
+          className="w-9 h-9 rounded-lg"
+          onText={(txt) => setText((prev) => appendSpoken(prev, txt))}
         />
         <button
           type="submit"

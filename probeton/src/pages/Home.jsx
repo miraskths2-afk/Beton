@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
-import { Zap, RotateCcw } from "lucide-react";
+import { Zap, RotateCcw, Repeat } from "lucide-react";
+import RecurringOrdersManager from "@/components/RecurringOrdersManager";
 
 const TABS = [
   { id: "quick", label: "Быстрый заказ" },
@@ -20,6 +21,7 @@ export default function Home() {
   const [showQuickForm, setShowQuickForm] = useState(false);
   const [prefill, setPrefill] = useState(null);
   const [lastOrder, setLastOrder] = useState(null);
+  const [showRecurring, setShowRecurring] = useState(false);
 
   useEffect(() => {
     if (!user?.phone) return;
@@ -97,12 +99,23 @@ export default function Home() {
                 {lastOrder.delivery_address ? ` · ${lastOrder.delivery_address}` : ""}
               </button>
             )}
+            <button
+              onClick={() => setShowRecurring((v) => !v)}
+              className="w-full border border-neutral-200 text-neutral-700 font-semibold h-11 rounded-xl inline-flex items-center justify-center gap-2 text-sm"
+            >
+              <Repeat className="w-4 h-4" />
+              Повторяющийся заказ
+            </button>
           </div>
         )
       ) : tab === "calc" ? (
         <ConcreteCalculator />
       ) : (
         <OrderTracking />
+      )}
+
+      {tab === "quick" && !showQuickForm && showRecurring && user?.phone && (
+        <RecurringOrdersManager phone={user.phone} clientName={user.full_name} />
       )}
     </div>
   );

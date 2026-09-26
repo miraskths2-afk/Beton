@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Loader2, Trophy } from "lucide-react";
+import { Loader2, Trophy, Download } from "lucide-react";
+import { downloadCsv, todayStamp } from "@/lib/csv";
+import { exportOrdersCsv, COMMISSION_PER_CUBE } from "@/lib/orderExport";
 
 const DAYS = 14;
 
@@ -69,6 +71,27 @@ export default function AdminAnalytics() {
     byDriver[o.driver_id].cubes += o.cubes || 0;
     byDriver[o.driver_id].count += 1;
   }
+  // Выгрузка "по дням" за последние 14 дней — для бухгалтерии.
+  const exportDays = () => {
+    const rows = days.map((d) => {
+      const dayOrders = orders.filter(
+        (o) => dayKey(o.completed_at || o.created_date) === d
+      );
+      const cubes = dayOrders.reduce((s, o) => s + (o.cubes || 0), 0);
+      return { day: d, count: dayOrders.length, cubes, revenue: cubes * COMMISSION_PER_CUBE };
+    });
+    downloadCsv(
+      `probeton-otchet-po-dnyam-${todayStamp()}.csv`,
+      [
+        { label: "Дата", value: (r) => r.day },
+        { label: "Выполнено заказов", value: (r) => r.count },
+        { label: "Кубов", value: (r) => r.cubes },
+        { label: "Выручка (сервисный сбор), ₸", value: (r) => r.revenue },
+      ],
+      rows
+    );
+  };
+
   const topDrivers = Object.values(byDriver)
     .sort((a, b) => b.cubes - a.cubes)
     .slice(0, 5);
@@ -126,6 +149,23 @@ export default function AdminAnalytics() {
           <span>{days[0].slice(5)}</span>
           <span>сегодня</span>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={exportDays}
+          className="text-xs font-bold py-2.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 inline-flex items-center justify-center gap-1.5"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Отчёт по дням
+        </button>
+        <button
+          onClick={() => exportOrdersCsv(orders, "vypolnennye")}
+          className="text-xs font-bold py-2.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 inline-flex items-center justify-center gap-1.5"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Выполненные (CSV)
+        </button>
       </div>
 
       {topDrivers.length > 0 && (

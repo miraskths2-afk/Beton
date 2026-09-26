@@ -8,8 +8,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Truck, MapPin } from "lucide-react";
+import { Loader2, Send, Truck, MapPin, Navigation } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { distanceKm, formatKm } from "@/lib/geo";
+import { t } from "@/lib/i18n";
 
 export default function TransferToPlantDialog({
   order,
@@ -30,7 +32,7 @@ export default function TransferToPlantDialog({
       try {
         const { data: online } = await supabase
           .from("driver_locations")
-          .select("driver_id")
+          .select("driver_id, lat, lng")
           .eq("is_online", true);
         const ids = (online || []).map((r) => r.driver_id);
         if (ids.length === 0) {
@@ -48,17 +50,39 @@ export default function TransferToPlantDialog({
             .filter((o) => o.driver_id && o.status !== "done" && o.status !== "cancelled")
             .map((o) => o.driver_id)
         );
-        setDrivers(
-          all
-            .filter((u) => ids.includes(u.id))
-            .map((u) => ({ ...u, isBusy: busyIds.has(u.id) }))
-        );
+        // Умный подбор: считаем расстояние от водителя до объекта и
+        // ставим ближайших свободных наверх (как подбор курьера в
+        // Bolt/Wolt). Занятые — всегда в конце списка.
+        const locById = Object.fromEntries((online || []).map((r) => [r.driver_id, r]));
+        const hasTarget = order?.delivery_lat != null && order?.delivery_lng != null;
+        const list = all
+          .filter((u) => ids.includes(u.id))
+          .map((u) => {
+            const loc = locById[u.id];
+            const km = hasTarget && loc
+              ? distanceKm(loc.lat, loc.lng, order.delivery_lat, order.delivery_lng)
+              : null;
+            return { ...u, isBusy: busyIds.has(u.id), distanceKm: km };
+          })
+          .sort((a, b) => {
+            if (a.isBusy !== b.isBusy) return a.isBusy ? 1 : -1;
+            if (a.distanceKm == null && b.distanceKm == null) return 0;
+            if (a.distanceKm == null) return 1;
+            if (b.distanceKm == null) return -1;
+            return a.distanceKm - b.distanceKm;
+          });
+        setDrivers(list);
+        // Ближайший свободный выбирается сразу — диспетчеру остаётся
+        // только нажать "Назначить".
+        const nearest = list.find((d) => !d.isBusy);
+        if (nearest && hasTarget) setSelectedId(nearest.id);
       } catch (err) {
         console.error(err);
       } finally {
         setLoadingDrivers(false);
       }
     })();
+    // order меняется только вместе с open — отдельно следить не нужно
   }, [open]);
 
   const handleSubmit = async () => {
@@ -103,7 +127,12 @@ export default function TransferToPlantDialog({
             </div>
           ) : (
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-              {drivers.map((d) => (
+              {order?.delivery_lat == null && (
+                <p className="text-xs text-neutral-400 px-1">
+                  {t("У заказа нет точки на карте — расстояние посчитать нельзя.")}
+                </p>
+              )}
+              {drivers.map((d, index) => (
                 <button
                   key={d.id}
                   onClick={() => !d.isBusy && setSelectedId(d.id)}
@@ -117,15 +146,26 @@ export default function TransferToPlantDialog({
                       : "border-neutral-200"
                   )}
                 >
-                  <div>
-                    <div className="font-bold text-sm text-neutral-900">
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-neutral-900 flex items-center gap-2">
                       {d.full_name || d.driver_name || d.phone}
+                      {!d.isBusy && index === 0 && d.distanceKm != null && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+                          {t("Ближайший")}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-neutral-500 flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
-                      {d.isBusy ? "Занят другим заказом" : d.vehicle_plate || "На линии"}
+                      {d.isBusy ? t("Занят другим заказом") : d.vehicle_plate || t("На линии")}
                     </div>
                   </div>
+                  {d.distanceKm != null && (
+                    <div className="ml-auto mr-2 shrink-0 text-xs font-bold text-neutral-700 flex items-center gap-1">
+                      <Navigation className="w-3 h-3" />
+                      {formatKm(d.distanceKm)}
+                    </div>
+                  )}
                   {!d.isBusy && selectedId === d.id && (
                     <div className="w-5 h-5 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
                       <div className="w-2 h-2 rounded-full bg-white" />

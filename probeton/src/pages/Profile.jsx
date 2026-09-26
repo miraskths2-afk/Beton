@@ -27,6 +27,8 @@ import DriverHistory from "@/components/DriverHistory";
 import MyIntercepts from "@/components/MyIntercepts";
 import InstallAppCard from "@/components/InstallAppCard";
 import { requestNotificationPermission } from "@/lib/notifications";
+import { t, LANGS, getLang, setLang } from "@/lib/i18n";
+import { THEMES, getTheme, setTheme } from "@/lib/theme";
 
 function roleLabel(user) {
   if (user?.role === "admin") return "Администратор";
@@ -51,6 +53,12 @@ export default function Profile() {
   const [nameError, setNameError] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef(null);
+  const [theme, setThemeState] = useState(getTheme);
+
+  const chooseTheme = (id) => {
+    setTheme(id);
+    setThemeState(id);
+  };
 
   const handlePhotoPick = () => fileInputRef.current?.click();
 
@@ -319,6 +327,53 @@ export default function Profile() {
                   }`}
                 />
               </button>
+            </div>
+
+            <div className="pt-4 space-y-2">
+              <div>
+                <div className="text-sm font-semibold text-neutral-800">
+                  {t("Тема оформления")}
+                </div>
+                <div className="text-xs text-neutral-500">
+                  {t("Тёмная удобнее ночью и бережёт глаза")}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {THEMES.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => chooseTheme(opt.id)}
+                    className={`py-2 rounded-xl border text-xs font-bold transition-colors ${
+                      theme === opt.id
+                        ? "bg-neutral-900 text-white border-neutral-900"
+                        : "bg-white text-neutral-600 border-neutral-200"
+                    }`}
+                  >
+                    {t(opt.label)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-4 space-y-2">
+              <div className="text-sm font-semibold text-neutral-800">
+                {t("Язык интерфейса")}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {LANGS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setLang(opt.id)}
+                    className={`py-2 rounded-xl border text-xs font-bold transition-colors ${
+                      getLang() === opt.id
+                        ? "bg-neutral-900 text-white border-neutral-900"
+                        : "bg-white text-neutral-600 border-neutral-200"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
