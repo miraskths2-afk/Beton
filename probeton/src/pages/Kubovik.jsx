@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { normPhone } from "@/lib/orderStatuses";
 import { ListSkeleton } from "@/components/Skeleton";
+import { t, locale } from "@/lib/i18n";
 const LazyStaticPointMap = lazy(() => import("@/components/StaticPointMap"));
 
 const GRADES = ["М150", "М200", "М300", "М400"];
@@ -39,14 +40,14 @@ const DURATIONS = [
 ];
 
 function formatRemaining(ms) {
-  if (ms <= 0) return "Истёк";
+  if (ms <= 0) return t("Истёк");
   const totalMin = Math.floor(ms / 60000);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   const s = Math.floor((ms % 60000) / 1000);
-  if (h > 0) return `${h}ч ${m}м`;
-  if (m > 0) return `${m}м ${s}с`;
-  return `${s}с`;
+  if (h > 0) return t("{h}ч {m}м", { h, m });
+  if (m > 0) return t("{m}м {s}с", { m, s });
+  return t("{s}с", { s });
 }
 
 export default function Kubovik() {
@@ -133,7 +134,7 @@ export default function Kubovik() {
       console.error(e);
       setPostError(
         e?.message ||
-          "Не удалось опубликовать остаток. Проверьте подключение и попробуйте ещё раз."
+          t("Не удалось опубликовать остаток. Проверьте подключение и попробуйте ещё раз.")
       );
     } finally {
       setSubmitting(false);
@@ -155,7 +156,7 @@ export default function Kubovik() {
 
   const intercept = async (l) => {
     if (clientPhone.trim().length < 6) {
-      alert("Введите ваш номер телефона, чтобы перехватить остаток");
+      alert(t("Введите ваш номер телефона, чтобы перехватить остаток"));
       return;
     }
     try {
@@ -208,14 +209,14 @@ export default function Kubovik() {
             КУБОВИК
           </h1>
           <p className="text-sm text-neutral-500">
-            Слив горящих остатков с дороги — со скидкой
+            {t("Слив горящих остатков с дороги — со скидкой")}
           </p>
         </div>
 
         {done && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2 text-sm text-green-700 font-semibold">
             <CheckCircle2 className="w-4 h-4" />
-            Остаток опубликован — прорабам в этом районе уйдёт уведомление
+            {t("Остаток опубликован — прорабам в этом районе уйдёт уведомление")}
           </div>
         )}
 
@@ -228,16 +229,16 @@ export default function Kubovik() {
               <Plus className="w-4 h-4 text-orange-600" />
             </div>
             <div>
-              <h2 className="font-bold text-neutral-900">У меня есть остаток</h2>
+              <h2 className="font-bold text-neutral-900">{t("У меня есть остаток")}</h2>
               <p className="text-xs text-neutral-500">
-                Заполните — и остаток улетит в ленту прорабам
+                {t("Заполните — и остаток улетит в ленту прорабам")}
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-neutral-700">
-              Марка бетона
+              {t("Марка бетона")}
             </Label>
             <Select value={grade} onValueChange={setGrade}>
               <SelectTrigger className="h-12 rounded-xl">
@@ -256,7 +257,7 @@ export default function Kubovik() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-neutral-700">
-                Кубов
+                {t("Кубов")}
               </Label>
               <Input
                 type="number"
@@ -264,21 +265,21 @@ export default function Kubovik() {
                 step="0.5"
                 value={cubes}
                 onChange={(e) => setCubes(e.target.value)}
-                placeholder="напр. 3"
+                placeholder={t("напр. 3")}
                 className="h-12 rounded-xl"
                 required
               />
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-neutral-700">
-                Цена, ₸
+                {t("Цена, ₸")}
               </Label>
               <Input
                 type="number"
                 min="0"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                placeholder="со скидкой"
+                placeholder={t("со скидкой")}
                 className="h-12 rounded-xl"
                 required
               />
@@ -287,13 +288,13 @@ export default function Kubovik() {
 
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-neutral-700">
-              Направление / район
+              {t("Направление / район")}
             </Label>
             <div className="flex gap-2">
               <Input
                 value={direction}
                 onChange={(e) => setDirection(e.target.value)}
-                placeholder="напр. Талгарская трасса, Бесагаш"
+                placeholder={t("напр. Талгарская трасса, Бесагаш")}
                 className="h-12 rounded-xl"
                 required
               />
@@ -307,7 +308,7 @@ export default function Kubovik() {
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-neutral-700 flex items-center gap-1.5">
               <Timer className="w-3.5 h-3.5" />
-              Актуально сколько времени
+              {t("Актуально сколько времени")}
             </Label>
             <Select
               value={String(duration)}
@@ -319,19 +320,19 @@ export default function Kubovik() {
               <SelectContent>
                 {DURATIONS.map((d) => (
                   <SelectItem key={d.value} value={String(d.value)}>
-                    {d.label}
+                    {t(d.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-neutral-400">
-              По истечении этого времени остаток исчезнет из ленты прорабов
+              {t("По истечении этого времени остаток исчезнет из ленты прорабов")}
             </p>
           </div>
 
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-neutral-700">
-              Телефон для связи
+              {t("Телефон для связи")}
             </Label>
             <Input
               type="tel"
@@ -357,10 +358,10 @@ export default function Kubovik() {
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Публикуем...
+                {t("Публикуем...")}
               </>
             ) : (
-              "Опубликовать остаток"
+              t("Опубликовать остаток")
             )}
           </Button>
         </form>
@@ -368,7 +369,7 @@ export default function Kubovik() {
         {mine.length > 0 && (
           <div className="space-y-3">
             <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1">
-              Мои остатки
+              {t("Мои остатки")}
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {CATEGORIES.map((c) => (
@@ -386,14 +387,14 @@ export default function Kubovik() {
                     {catCount(mine, c.id)}
                   </div>
                   <div className="text-[9px] font-semibold uppercase tracking-wide leading-tight">
-                    {c.label}
+                    {t(c.label)}
                   </div>
                 </button>
               ))}
             </div>
             {mineCategorized.length === 0 ? (
               <div className="text-center py-8 text-neutral-400 text-sm">
-                В этой категории пока пусто
+                {t("В этой категории пока пусто")}
               </div>
             ) : (
               mineCategorized.map((l) => (
@@ -404,7 +405,7 @@ export default function Kubovik() {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-neutral-900">
-                    {l.grade} · {l.cubes} куб
+                    {l.grade} · {t("{cubes} куб", { cubes: l.cubes })}
                   </span>
                   <span
                     className={cn(
@@ -417,10 +418,10 @@ export default function Kubovik() {
                     )}
                   >
                     {l.status === "gone"
-                      ? "Завершён"
+                      ? t("Завершён")
                       : l.status === "intercepted"
-                      ? "Перехвачен"
-                      : "В ленте"}
+                      ? t("Перехвачен")
+                      : t("В ленте")}
                   </span>
                 </div>
                 <div className="text-sm text-neutral-600 mt-1 flex items-center gap-1">
@@ -428,12 +429,12 @@ export default function Kubovik() {
                   {l.direction}
                 </div>
                 <div className="text-sm font-black text-orange-600 mt-1">
-                  {l.price?.toLocaleString("ru-RU")} ₸
+                  {l.price?.toLocaleString(locale())} ₸
                 </div>
                 {l.status === "available" && l.expires_at && (
                   <div className="text-xs text-neutral-500 mt-1 flex items-center gap-1">
                     <Timer className="w-3.5 h-3.5" />
-                    Осталось: {formatRemaining(new Date(l.expires_at).getTime() - now)}
+                    {t("Осталось: {time}", { time: formatRemaining(new Date(l.expires_at).getTime() - now) })}
                   </div>
                 )}
                 {l.status === "intercepted" && l.intercepted_by_phone && (
@@ -443,7 +444,7 @@ export default function Kubovik() {
                     className="mt-2 flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
                   >
                     <Phone className="w-4 h-4" />
-                    Прораб: {l.intercepted_by_phone}
+                    {t("Прораб: {phone}", { phone: l.intercepted_by_phone })}
                   </a>
                 )}
                 {l.status === "intercepted" &&
@@ -458,7 +459,7 @@ export default function Kubovik() {
                         <LazyStaticPointMap
                           lat={l.intercepted_lat}
                           lng={l.intercepted_lng}
-                          label={`Прораб: ${l.intercepted_by_phone || ""}`}
+                          label={t("Прораб: {phone}", { phone: l.intercepted_by_phone || "" })}
                         />
                       </Suspense>
                     </div>
@@ -472,7 +473,7 @@ export default function Kubovik() {
                     className="mt-2 w-full text-xs font-bold py-2 rounded-lg bg-neutral-900 text-white inline-flex items-center justify-center gap-1"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    Завершить (остаток забрали)
+                    {t("Завершить (остаток забрали)")}
                   </button>
                 )}
               </div>
@@ -493,13 +494,13 @@ export default function Kubovik() {
           КУБОВИК
         </h1>
         <p className="text-sm text-neutral-500">
-          Горящие остатки бетона со скидкой — перехватите ближайший
+          {t("Горящие остатки бетона со скидкой — перехватите ближайший")}
         </p>
       </div>
 
       <div className="bg-white rounded-2xl p-4 border border-neutral-200 shadow-sm space-y-2">
         <Label className="text-sm font-semibold text-neutral-700">
-          Ваш телефон (для перехвата)
+          {t("Ваш телефон (для перехвата)")}
         </Label>
         <Input
           type="tel"
@@ -516,9 +517,9 @@ export default function Kubovik() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="new">Сначала новые</SelectItem>
-            <SelectItem value="price_asc">Цена: дешевле</SelectItem>
-            <SelectItem value="price_desc">Цена: дороже</SelectItem>
+            <SelectItem value="new">{t("Сначала новые")}</SelectItem>
+            <SelectItem value="price_asc">{t("Цена: дешевле")}</SelectItem>
+            <SelectItem value="price_desc">{t("Цена: дороже")}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={gradeFilter} onValueChange={setGradeFilter}>
@@ -526,7 +527,7 @@ export default function Kubovik() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Все марки</SelectItem>
+            <SelectItem value="all">{t("Все марки")}</SelectItem>
             {GRADES.map((g) => (
               <SelectItem key={g} value={g}>
                 {g}
@@ -552,7 +553,7 @@ export default function Kubovik() {
               {catCount(categorized, c.id)}
             </div>
             <div className="text-[9px] font-semibold uppercase tracking-wide leading-tight">
-              {c.label}
+              {t(c.label)}
             </div>
           </button>
         ))}
@@ -563,7 +564,7 @@ export default function Kubovik() {
       ) : feed.length === 0 ? (
         <div className="text-center py-16 text-neutral-400">
           <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />
-          <p className="text-sm">В этой категории пока пусто</p>
+          <p className="text-sm">{t("В этой категории пока пусто")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -590,26 +591,26 @@ export default function Kubovik() {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-black text-neutral-900 text-lg">
-                    {l.grade} · {l.cubes} куб
+                    {l.grade} · {t("{cubes} куб", { cubes: l.cubes })}
                   </span>
                   {isDone ? (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-green-100 text-green-700">
-                      <CheckCircle2 className="w-3 h-3" /> Выполнен
+                      <CheckCircle2 className="w-3 h-3" /> {t("Выполнен")}
                     </span>
                   ) : isTaken ? (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-neutral-200 text-neutral-600">
-                      Занято
+                      {t("Занято")}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-orange-100 text-orange-700">
-                      <Flame className="w-3 h-3" /> Горит
+                      <Flame className="w-3 h-3" /> {t("Горит")}
                     </span>
                   )}
                 </div>
                 {!isTaken && !isDone && l.expires_at && (
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-xs font-bold">
                     <Timer className="w-3.5 h-3.5" />
-                    Осталось: {formatRemaining(new Date(l.expires_at).getTime() - now)}
+                    {t("Осталось: {time}", { time: formatRemaining(new Date(l.expires_at).getTime() - now) })}
                   </div>
                 )}
                 <div className="flex items-start gap-2 text-sm text-neutral-600">
@@ -618,9 +619,9 @@ export default function Kubovik() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-2xl font-black text-orange-600">
-                    {l.price?.toLocaleString("ru-RU")} ₸
+                    {l.price?.toLocaleString(locale())} ₸
                   </span>
-                  <span className="text-xs text-neutral-400">цена со скидкой</span>
+                  <span className="text-xs text-neutral-400">{t("цена со скидкой")}</span>
                 </div>
 
                 {isDone ? null : isTaken ? (
@@ -631,11 +632,11 @@ export default function Kubovik() {
                       className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2.5"
                     >
                       <Phone className="w-4 h-4" />
-                      Позвонить водителю: {l.phone}
+                      {t("Позвонить водителю: {phone}", { phone: l.phone })}
                     </a>
                   ) : (
                     <div className="text-xs font-semibold text-neutral-400 text-center py-2">
-                      Этот остаток уже перехватил другой прораб
+                      {t("Этот остаток уже перехватил другой прораб")}
                     </div>
                   )
                 ) : isRevealed ? (
@@ -645,7 +646,7 @@ export default function Kubovik() {
                     className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2.5"
                   >
                     <Phone className="w-4 h-4" />
-                    Позвонить водителю: {l.phone}
+                    {t("Позвонить водителю: {phone}", { phone: l.phone })}
                   </a>
                 ) : (
                   <Button
@@ -656,7 +657,7 @@ export default function Kubovik() {
                     className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-bold h-11 rounded-xl inline-flex items-center justify-center gap-1"
                   >
                     <Truck className="w-4 h-4" />
-                    Перехватить остаток
+                    {t("Перехватить остаток")}
                   </Button>
                 )}
               </div>

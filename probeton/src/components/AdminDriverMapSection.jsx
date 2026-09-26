@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { fetchLocations, subscribeToLocations } from "@/lib/driverLocation";
 import { base44, supabase } from "@/api/base44Client";
 import { Phone, Eye, LogOut, Trash2, Loader2 } from "lucide-react";
+import { t, locale } from "@/lib/i18n";
 
 const truckIcon = (highlighted) =>
   L.divIcon({
@@ -88,7 +89,9 @@ export default function AdminDriverMapSection({ showContact = true }) {
   const deleteDriver = async (driverId, name) => {
     if (
       !confirm(
-        `Удалить аккаунт водителя${name ? ` "${name}"` : ""} безвозвратно? Это действие нельзя отменить.`
+        name
+          ? t("Удалить аккаунт водителя «{name}» безвозвратно? Это действие нельзя отменить.", { name })
+          : t("Удалить аккаунт водителя безвозвратно? Это действие нельзя отменить.")
       )
     )
       return;
@@ -127,10 +130,10 @@ export default function AdminDriverMapSection({ showContact = true }) {
               <Popup>
                 <div style={{ minWidth: "140px" }}>
                   <div style={{ fontWeight: 700, fontSize: "14px" }}>
-                    {d.driver_name || "Водитель"}
+                    {d.driver_name || t("Водитель")}
                   </div>
                   <div style={{ color: "#666", fontSize: "11px" }}>
-                    Обновлено: {new Date(d.updated_at).toLocaleTimeString("ru-RU")}
+                    {t("Обновлено: {time}", { time: new Date(d.updated_at).toLocaleTimeString(locale()) })}
                   </div>
                 </div>
               </Popup>
@@ -141,11 +144,11 @@ export default function AdminDriverMapSection({ showContact = true }) {
 
       <div className="space-y-2">
         <h3 className="font-bold text-neutral-900 px-1 text-sm">
-          Миксеристы на линии ({drivers.length})
+          {t("Миксеристы на линии ({n})", { n: drivers.length })}
         </h3>
         {drivers.length === 0 ? (
           <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-neutral-400">
-            Сейчас никто не на линии
+            {t("Сейчас никто не на линии")}
           </div>
         ) : (
           <div className="space-y-2">
@@ -160,7 +163,7 @@ export default function AdminDriverMapSection({ showContact = true }) {
               >
                 <div className="min-w-0">
                   <div className="font-bold text-sm text-neutral-900 truncate">
-                    {d.driver_name || "Водитель"}
+                    {d.driver_name || t("Водитель")}
                   </div>
                   {showContact && d.vehicle_plate && (
                     <div className="text-xs text-neutral-500">{d.vehicle_plate}</div>
@@ -170,7 +173,7 @@ export default function AdminDriverMapSection({ showContact = true }) {
                   <button
                     onClick={() => setSelectedId(d.driver_id)}
                     className="p-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100"
-                    title="Наблюдать на карте"
+                    title={t("Наблюдать на карте")}
                   >
                     <Eye className="w-4 h-4" />
                   </button>
@@ -178,7 +181,7 @@ export default function AdminDriverMapSection({ showContact = true }) {
                     <a
                       href={`tel:${d.phone}`}
                       className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
-                      title="Позвонить"
+                      title={t("Позвонить")}
                     >
                       <Phone className="w-4 h-4" />
                     </a>
@@ -189,7 +192,7 @@ export default function AdminDriverMapSection({ showContact = true }) {
                         onClick={() => removeFromLine(d.driver_id)}
                         disabled={busyId === d.driver_id}
                         className="p-2 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40"
-                        title="Убрать с линии"
+                        title={t("Убрать с линии")}
                       >
                         {busyId === d.driver_id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -201,7 +204,7 @@ export default function AdminDriverMapSection({ showContact = true }) {
                         onClick={() => deleteDriver(d.driver_id, d.driver_name)}
                         disabled={busyId === d.driver_id}
                         className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-40"
-                        title="Удалить аккаунт"
+                        title={t("Удалить аккаунт")}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

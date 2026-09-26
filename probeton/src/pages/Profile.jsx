@@ -31,15 +31,15 @@ import { t, LANGS, getLang, setLang } from "@/lib/i18n";
 import { THEMES, getTheme, setTheme } from "@/lib/theme";
 
 function roleLabel(user) {
-  if (user?.role === "admin") return "Администратор";
-  if (user?.account_type === "driver") return "Водитель";
-  return "Заказчик / Прораб";
+  if (user?.role === "admin") return t("Администратор");
+  if (user?.account_type === "driver") return t("Водитель");
+  return t("Заказчик / Прораб");
 }
 
 function approvalLabel(status) {
-  if (status === "approved") return "Подтверждён";
-  if (status === "rejected") return "Отклонён";
-  return "На проверке";
+  if (status === "approved") return t("Подтверждён");
+  if (status === "rejected") return t("Отклонён");
+  return t("На проверке");
 }
 
 export default function Profile() {
@@ -77,7 +77,7 @@ export default function Profile() {
       await checkUserAuth();
     } catch (err) {
       console.error(err);
-      alert("Не удалось загрузить фото. Попробуйте ещё раз.");
+      alert(t("Не удалось загрузить фото. Попробуйте ещё раз."));
     } finally {
       setUploadingPhoto(false);
     }
@@ -92,7 +92,7 @@ export default function Profile() {
   const saveName = async () => {
     const trimmed = nameDraft.trim();
     if (trimmed.length < 2) {
-      setNameError("Введите имя (минимум 2 буквы)");
+      setNameError(t("Введите имя (минимум 2 буквы)"));
       return;
     }
     setSavingName(true);
@@ -103,7 +103,7 @@ export default function Profile() {
       setEditingName(false);
     } catch (err) {
       console.error(err);
-      setNameError("Не удалось сохранить. Попробуйте ещё раз.");
+      setNameError(t("Не удалось сохранить. Попробуйте ещё раз."));
     } finally {
       setSavingName(false);
     }
@@ -132,12 +132,12 @@ export default function Profile() {
   return (
     <div className="p-4 space-y-4">
       <div className="px-1">
-        <h1 className="text-xl font-black text-neutral-900">Мой профиль</h1>
+        <h1 className="text-xl font-black text-neutral-900">{t("Мой профиль")}</h1>
       </div>
 
       <InstallAppCard />
 
-      <h2 className="font-bold text-neutral-900 px-1">Личные данные</h2>
+      <h2 className="font-bold text-neutral-900 px-1">{t("Личные данные")}</h2>
       <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-5 space-y-4">
         <div className="flex items-center gap-3">
           <div className="relative shrink-0">
@@ -158,7 +158,7 @@ export default function Profile() {
                   onClick={handlePhotoPick}
                   disabled={uploadingPhoto}
                   className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-neutral-900 text-white flex items-center justify-center border-2 border-white"
-                  aria-label="Изменить фото"
+                  aria-label={t("Изменить фото")}
                 >
                   {uploadingPhoto ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -183,7 +183,7 @@ export default function Profile() {
                   autoFocus
                   value={nameDraft}
                   onChange={(e) => setNameDraft(e.target.value)}
-                  placeholder="Ваше имя"
+                  placeholder={t("Ваше имя")}
                   className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-400"
                 />
                 {nameError && (
@@ -196,7 +196,7 @@ export default function Profile() {
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-xs font-bold disabled:opacity-60"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    Сохранить
+                    {t("Сохранить")}
                   </button>
                   <button
                     onClick={() => setEditingName(false)}
@@ -204,7 +204,7 @@ export default function Profile() {
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-neutral-200 text-neutral-600 text-xs font-bold"
                   >
                     <X className="w-3.5 h-3.5" />
-                    Отмена
+                    {t("Отмена")}
                   </button>
                 </div>
               </div>
@@ -216,7 +216,7 @@ export default function Profile() {
                 <button
                   onClick={startEditName}
                   className="shrink-0 p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
-                  aria-label="Изменить имя"
+                  aria-label={t("Изменить имя")}
                 >
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
@@ -237,18 +237,18 @@ export default function Profile() {
               {user?.vehicle_plate && (
                 <div className="flex items-center gap-2 text-neutral-600">
                   <Truck className="w-4 h-4 text-neutral-400 shrink-0" />
-                  Гос. номер: {user.vehicle_plate}
+                  {t("Гос. номер: {plate}", { plate: user.vehicle_plate })}
                 </div>
               )}
               {user?.equipment_type && (
                 <div className="flex items-center gap-2 text-neutral-600">
                   <Truck className="w-4 h-4 text-neutral-400 shrink-0" />
-                  Техника: {user.equipment_type}
+                  {t("Техника: {type}", { type: user.equipment_type })}
                 </div>
               )}
               <div className="flex items-center gap-2 text-neutral-600">
                 <ShieldCheck className="w-4 h-4 text-neutral-400 shrink-0" />
-                Статус партнёра: {approvalLabel(user?.approval_status)}
+                {t("Статус партнёра: {status}", { status: approvalLabel(user?.approval_status) })}
               </div>
             </>
           )}
@@ -259,11 +259,10 @@ export default function Profile() {
         <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-3">
           <div className="flex items-center gap-2">
             <RefreshCcw className="w-4 h-4 text-neutral-500" />
-            <span className="font-bold text-neutral-900">Режим просмотра</span>
+            <span className="font-bold text-neutral-900">{t("Режим просмотра")}</span>
           </div>
           <p className="text-xs text-neutral-500 -mt-2">
-            Ваша роль остаётся администратором — это просто переключение,
-            какой интерфейс сейчас показывать.
+            {t("Ваша роль остаётся администратором — это просто переключение, какой интерфейс сейчас показывать.")}
           </p>
           <div className="grid grid-cols-3 gap-2">
             {[
@@ -281,7 +280,7 @@ export default function Profile() {
                 }`}
               >
                 <opt.icon className="w-4 h-4" />
-                {opt.label}
+                {t(opt.label)}
               </button>
             ))}
           </div>
@@ -295,7 +294,7 @@ export default function Profile() {
         >
           <span className="font-bold text-neutral-900 flex items-center gap-2">
             <Bell className="w-4 h-4 text-neutral-500" />
-            Настройки
+            {t("Настройки")}
           </span>
           {openSection === "settings" ? (
             <ChevronUp className="w-4 h-4 text-neutral-400" />
@@ -308,10 +307,10 @@ export default function Profile() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-neutral-800">
-                  Уведомления
+                  {t("Уведомления")}
                 </div>
                 <div className="text-xs text-neutral-500">
-                  О новых заказах и изменениях статуса
+                  {t("О новых заказах и изменениях статуса")}
                 </div>
               </div>
               <button
@@ -387,7 +386,7 @@ export default function Profile() {
           >
             <span className="font-bold text-neutral-900 flex items-center gap-2">
               <Flame className="w-4 h-4 text-orange-500" />
-              Перехваченные остатки
+              {t("Перехваченные остатки")}
             </span>
             {openSection === "myIntercepts" ? (
               <ChevronUp className="w-4 h-4 text-neutral-400" />
@@ -411,7 +410,7 @@ export default function Profile() {
           >
             <span className="font-bold text-neutral-900 flex items-center gap-2">
               <Ban className="w-4 h-4 text-red-500" />
-              Чёрный список
+              {t("Чёрный список")}
             </span>
             {openSection === "blacklist" ? (
               <ChevronUp className="w-4 h-4 text-neutral-400" />
@@ -435,7 +434,7 @@ export default function Profile() {
           >
             <span className="font-bold text-neutral-900 flex items-center gap-2">
               <History className="w-4 h-4 text-neutral-500" />
-              История миксеристов
+              {t("История миксеристов")}
             </span>
             {openSection === "driverHistory" ? (
               <ChevronUp className="w-4 h-4 text-neutral-400" />
@@ -458,7 +457,7 @@ export default function Profile() {
         >
           <span className="font-bold text-neutral-900 flex items-center gap-2">
             <FileText className="w-4 h-4 text-neutral-500" />
-            Документы и соглашения
+            {t("Документы и соглашения")}
           </span>
           {openSection === "legal" ? (
             <ChevronUp className="w-4 h-4 text-neutral-400" />
@@ -478,7 +477,7 @@ export default function Profile() {
         className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-red-200 text-red-600 font-bold bg-red-50"
       >
         <LogOut className="w-4 h-4" />
-        Выйти из аккаунта
+        {t("Выйти из аккаунта")}
       </button>
     </div>
   );

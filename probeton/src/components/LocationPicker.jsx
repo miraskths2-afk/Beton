@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { MapPin, Loader2 } from "lucide-react";
+import { t, getLang } from "@/lib/i18n";
 
 const pinIcon = L.divIcon({
   className: "",
@@ -26,8 +27,9 @@ function ClickHandler({ onPick }) {
 // превращает координаты в читаемый адрес.
 async function reverseGeocode(lat, lng) {
   try {
+    const lang = getLang() === "kk" ? "kk,ru" : "ru";
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ru`
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=${lang}`
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -80,14 +82,16 @@ export default function LocationPicker({
         {resolving ? (
           <>
             <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
-            Определяем адрес...
+            {t("Определяем адрес...")}
           </>
         ) : (
           <>
             <MapPin className="w-3.5 h-3.5 shrink-0" />
             {value
-              ? `Точка выбрана: ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}`
-              : "Нажмите на карту, чтобы отметить место объекта"}
+              ? t("Точка выбрана: {coords}", {
+                  coords: `${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}`,
+                })
+              : t("Нажмите на карту, чтобы отметить место объекта")}
           </>
         )}
       </div>

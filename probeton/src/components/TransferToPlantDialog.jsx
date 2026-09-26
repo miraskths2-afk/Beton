@@ -110,7 +110,7 @@ export default function TransferToPlantDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Назначить миксер на заказ</DialogTitle>
+          <DialogTitle>{t("Назначить миксер на заказ")}</DialogTitle>
         </DialogHeader>
 
         <div className="py-2">
@@ -121,9 +121,9 @@ export default function TransferToPlantDialog({
           ) : drivers.length === 0 ? (
             <div className="text-center py-8 text-neutral-400 text-sm">
               <Truck className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              Сейчас никто не на линии.
+              {t("Сейчас никто не на линии.")}
               <br />
-              Попробуйте позже, когда появятся свободные миксеристы.
+              {t("Попробуйте позже, когда появятся свободные миксеристы.")}
             </div>
           ) : (
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
@@ -179,7 +179,7 @@ export default function TransferToPlantDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Отмена
+            {t("Отмена")}
           </Button>
           <Button
             onClick={handleSubmit}
@@ -191,7 +191,7 @@ export default function TransferToPlantDialog({
             ) : (
               <Send className="w-4 h-4 mr-2" />
             )}
-            Назначить миксер
+            {t("Назначить миксер")}
           </Button>
         </DialogFooter>
       </DialogContent>

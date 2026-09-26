@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Check, X, UserCheck, Loader2, Phone, Car } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 const EQUIPMENT = {
   mixer: "Миксер (АБС)",
@@ -62,10 +63,10 @@ export default function DriverApproval() {
       <div className="flex items-center gap-2 px-1">
         <UserCheck className="w-4 h-4 text-purple-600" />
         <h2 className="text-sm font-black text-neutral-900">
-          Заявки на одобрение
+          {t("Заявки на одобрение")}
           {pending.length > 0 && (
             <span className="ml-2 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold">
-              {pending.length} новых
+              {t("{n} новых", { n: pending.length })}
             </span>
           )}
         </h2>
@@ -81,11 +82,11 @@ export default function DriverApproval() {
               {d.full_name || d.driver_name || d.phone}
             </div>
             <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-bold">
-              На одобрении
+              {t("На одобрении")}
             </span>
           </div>
           <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
-            {d.account_type === "driver" ? "Водитель" : "Заказчик"}
+            {d.account_type === "driver" ? t("Водитель") : t("Заказчик")}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
             {d.phone && (
@@ -103,7 +104,7 @@ export default function DriverApproval() {
             {d.account_type === "driver" && d.equipment_type && (
               <span className="inline-flex items-center gap-1">
                 <UserCheck className="w-3 h-3" />
-                {EQUIPMENT[d.equipment_type] || d.equipment_type}
+                {EQUIPMENT[d.equipment_type] ? t(EQUIPMENT[d.equipment_type]) : d.equipment_type}
               </span>
             )}
           </div>
@@ -114,7 +115,7 @@ export default function DriverApproval() {
               className="flex-1 text-xs font-bold py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 inline-flex items-center justify-center gap-1"
             >
               <Check className="w-3.5 h-3.5" />
-              Одобрить
+              {t("Одобрить")}
             </button>
             <button
               onClick={() => setStatus(d.id, "rejected")}
@@ -122,7 +123,7 @@ export default function DriverApproval() {
               className="flex-1 text-xs font-bold py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50 inline-flex items-center justify-center gap-1"
             >
               <X className="w-3.5 h-3.5" />
-              Отклонить
+              {t("Отклонить")}
             </button>
           </div>
         </div>
@@ -131,7 +132,7 @@ export default function DriverApproval() {
       {approved.length > 0 && (
         <div className="space-y-2">
           <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide px-1 pt-2">
-            Одобренные ({approved.length})
+            {t("Одобренные ({n})", { n: approved.length })}
           </div>
           {approved.map((d) => (
             <div
@@ -143,14 +144,14 @@ export default function DriverApproval() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-neutral-500">
-                  {d.account_type === "driver" ? d.vehicle_plate : "Заказчик"}
+                  {d.account_type === "driver" ? d.vehicle_plate : t("Заказчик")}
                 </span>
                 <button
                   onClick={() => setStatus(d.id, "pending")}
                   disabled={busy === d.id}
                   className="text-xs text-neutral-400 hover:text-neutral-600 underline"
                 >
-                  Отозвать
+                  {t("Отозвать")}
                 </button>
               </div>
             </div>

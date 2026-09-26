@@ -3,6 +3,7 @@ import { supabase } from "@/api/base44Client";
 import { Send, MessageCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
+import { t, locale } from "@/lib/i18n";
 
 const ROLE_LABEL = {
   client: "Заказчик",
@@ -72,14 +73,14 @@ export default function OrderChat({ orderId, myRole, myName }) {
   };
 
   const fmtTime = (d) =>
-    new Date(d).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    new Date(d).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-neutral-100 flex items-center gap-2">
         <MessageCircle className="w-4 h-4 text-neutral-500" />
         <span className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
-          Чат по заказу
+          {t("Чат по заказу")}
         </span>
       </div>
 
@@ -90,7 +91,7 @@ export default function OrderChat({ orderId, myRole, myName }) {
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-6 text-xs text-neutral-400">
-            Сообщений пока нет — напишите первым
+            {t("Сообщений пока нет — напишите первым")}
           </div>
         ) : (
           messages.map((m) => {
@@ -110,7 +111,7 @@ export default function OrderChat({ orderId, myRole, myName }) {
                 >
                   {!isMine && (
                     <div className="text-[10px] font-bold opacity-60 mb-0.5">
-                      {m.sender_name || ROLE_LABEL[m.sender_role] || m.sender_role}
+                      {m.sender_name || t(ROLE_LABEL[m.sender_role]) || m.sender_role}
                     </div>
                   )}
                   <div>{m.message}</div>
@@ -134,7 +135,7 @@ export default function OrderChat({ orderId, myRole, myName }) {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Написать сообщение..."
+          placeholder={t("Написать сообщение...")}
           className="flex-1 px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-800"
         />
         <VoiceInputButton

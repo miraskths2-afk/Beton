@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { CheckCircle2, Loader2, BarChart3, Wallet } from "lucide-react";
+import { t, locale } from "@/lib/i18n";
 
 export default function DriverBalance() {
   const { user } = useAuth();
@@ -31,7 +32,7 @@ export default function DriverBalance() {
   const totalCubes = done.reduce((sum, o) => sum + (o.cubes || 0), 0);
 
   const fmtDate = (d) =>
-    new Date(d).toLocaleString("ru-RU", {
+    new Date(d).toLocaleString(locale(), {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
@@ -41,23 +42,23 @@ export default function DriverBalance() {
   return (
     <div className="p-4 space-y-5">
       <div className="px-1">
-        <h1 className="text-xl font-black text-neutral-900">Статистика</h1>
+        <h1 className="text-xl font-black text-neutral-900">{t("Статистика")}</h1>
         <p className="text-sm text-neutral-500">
-          {user?.full_name || user?.driver_name || "Водитель"}
+          {user?.full_name || user?.driver_name || t("Водитель")}
         </p>
       </div>
 
       <div className="rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-700 text-white p-5 shadow-md">
         <div className="flex items-center gap-2 text-neutral-300 text-sm">
           <Wallet className="w-4 h-4" />
-          Сумма выполненных заявок
+          {t("Сумма выполненных заявок")}
         </div>
         <div className="text-4xl font-black mt-2 tabular-nums">
-          {totalSum.toLocaleString("ru-RU")} ₸
+          {totalSum.toLocaleString(locale())} ₸
         </div>
         <div className="flex items-center gap-1.5 text-xs text-neutral-400 mt-2">
           <BarChart3 className="w-3.5 h-3.5" />
-          {totalCubes} куб всего · 1 000 ₸ за куб
+          {t("{cubes} куб всего · 1 000 ₸ за куб", { cubes: totalCubes })}
         </div>
       </div>
 
@@ -67,7 +68,7 @@ export default function DriverBalance() {
             {done.length}
           </div>
           <div className="text-xs text-neutral-500 font-semibold mt-0.5">
-            Заявок выполнено
+            {t("Заявок выполнено")}
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-neutral-200 p-4 text-center">
@@ -75,14 +76,14 @@ export default function DriverBalance() {
             {active.length}
           </div>
           <div className="text-xs text-neutral-500 font-semibold mt-0.5">
-            В работе сейчас
+            {t("В работе сейчас")}
           </div>
         </div>
       </div>
 
       <div>
         <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1 mb-2">
-          Выполненные заявки
+          {t("Выполненные заявки")}
         </div>
         {loading ? (
           <div className="text-center py-10 text-neutral-400">
@@ -91,7 +92,7 @@ export default function DriverBalance() {
         ) : done.length === 0 ? (
           <div className="text-center py-10 text-neutral-400">
             <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">Завершённых заявок пока нет</p>
+            <p className="text-sm">{t("Завершённых заявок пока нет")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -104,16 +105,16 @@ export default function DriverBalance() {
                   <CheckCircle2 className="w-4 h-4 text-green-500" />
                   <div>
                     <div className="text-sm font-semibold text-neutral-800">
-                      {o.order_number || "Заявка"}
+                      {o.order_number || t("Заявка")}
                     </div>
                     <div className="text-xs text-neutral-400">
-                      {o.cubes ? `${o.cubes} куб · ` : ""}
+                      {o.cubes ? `${t("{cubes} куб", { cubes: o.cubes })} · ` : ""}
                       {fmtDate(o.completed_at || o.created_date)}
                     </div>
                   </div>
                 </div>
                 <div className="text-sm font-black text-neutral-900 tabular-nums">
-                  {((o.cubes || 0) * 1000).toLocaleString("ru-RU")} ₸
+                  {((o.cubes || 0) * 1000).toLocaleString(locale())} ₸
                 </div>
               </div>
             ))}

@@ -261,3 +261,6 @@
 .dark .text-white:is([class*="bg-green-"], [class*="bg-red-"], [class*="bg-amber-"], [class*="bg-blue-"], [class*="bg-orange-"], [class*="bg-purple-"], [class*="bg-emerald-"]) {
   color: #fff;
 }
+.dark .app-header.text-white {
+  color: #fafafa;
+}

@@ -14,6 +14,7 @@ import {
 import { Zap, Loader2, CheckCircle2, Clock } from "lucide-react";
 import { isBlacklisted } from "@/lib/blacklist";
 import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
+import { t } from "@/lib/i18n";
 
 const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
@@ -44,7 +45,7 @@ export default function QuickOrderForm({ prefill }) {
     if (!isValid) return;
     if (timing === "scheduled" && !neededBy) return;
     if (await isBlacklisted(phone.trim())) {
-      alert("Этот номер в чёрном списке PROBETON. Заказ недоступен.");
+      alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен."));
       return;
     }
     setLoading(true);
@@ -79,7 +80,7 @@ export default function QuickOrderForm({ prefill }) {
       console.error(err);
       setError(
         err?.message ||
-          "Не удалось сохранить заявку. Проверьте подключение и попробуйте ещё раз."
+          t("Не удалось сохранить заявку. Проверьте подключение и попробуйте ещё раз.")
       );
     } finally {
       setLoading(false);
@@ -92,9 +93,9 @@ export default function QuickOrderForm({ prefill }) {
         <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
           <CheckCircle2 className="w-8 h-8 text-green-600" />
         </div>
-        <h3 className="font-bold text-lg text-neutral-900">Заявка принята!</h3>
+        <h3 className="font-bold text-lg text-neutral-900">{t("Заявка принята!")}</h3>
         <p className="text-sm text-neutral-500 mt-1">
-          Наш менеджер свяжется с вами в ближайшее время.
+          {t("Наш менеджер свяжется с вами в ближайшее время.")}
         </p>
       </div>
     );
@@ -113,9 +114,9 @@ export default function QuickOrderForm({ prefill }) {
           <Zap className="w-4 h-4 text-amber-600" />
         </div>
         <div>
-          <h2 className="font-bold text-neutral-900">Заказ в один клик</h2>
+          <h2 className="font-bold text-neutral-900">{t("Заказ в один клик")}</h2>
           <p className="text-xs text-neutral-500">
-            Заполните поля — мы перезвоним
+            {t("Заполните поля — мы перезвоним")}
           </p>
         </div>
       </div>
@@ -123,7 +124,7 @@ export default function QuickOrderForm({ prefill }) {
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-neutral-700">
-            Марка бетона
+            {t("Марка бетона")}
           </Label>
           <Select value={grade} onValueChange={setGrade}>
             <SelectTrigger className="h-11 rounded-xl">
@@ -141,7 +142,7 @@ export default function QuickOrderForm({ prefill }) {
 
         <div className="space-y-2">
           <Label htmlFor="cubes" className="text-sm font-semibold text-neutral-700">
-            Кубов
+            {t("Кубов")}
           </Label>
           <Input
             id="cubes"
@@ -150,7 +151,7 @@ export default function QuickOrderForm({ prefill }) {
             step="0.5"
             value={cubes}
             onChange={(e) => setCubes(e.target.value)}
-            placeholder="Напр. 5"
+            placeholder={t("Напр. 5")}
             className="h-11"
             required
           />
@@ -159,14 +160,14 @@ export default function QuickOrderForm({ prefill }) {
 
       <div className="space-y-2">
         <Label htmlFor="address" className="text-sm font-semibold text-neutral-700">
-          Адрес / место доставки
+          {t("Адрес / место доставки")}
         </Label>
         <div className="flex gap-2">
           <Input
             id="address"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="Напр.: Наурызбайский р-н, ул. Абая 10"
+            placeholder={t("Напр.: Наурызбайский р-н, ул. Абая 10")}
             className="h-11"
             required
           />
@@ -179,7 +180,7 @@ export default function QuickOrderForm({ prefill }) {
 
       <div className="space-y-2">
         <Label className="text-sm font-semibold text-neutral-700">
-          Место объекта на карте
+          {t("Место объекта на карте")}
         </Label>
         <Suspense
           fallback={
@@ -196,14 +197,14 @@ export default function QuickOrderForm({ prefill }) {
 
       <div className="space-y-2">
         <Label htmlFor="comment" className="text-sm font-semibold text-neutral-700">
-          Дополнительные комментарии
+          {t("Дополнительные комментарии")}
         </Label>
         <div className="flex gap-2 items-start">
           <Textarea
             id="comment"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Необязательно: подъезд, ориентир, пожелания к подаче..."
+            placeholder={t("Необязательно: подъезд, ориентир, пожелания к подаче...")}
             rows={2}
             className="resize-none"
           />
@@ -215,7 +216,7 @@ export default function QuickOrderForm({ prefill }) {
 
       <div className="space-y-2">
         <Label htmlFor="phone" className="text-sm font-semibold text-neutral-700">
-          Номер телефона клиента
+          {t("Номер телефона клиента")}
         </Label>
         <Input
           id="phone"
@@ -231,7 +232,7 @@ export default function QuickOrderForm({ prefill }) {
       <div className="space-y-2">
         <Label className="text-sm font-semibold text-neutral-700 flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5" />
-          Когда нужен бетон
+          {t("Когда нужен бетон")}
         </Label>
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -243,7 +244,7 @@ export default function QuickOrderForm({ prefill }) {
                 : "bg-white text-neutral-600 border-neutral-200"
             }`}
           >
-            Как можно скорее
+            {t("Как можно скорее")}
           </button>
           <button
             type="button"
@@ -254,7 +255,7 @@ export default function QuickOrderForm({ prefill }) {
                 : "bg-white text-neutral-600 border-neutral-200"
             }`}
           >
-            Выбрать время
+            {t("Выбрать время")}
           </button>
         </div>
         {timing === "scheduled" && (
@@ -283,10 +284,10 @@ export default function QuickOrderForm({ prefill }) {
         {loading ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Отправка...
+            {t("Отправка...")}
           </>
         ) : (
-          "Заказать бетон"
+          t("Заказать бетон")
         )}
       </Button>
     </form>

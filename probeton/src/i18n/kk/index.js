@@ -4,7 +4,15 @@
 // частях — берётся последняя.
 
 import features from "./features";
+import client from "./client";
+import driver from "./driver";
+import order from "./order";
+import admin from "./admin";
 
 export default {
   ...features,
+  ...client,
+  ...driver,
+  ...order,
+  ...admin,
 };

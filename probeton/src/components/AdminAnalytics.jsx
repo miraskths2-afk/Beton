@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Loader2, Trophy, Download } from "lucide-react";
 import { downloadCsv, todayStamp } from "@/lib/csv";
 import { exportOrdersCsv, COMMISSION_PER_CUBE } from "@/lib/orderExport";
+import { t, locale } from "@/lib/i18n";
 
 const DAYS = 14;
 
@@ -66,7 +67,7 @@ export default function AdminAnalytics() {
   for (const o of orders) {
     if (!o.driver_id) continue;
     if (!byDriver[o.driver_id]) {
-      byDriver[o.driver_id] = { name: o.driver_name || "Водитель", cubes: 0, count: 0 };
+      byDriver[o.driver_id] = { name: o.driver_name || t("Водитель"), cubes: 0, count: 0 };
     }
     byDriver[o.driver_id].cubes += o.cubes || 0;
     byDriver[o.driver_id].count += 1;
@@ -83,10 +84,10 @@ export default function AdminAnalytics() {
     downloadCsv(
       `probeton-otchet-po-dnyam-${todayStamp()}.csv`,
       [
-        { label: "Дата", value: (r) => r.day },
-        { label: "Выполнено заказов", value: (r) => r.count },
-        { label: "Кубов", value: (r) => r.cubes },
-        { label: "Выручка (сервисный сбор), ₸", value: (r) => r.revenue },
+        { label: t("Дата"), value: (r) => r.day },
+        { label: t("Выполнено заказов"), value: (r) => r.count },
+        { label: t("Кубов"), value: (r) => r.cubes },
+        { label: t("Выручка (сервисный сбор), ₸"), value: (r) => r.revenue },
       ],
       rows
     );
@@ -98,7 +99,7 @@ export default function AdminAnalytics() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-neutral-400 px-1">За последние 14 дней</p>
+      <p className="text-xs text-neutral-400 px-1">{t("За последние 14 дней")}</p>
 
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-3">
         <div className="grid grid-cols-2 gap-2">
@@ -110,7 +111,7 @@ export default function AdminAnalytics() {
                 : "bg-neutral-100 text-neutral-600"
             }`}
           >
-            Заказы ({totalOrders})
+            {t("Заказы ({n})", { n: totalOrders })}
           </button>
           <button
             onClick={() => setMetric("revenue")}
@@ -120,7 +121,7 @@ export default function AdminAnalytics() {
                 : "bg-neutral-100 text-neutral-600"
             }`}
           >
-            Выручка ({totalRevenue.toLocaleString("ru-RU")} ₸)
+            {t("Выручка ({sum} ₸)", { sum: totalRevenue.toLocaleString(locale()) })}
           </button>
         </div>
 
@@ -147,7 +148,7 @@ export default function AdminAnalytics() {
         </div>
         <div className="flex justify-between text-[9px] text-neutral-400 px-0.5">
           <span>{days[0].slice(5)}</span>
-          <span>сегодня</span>
+          <span>{t("сегодня")}</span>
         </div>
       </div>
 
@@ -157,14 +158,14 @@ export default function AdminAnalytics() {
           className="text-xs font-bold py-2.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 inline-flex items-center justify-center gap-1.5"
         >
           <Download className="w-3.5 h-3.5" />
-          Отчёт по дням
+          {t("Отчёт по дням")}
         </button>
         <button
           onClick={() => exportOrdersCsv(orders, "vypolnennye")}
           className="text-xs font-bold py-2.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 inline-flex items-center justify-center gap-1.5"
         >
           <Download className="w-3.5 h-3.5" />
-          Выполненные (CSV)
+          {t("Выполненные (CSV)")}
         </button>
       </div>
 
@@ -172,7 +173,7 @@ export default function AdminAnalytics() {
         <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-500 uppercase tracking-wide">
             <Trophy className="w-3.5 h-3.5 text-amber-500" />
-            Топ водителей
+            {t("Топ водителей")}
           </div>
           {topDrivers.map((d, i) => (
             <div key={i} className="flex items-center justify-between text-sm">
@@ -183,7 +184,7 @@ export default function AdminAnalytics() {
                 <span className="font-semibold text-neutral-800">{d.name}</span>
               </div>
               <span className="text-neutral-500 text-xs">
-                {d.count} заказ(ов) · {d.cubes} куб
+                {t("{count} заказ(ов) · {cubes} куб", { count: d.count, cubes: d.cubes })}
               </span>
             </div>
           ))}

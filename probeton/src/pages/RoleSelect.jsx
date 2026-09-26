@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Truck, Wrench, ChevronRight } from "lucide-react";
 import MixerIcon from "@/components/MixerIcon";
+import { t } from "@/lib/i18n";
 
 const ROLE_KEY = "probeton_role";
 
@@ -28,17 +29,17 @@ export default function RoleSelect() {
         <div className="leading-none">
           <div className="font-black text-lg tracking-tight">PROBETON</div>
           <div className="text-[10px] text-neutral-400 font-medium uppercase tracking-widest">
-            Доставка бетона
+            {t("Доставка бетона")}
           </div>
         </div>
       </header>
 
       <div className="flex-1 flex flex-col justify-center px-5 max-w-md mx-auto w-full">
         <h1 className="text-2xl font-black text-neutral-900 text-center">
-          Кто вы?
+          {t("Кто вы?")}
         </h1>
         <p className="text-sm text-neutral-500 text-center mt-1 mb-8">
-          Выберите тип аккаунта, чтобы продолжить
+          {t("Выберите тип аккаунта, чтобы продолжить")}
         </p>
 
         <button
@@ -50,10 +51,10 @@ export default function RoleSelect() {
           </div>
           <div className="text-left flex-1">
             <div className="text-lg font-black text-neutral-900">
-              Я Прораб / Заказчик
+              {t("Я Прораб / Заказчик")}
             </div>
             <div className="text-xs text-neutral-500 mt-0.5">
-              Заказываю бетон с доставкой
+              {t("Заказываю бетон с доставкой")}
             </div>
           </div>
           <ChevronRight className="w-5 h-5 text-neutral-300" />
@@ -68,22 +69,22 @@ export default function RoleSelect() {
           </div>
           <div className="text-left flex-1">
             <div className="text-lg font-black text-neutral-900">
-              Я Водитель / Мастер
+              {t("Я Водитель / Мастер")}
             </div>
             <div className="text-xs text-neutral-500 mt-0.5">
-              Доставляю бетон на своей технике
+              {t("Доставляю бетон на своей технике")}
             </div>
           </div>
           <ChevronRight className="w-5 h-5 text-neutral-300" />
         </button>
 
         <p className="text-center text-xs text-neutral-400 mt-8">
-          Уже есть аккаунт?{" "}
+          {t("Уже есть аккаунт?")}{" "}
           <button
             onClick={() => navigate("/login")}
             className="text-neutral-700 font-semibold underline"
           >
-            Войти
+            {t("Войти")}
           </button>
         </p>
       </div>

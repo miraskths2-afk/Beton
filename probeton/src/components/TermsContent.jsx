@@ -1,5 +1,6 @@
 import React from "react";
 import { FileText } from "lucide-react";
+import { t, getLang } from "@/lib/i18n";
 
 // Текст соглашения вынесен в отдельный компонент, чтобы использовать его
 // и в "Мой профиль → Документы и соглашения", и на экране первого входа
@@ -7,6 +8,11 @@ import { FileText } from "lucide-react";
 export default function TermsContent() {
   return (
     <div className="space-y-4 text-neutral-700 leading-relaxed">
+      {getLang() === "kk" && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+          {t("Официальный текст оферты — на русском языке.")}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <FileText className="w-4 h-4 text-neutral-500" />
         <h2 className="font-bold text-neutral-900">Пользовательское соглашение</h2>
