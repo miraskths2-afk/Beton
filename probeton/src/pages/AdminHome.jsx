@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { Inbox, Loader, Clock, CheckCircle2, Plus, X, ChevronDown, ChevronUp, Bell, BarChart3 } from "lucide-react";
 import DriverApproval from "@/components/DriverApproval";
 import CommissionApproval from "@/components/CommissionApproval";
+import TopupApproval from "@/components/TopupApproval";
 import DriverPaymentApproval from "@/components/DriverPaymentApproval";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import QuickOrderForm from "@/components/QuickOrderForm";
@@ -127,6 +128,7 @@ export default function AdminHome() {
           <DriverApproval />
           <DriverPaymentApproval />
           <CommissionApproval />
+          <TopupApproval />
         </div>
       </div>
 

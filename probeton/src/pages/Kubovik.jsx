@@ -1,5 +1,5 @@
 import React, { useEffect, useState, lazy, Suspense } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import { normPhone } from "@/lib/orderStatuses";
 import { ListSkeleton } from "@/components/Skeleton";
+import { useWallet, publishLeftover, formatTenge } from "@/lib/balance";
 const LazyStaticPointMap = lazy(() => import("@/components/StaticPointMap"));
 
 const GRADES = ["М150", "М200", "М300", "М400"];
@@ -72,6 +73,10 @@ export default function Kubovik() {
   const [revealed, setRevealed] = useState({});
   const [category, setCategory] = useState("available");
   const [driverCategory, setDriverCategory] = useState("available");
+  const wallet = useWallet(isDriver ? user?.id : null);
+  const postFee = Number(wallet.settings?.leftover_post_fee || 0);
+  const notEnoughBalance =
+    isDriver && wallet.balance != null && postFee > 0 && wallet.balance < postFee;
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -112,17 +117,17 @@ export default function Kubovik() {
     setSubmitting(true);
     setPostError("");
     try {
-      await base44.entities.Leftover.create({
+      // Публикация платная: сервер сам проверит баланс, спишет цену
+      // публикации и создаст остаток (функция publish_leftover).
+      await publishLeftover({
         grade,
         cubes: parseFloat(cubes),
         direction: direction.trim(),
         price: parseFloat(price),
         phone: phone.trim(),
-        driver_id: user?.id,
-        driver_name: user?.full_name || user?.driver_name || "",
-        status: "available",
-        expires_at: new Date(Date.now() + duration * 60000).toISOString(),
+        minutes: duration,
       });
+      wallet.reload();
       setCubes("");
       setDirection("");
       setPrice("");
@@ -336,6 +341,29 @@ export default function Kubovik() {
             />
           </div>
 
+          <div
+            className={cn(
+              "rounded-xl border px-3 py-2 text-xs flex items-center justify-between gap-2",
+              notEnoughBalance
+                ? "bg-red-50 border-red-200 text-red-700"
+                : "bg-neutral-50 border-neutral-200 text-neutral-600"
+            )}
+          >
+            <span>
+              {postFee > 0 ? (
+                <>
+                  Публикация — <b>{formatTenge(postFee)}</b> · на балансе{" "}
+                  <b>{wallet.balance == null ? "…" : formatTenge(wallet.balance)}</b>
+                </>
+              ) : (
+                "Публикация сейчас бесплатная"
+              )}
+            </span>
+            <Link to="/balance" className="font-bold underline shrink-0">
+              Пополнить
+            </Link>
+          </div>
+
           {postError && (
             <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {postError}
@@ -344,7 +372,7 @@ export default function Kubovik() {
 
           <Button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || notEnoughBalance}
             className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-12 rounded-xl"
           >
             {submitting ? (
@@ -353,7 +381,9 @@ export default function Kubovik() {
                 Публикуем...
               </>
             ) : (
-              "Опубликовать остаток"
+              postFee > 0
+                ? `Опубликовать за ${formatTenge(postFee)}`
+                : "Опубликовать остаток"
             )}
           </Button>
         </form>

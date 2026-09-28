@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import { useWallet } from "@/lib/balance";
+import DriverWallet from "@/components/DriverWallet";
 import { CheckCircle2, Loader2, BarChart3, Wallet } from "lucide-react";
 
 export default function DriverBalance() {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const wallet = useWallet(user?.id);
 
   useEffect(() => {
     (async () => {
@@ -41,11 +44,13 @@ export default function DriverBalance() {
   return (
     <div className="p-4 space-y-5">
       <div className="px-1">
-        <h1 className="text-xl font-black text-neutral-900">Статистика</h1>
+        <h1 className="text-xl font-black text-neutral-900">Баланс и статистика</h1>
         <p className="text-sm text-neutral-500">
           {user?.full_name || user?.driver_name || "Водитель"}
         </p>
       </div>
+
+      <DriverWallet wallet={wallet} />
 
       <div className="rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-700 text-white p-5 shadow-md">
         <div className="flex items-center gap-2 text-neutral-300 text-sm">
