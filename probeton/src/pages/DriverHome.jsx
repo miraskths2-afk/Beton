@@ -22,6 +22,8 @@ import { notify } from "@/lib/notifications";
 import { t, locale } from "@/lib/i18n";
 import ChatButton from "@/components/ChatButton";
 import { PLANT_ACTIVE_STATUSES, plantName } from "@/lib/plants";
+import OrderExtras from "@/components/OrderExtras";
+import DowntimeTimer from "@/components/DowntimeTimer";
 
 function Stars({ value, onChange }) {
   return (
@@ -121,8 +123,11 @@ export default function DriverHome() {
 
   const inFleet = !!user?.plant_id;
   // Заявки, переданные заводу, в общей ленте не показываются.
+  // Заявки «с документами» выполняют только заводы — миксеристам их
+  // тоже не показываем.
   const free = orders.filter(
-    (o) => (o.status || "new") === "new" && !o.driver_id && !o.plant_id
+    (o) =>
+      (o.status || "new") === "new" && !o.driver_id && !o.plant_id && !o.with_documents
   );
   // Мои заказы в работе — любой статус между «принят» и «готов».
   // Раньше здесь был только in_progress, и заказ пропадал у водителя,
@@ -279,6 +284,7 @@ export default function DriverHome() {
                   {o.what_needed}
                 </p>
               </div>
+              <OrderExtras o={o} />
               {o.delivery_address && (
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-neutral-400 mt-0.5 shrink-0" />
@@ -325,6 +331,7 @@ export default function DriverHome() {
                 role="driver"
                 label={t("Написать заказчику")}
               />
+              <DowntimeTimer o={o} role="driver" userId={user?.id} onChanged={load} />
               {o.driver_payment_confirmed ? (
                 <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-100 text-green-700 inline-flex items-center justify-center gap-1">
                   <CheckCircle2 className="w-4 h-4" />
@@ -334,6 +341,10 @@ export default function DriverHome() {
                 <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-amber-100 text-amber-700 inline-flex items-center justify-center gap-1">
                   <Hourglass className="w-4 h-4 animate-pulse" />
                   {t("Ожидает подтверждения менеджером")}
+                </div>
+              ) : o.arrived_at && !o.unloaded_at ? (
+                <div className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-neutral-100 text-neutral-600 text-center">
+                  {t("Когда закончите выгрузку, нажмите «Выгрузка закончена» — потом откроется оплата сбора.")}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -398,6 +409,9 @@ export default function DriverHome() {
               <div className="text-sm text-neutral-700 font-medium">
                 {o.what_needed}
               </div>
+              {o.arrived_at && (
+                <DowntimeTimer o={o} role="driver" userId={user?.id} onChanged={load} />
+              )}
               {o.driver_rating ? (
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
@@ -483,6 +497,7 @@ export default function DriverHome() {
                   {o.cubes ? ` · ${t("{cubes} куб", { cubes: o.cubes })}` : ""}
                 </div>
               )}
+              <OrderExtras o={o} className="pl-6" />
               {o.delivery_address && (
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-neutral-400 mt-0.5 shrink-0" />

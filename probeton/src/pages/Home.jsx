@@ -42,6 +42,32 @@ export default function Home() {
     setShowQuickForm(true);
   };
 
+  // Из калькулятора: марка и кубы переходят в обычную форму заказа.
+  const orderFromCalc = (p) => {
+    setPrefill({ ...p, phone: user?.phone || "" });
+    setShowQuickForm(true);
+    setTab("quick");
+  };
+
+  // «Дозаказать» к выполненной заявке: тот же адрес и марка, кубы — новые.
+  const reorder = (o) => {
+    setPrefill({
+      grade: o.grade,
+      delivery_address: o.delivery_address,
+      delivery_lat: o.delivery_lat,
+      delivery_lng: o.delivery_lng,
+      unload_method: o.unload_method,
+      chute_needed: o.chute_needed,
+      chute_meters: o.chute_meters,
+      with_documents: o.with_documents,
+      phone: user?.phone || o.phone,
+      reorderOf: { id: o.parent_order_id || o.id, number: o.order_number },
+    });
+    setShowQuickForm(true);
+    setTab("quick");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="p-4 space-y-5">
       {user?.full_name && (
@@ -69,7 +95,7 @@ export default function Home() {
 
       {tab === "quick" ? (
         showQuickForm ? (
-          <QuickOrderForm prefill={prefill} />
+          <QuickOrderForm key={JSON.stringify(prefill || {})} prefill={prefill} />
         ) : (
           <div className="bg-white rounded-2xl p-5 border border-neutral-200 shadow-sm text-center space-y-3">
             <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center mx-auto">
@@ -110,9 +136,9 @@ export default function Home() {
           </div>
         )
       ) : tab === "calc" ? (
-        <ConcreteCalculator />
+        <ConcreteCalculator onOrder={orderFromCalc} />
       ) : (
-        <OrderTracking />
+        <OrderTracking onReorder={reorder} />
       )}
 
       {tab === "quick" && !showQuickForm && showRecurring && user?.phone && (

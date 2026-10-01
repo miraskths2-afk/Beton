@@ -16,11 +16,14 @@ import {
   MapPin,
   XCircle,
   Ban,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
 import { t, locale } from "@/lib/i18n";
 import ChatButton from "@/components/ChatButton";
+import OrderExtras from "@/components/OrderExtras";
+import DowntimeTimer from "@/components/DowntimeTimer";
 const LiveDriverMap = lazy(() => import("@/components/LiveDriverMap"));
 
 function Stars({ value, onChange }) {
@@ -45,7 +48,7 @@ function Stars({ value, onChange }) {
   );
 }
 
-function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick }) {
+function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setRatePick }) {
   const navigate = useNavigate();
   const st = ORDER_STATUSES[o.status || "new"];
   const currentIdx = STATUS_FLOW.indexOf(o.status || "new");
@@ -110,6 +113,8 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick }) 
         </div>
       )}
 
+      <OrderExtras o={o} showPhoto={false} />
+
       {o.driver_id && (
         <ChatButton
           kind="order"
@@ -118,6 +123,8 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick }) 
           label={t("Написать миксеристу")}
         />
       )}
+
+      {o.arrived_at && <DowntimeTimer o={o} role="client" />}
 
       {isEnRoute && (
         <div className="space-y-2">
@@ -174,6 +181,16 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick }) 
             </span>
           ))}
         </div>
+      )}
+
+      {isDone && o.may_reorder && onReorder && (
+        <button
+          onClick={() => onReorder(o)}
+          className="w-full flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-lg bg-amber-400 text-neutral-900 hover:bg-amber-300"
+        >
+          <Repeat className="w-4 h-4" />
+          {t("Дозаказать бетон на этот объект")}
+        </button>
       )}
 
       {isDone && (
@@ -275,7 +292,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick }) 
   );
 }
 
-export default function OrderTracking() {
+export default function OrderTracking({ onReorder }) {
   const { user } = useAuth();
   const activePhone = normPhone(user?.phone);
   const [orders, setOrders] = useState([]);
@@ -424,6 +441,7 @@ export default function OrderTracking() {
                 onPay={payDone}
                 onRate={rateDriver}
                 onCancel={cancelOrder}
+                onReorder={onReorder}
                 ratePick={ratePick}
                 setRatePick={setRatePick}
               />
@@ -446,6 +464,7 @@ export default function OrderTracking() {
                 onPay={payDone}
                 onRate={rateDriver}
                 onCancel={cancelOrder}
+                onReorder={onReorder}
                 ratePick={ratePick}
                 setRatePick={setRatePick}
               />

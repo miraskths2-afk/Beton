@@ -24,6 +24,8 @@ import { DetailPageSkeleton } from "@/components/Skeleton";
 import { t, locale } from "@/lib/i18n";
 import ChatButton from "@/components/ChatButton";
 import { getChatRole } from "@/lib/chat";
+import OrderExtras from "@/components/OrderExtras";
+import DowntimeTimer from "@/components/DowntimeTimer";
 
 const OrderRouteMap = lazy(() => import("@/components/OrderRouteMap"));
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
@@ -39,6 +41,7 @@ export default function OrderDetail() {
   const [busy, setBusy] = useState(false);
   const [driverPhone, setDriverPhone] = useState(null);
   const [driverPhoto, setDriverPhoto] = useState(null);
+  const [trips, setTrips] = useState([]);
 
   const load = async () => {
     try {
@@ -85,6 +88,27 @@ export default function OrderDetail() {
       mounted = false;
     };
   }, [order?.driver_id]);
+
+  // Другие машины (рейсы) этой же заявки, если завод выделил несколько миксеров.
+  const tripRoot = order?.trips_total > 1 ? order.parent_order_id || order.id : null;
+  useEffect(() => {
+    if (!tripRoot) {
+      setTrips([]);
+      return;
+    }
+    let mounted = true;
+    supabase
+      .from("orders")
+      .select("id, order_number, trip_no, trips_total, driver_name, cubes, status")
+      .or(`id.eq.${tripRoot},parent_order_id.eq.${tripRoot}`)
+      .order("trip_no", { ascending: true })
+      .then(({ data }) => {
+        if (mounted) setTrips(data || []);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [tripRoot, order?.status]);
 
   if (loading) {
     return <DetailPageSkeleton />;
@@ -133,6 +157,14 @@ export default function OrderDetail() {
   // чужой заказ не может — иначе он обходил бы оплату сервисного сбора.
   const isOrderClient =
     !isPlant && !!user?.phone && normPhone(user.phone) === normPhone(o.phone);
+  const timerRole =
+    o.driver_id && o.driver_id === user?.id
+      ? "driver"
+      : isOrderClient
+      ? "client"
+      : user?.role === "admin"
+      ? "admin"
+      : "view";
   const canCancel = canManage || (isOrderClient && canClientCancel(o));
 
   const cancelOrder = async () => {
@@ -302,6 +334,35 @@ export default function OrderDetail() {
         />
       )}
 
+      {o.driver_id && (
+        <DowntimeTimer o={o} role={timerRole} userId={user?.id} onChanged={load} />
+      )}
+
+      {trips.length > 1 && (
+        <div className="bg-white rounded-2xl border border-purple-200 shadow-sm p-3 space-y-1.5">
+          <div className="text-xs font-bold text-purple-700 uppercase tracking-wide">
+            {t("Машины по этой заявке")}
+          </div>
+          {trips.map((tr) => (
+            <button
+              key={tr.id}
+              onClick={() => tr.id !== o.id && navigate(`/order/${tr.id}`)}
+              className={cn(
+                "w-full flex items-center justify-between gap-2 text-left text-sm rounded-lg px-3 py-2",
+                tr.id === o.id ? "bg-purple-50 font-bold" : "bg-neutral-50"
+              )}
+            >
+              <span className="truncate">
+                {t("Машина {no}", { no: tr.trip_no || 1 })} · {tr.driver_name || "—"}
+              </span>
+              <span className="shrink-0 text-xs text-neutral-500">
+                {t("{n} куб", { n: tr.cubes })} · {t(ORDER_STATUSES[tr.status || "new"]?.label || "")}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {isOrderActive && !o.driver_id && (
         <div className="text-xs text-neutral-400 text-center px-3 py-2 bg-neutral-100 rounded-lg">
           {t("Чат с миксеристом появится здесь, как только он примет заказ")}
@@ -361,6 +422,8 @@ export default function OrderDetail() {
             </div>
           </div>
         )}
+
+        <OrderExtras o={o} />
 
         {o.plant_id && (
           <div className="flex items-center gap-2 text-sm font-semibold text-purple-700">

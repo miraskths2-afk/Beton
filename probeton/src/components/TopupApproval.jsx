@@ -15,6 +15,8 @@ export default function TopupApproval() {
   const [settings, setSettings] = useState(null);
   const [fee, setFee] = useState("");
   const [kaspi, setKaspi] = useState("");
+  const [downtimeFee, setDowntimeFee] = useState("");
+  const [downtimeFree, setDowntimeFree] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -47,6 +49,8 @@ export default function TopupApproval() {
         setSettings(s);
         setFee(String(s.leftover_post_fee ?? ""));
         setKaspi(s.kaspi_details || "");
+        setDowntimeFee(String(s.downtime_hour_fee ?? ""));
+        setDowntimeFree(String(s.downtime_free_minutes ?? ""));
       })
       .catch(console.error);
     const channel = supabase
@@ -77,10 +81,16 @@ export default function TopupApproval() {
     e.preventDefault();
     setSavingSettings(true);
     try {
-      const s = await updateSettings({
+      const fields = {
         leftover_post_fee: Math.max(0, Number(fee) || 0),
         kaspi_details: kaspi.trim(),
-      });
+      };
+      // Поля простоя появляются после supabase_order_details.sql.
+      if (settings && "downtime_hour_fee" in settings) {
+        fields.downtime_hour_fee = Math.max(0, Number(downtimeFee) || 0);
+        fields.downtime_free_minutes = Math.max(0, Math.round(Number(downtimeFree) || 0));
+      }
+      const s = await updateSettings(fields);
       setSettings(s);
       setSettingsOpen(false);
     } catch (err) {
@@ -155,7 +165,7 @@ export default function TopupApproval() {
         >
           <span className="flex items-center gap-2 text-sm font-bold text-neutral-900">
             <Settings2 className="w-4 h-4 text-neutral-500" />
-            {t("Цена публикации остатка")}
+            {t("Цены: остаток и простой")}
           </span>
           <span className="text-sm font-black text-neutral-900">
             {settings ? formatTenge(settings.leftover_post_fee) : "…"}
@@ -174,6 +184,32 @@ export default function TopupApproval() {
                 className="mt-1 w-full h-10 px-3 border border-neutral-200 rounded-lg"
               />
             </label>
+            {settings && "downtime_hour_fee" in settings && (
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block text-xs font-semibold text-neutral-600">
+                  {t("Час простоя миксера, ₸")}
+                  <input
+                    type="number"
+                    min="0"
+                    step="500"
+                    value={downtimeFee}
+                    onChange={(e) => setDowntimeFee(e.target.value)}
+                    className="mt-1 w-full h-10 px-3 border border-neutral-200 rounded-lg"
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-neutral-600">
+                  {t("Бесплатно, минут")}
+                  <input
+                    type="number"
+                    min="0"
+                    step="5"
+                    value={downtimeFree}
+                    onChange={(e) => setDowntimeFree(e.target.value)}
+                    className="mt-1 w-full h-10 px-3 border border-neutral-200 rounded-lg"
+                  />
+                </label>
+              </div>
+            )}
             <label className="block text-xs font-semibold text-neutral-600">
               {t("Реквизиты Kaspi для пополнения (видят водители)")}
               <input

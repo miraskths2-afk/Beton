@@ -27,6 +27,7 @@ import { exportOrdersCsv } from "@/lib/orderExport";
 import RecurringOrdersManager from "@/components/RecurringOrdersManager";
 import TransferToPlantDialog from "@/components/TransferToPlantDialog";
 import AssignToPlantDialog from "@/components/AssignToPlantDialog";
+import OrderExtras from "@/components/OrderExtras";
 import MixerIcon from "@/components/MixerIcon";
 
 const STATUS = {
@@ -430,6 +431,7 @@ export default function AdminOrders() {
                       )}
                     </div>
                   )}
+                  <OrderExtras o={o} showPhoto={false} className="pl-6" />
                   {o.plant_id && (
                     <div className="text-xs font-semibold text-purple-700 pl-6 flex items-center gap-1">
                       <Factory className="w-3 h-3" />

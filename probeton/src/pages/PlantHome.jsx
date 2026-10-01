@@ -25,6 +25,7 @@ import { t, locale } from "@/lib/i18n";
 import { ORDER_STATUSES } from "@/lib/orderStatuses";
 import { plantName, plantsErrorText } from "@/lib/plants";
 import AssignFleetDriverDialog from "@/components/AssignFleetDriverDialog";
+import OrderExtras from "@/components/OrderExtras";
 
 // Кабинет завода / БСУ.
 // - Принимает свободные заявки клиентов из общей ленты.
@@ -163,6 +164,7 @@ export default function PlantHome() {
           {o.cubes ? t("{n} куб", { n: o.cubes }) : ""}
         </div>
       )}
+      <OrderExtras o={o} className="pl-6" />
       {o.delivery_address && (
         <div className="flex items-start gap-2">
           <MapPin className="w-4 h-4 text-neutral-400 mt-0.5 shrink-0" />
@@ -254,7 +256,7 @@ export default function PlantHome() {
                       className="text-sm font-bold py-2.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 inline-flex items-center justify-center gap-1"
                     >
                       <Send className="w-4 h-4" />
-                      {t("Выделить миксер")}
+                      {t("Выделить миксер(ы)")}
                     </button>
                     <button
                       onClick={() => giveBack(o)}

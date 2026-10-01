@@ -8,24 +8,48 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Truck } from "lucide-react";
+import { Loader2, Send, Truck, Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { fetchFleet, fetchDriverState, driverName, plantsErrorText } from "@/lib/plants";
+import {
+  assignOrderMixers,
+  orderDetailsErrorText,
+  trucksEstimate,
+  trucksText,
+} from "@/lib/orderExtras";
+
+// Делим кубы поровну между машинами (шаг 0.5 м³), остаток — последней.
+function splitCubes(total, n) {
+  if (n <= 0) return [];
+  const per = Math.floor((total / n) * 2) / 2;
+  const parts = Array(n).fill(per);
+  parts[n - 1] = Math.round((total - per * (n - 1)) * 100) / 100;
+  return parts;
+}
 
 // Завод выделяет миксериста из своего парка на заявку.
+// Если миксер на заявку ещё не выделен, можно выбрать несколько машин
+// и разделить кубы между ними — каждая машина станет отдельным рейсом
+// (функция assign_order_mixers в supabase_order_details.sql).
 // Карты с водителями здесь нет намеренно: завод не видит миксеристов
 // на карте — только список: на линии / занят.
 export default function AssignFleetDriverDialog({ plantId, order, open, onOpenChange, onAssigned }) {
   const [drivers, setDrivers] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
+  // Режим нескольких машин: выбранные по порядку и их кубы.
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [cubesBy, setCubesBy] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open || !plantId) return;
     setSelectedId(null);
+    setSelectedIds([]);
+    setCubesBy({});
     setError("");
     setLoadingList(true);
     (async () => {
@@ -56,8 +80,48 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
     })();
   }, [open, plantId]);
 
-  const submit = async () => {
-    const d = drivers.find((x) => x.id === selectedId);
+  const totalCubes = Number(order?.cubes) || 0;
+  const multi =
+    !!order && (order.status || "new") === "new" && !order.driver_id && totalCubes > 0;
+  const estimate = trucksEstimate(totalCubes);
+  const sumCubes = selectedIds.reduce((acc, id) => acc + (Number(cubesBy[id]) || 0), 0);
+  const sumOk = selectedIds.length > 0 && Math.abs(sumCubes - totalCubes) < 0.01 &&
+    selectedIds.every((id) => Number(cubesBy[id]) > 0);
+
+  const toggleMulti = (id) => {
+    const next = selectedIds.includes(id)
+      ? selectedIds.filter((x) => x !== id)
+      : [...selectedIds, id];
+    setSelectedIds(next);
+    const parts = splitCubes(totalCubes, next.length);
+    setCubesBy(Object.fromEntries(next.map((x, i) => [x, String(parts[i])])));
+  };
+
+  const submitMulti = async () => {
+    if (!sumOk) return;
+    if (selectedIds.length === 1) {
+      return submit(selectedIds[0]);
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await assignOrderMixers(
+        plantId,
+        order.id,
+        selectedIds.map((id) => ({ driver_id: id, cubes: Number(cubesBy[id]) }))
+      );
+      onAssigned?.();
+      onOpenChange(false);
+    } catch (e) {
+      console.error(e);
+      setError(t(orderDetailsErrorText(e)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submit = async (forcedId) => {
+    const d = drivers.find((x) => x.id === (forcedId || selectedId));
     if (!d || d.isBusy) return;
     setSaving(true);
     setError("");
@@ -93,6 +157,14 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
           <DialogTitle>{t("Выделить миксериста из парка")}</DialogTitle>
         </DialogHeader>
         <div className="py-2">
+          {multi && totalCubes > 0 && (
+            <div className="mb-2 text-xs text-neutral-600 bg-neutral-100 rounded-lg px-3 py-2">
+              {t("Заявка на {cubes} м³ — понадобится примерно {trucks}. Отметьте одного или несколько миксеристов, кубы разделятся между ними.", {
+                cubes: totalCubes,
+                trucks: trucksText(estimate),
+              })}
+            </div>
+          )}
           {loadingList ? (
             <div className="text-center py-8 text-neutral-400">
               <Loader2 className="w-5 h-5 animate-spin mx-auto" />
@@ -107,13 +179,13 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
               {drivers.map((d) => (
                 <button
                   key={d.id}
-                  onClick={() => !d.isBusy && setSelectedId(d.id)}
+                  onClick={() => !d.isBusy && (multi ? toggleMulti(d.id) : setSelectedId(d.id))}
                   disabled={d.isBusy}
                   className={cn(
                     "w-full text-left rounded-xl border p-3 transition-colors flex items-center justify-between",
                     d.isBusy
                       ? "border-neutral-100 bg-neutral-50 opacity-50 cursor-not-allowed"
-                      : selectedId === d.id
+                      : (multi ? selectedIds.includes(d.id) : selectedId === d.id)
                       ? "border-neutral-900 bg-neutral-50"
                       : "border-neutral-200"
                   )}
@@ -134,13 +206,55 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
                         : t("Не на линии")}
                     </div>
                   </div>
-                  {!d.isBusy && selectedId === d.id && (
+                  {!d.isBusy && multi && selectedIds.includes(d.id) && (
+                    <div className="w-5 h-5 rounded-md bg-neutral-900 flex items-center justify-center shrink-0">
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  )}
+                  {!d.isBusy && !multi && selectedId === d.id && (
                     <div className="w-5 h-5 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
                       <div className="w-2 h-2 rounded-full bg-white" />
                     </div>
                   )}
                 </button>
               ))}
+            </div>
+          )}
+          {multi && selectedIds.length > 1 && (
+            <div className="mt-3 space-y-2 rounded-xl border border-neutral-200 p-3">
+              <div className="text-xs font-bold text-neutral-600">
+                {t("Сколько кубов везёт каждая машина")}
+              </div>
+              {selectedIds.map((id, i) => {
+                const d = drivers.find((x) => x.id === id);
+                return (
+                  <div key={id} className="flex items-center gap-2">
+                    <span className="flex-1 min-w-0 text-sm truncate">
+                      {i + 1}. {driverName(d)}
+                    </span>
+                    <Input
+                      type="number"
+                      min="0.5"
+                      step="0.5"
+                      value={cubesBy[id] ?? ""}
+                      onChange={(e) => setCubesBy((p) => ({ ...p, [id]: e.target.value }))}
+                      className="h-9 w-20"
+                    />
+                    <span className="text-xs text-neutral-500">м³</span>
+                  </div>
+                );
+              })}
+              <div
+                className={cn(
+                  "text-xs font-bold",
+                  sumOk ? "text-green-600" : "text-red-600"
+                )}
+              >
+                {t("Итого {sum} из {total} м³", {
+                  sum: Math.round(sumCubes * 100) / 100,
+                  total: totalCubes,
+                })}
+              </div>
             </div>
           )}
           {error && (
@@ -152,12 +266,17 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
             {t("Отмена")}
           </Button>
           <Button
-            onClick={submit}
-            disabled={saving || !selectedId || selectedId === order?.driver_id}
+            onClick={() => (multi ? submitMulti() : submit())}
+            disabled={
+              saving ||
+              (multi ? !sumOk : !selectedId || selectedId === order?.driver_id)
+            }
             className="bg-purple-600 hover:bg-purple-700 text-white"
           >
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-            {t("Назначить миксер")}
+            {multi && selectedIds.length > 1
+              ? t("Назначить миксеров: {n}", { n: selectedIds.length })
+              : t("Назначить миксер")}
           </Button>
         </DialogFooter>
       </DialogContent>
