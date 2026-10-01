@@ -18,3 +18,10 @@ export const STATUS_FLOW = [
 ];
 
 export const normPhone = (p) => (p || "").replace(/\D/g, "").slice(-10);
+
+// Заказчик может сам отменить заказ, только пока бетон ещё не начали
+// готовить. Дальше отмена — только через диспетчера, иначе можно было
+// бы отменить уже привезённый заказ и не платить.
+export const CLIENT_CANCELLABLE = ["new", "in_progress"];
+export const canClientCancel = (o) =>
+  CLIENT_CANCELLABLE.includes(o?.status || "new");

@@ -82,7 +82,6 @@ export default function DriverHome() {
       load();
       if (
         user?.notifications_enabled !== false &&
-        !user?.plant_id &&
         payload?.eventType === "INSERT" &&
         (payload.new?.status || "new") === "new" &&
         !payload.new?.plant_id
@@ -95,10 +94,10 @@ export default function DriverHome() {
     });
     return unsub;
      
-  }, [user?.notifications_enabled, user?.plant_id]);
+  }, [user?.notifications_enabled]);
 
-  // Миксерист в парке завода: заказы ему выдаёт завод (или админ),
-  // общая лента ему не показывается. Кубовик остаётся его личным.
+  // Миксерист в парке завода: завод выдаёт ему свои заказы, но личные
+  // заявки из общей ленты и Кубовик остаются его — завод их не видит.
   useEffect(() => {
     if (!user?.plant_id) {
       setMyPlant(null);
@@ -122,20 +121,25 @@ export default function DriverHome() {
 
   const inFleet = !!user?.plant_id;
   // Заявки, переданные заводу, в общей ленте не показываются.
-  const free = inFleet
-    ? []
-    : orders.filter((o) => (o.status || "new") === "new" && !o.driver_id && !o.plant_id);
-  const active = orders.filter(
-    (o) => o.driver_id === user?.id && PLANT_ACTIVE_STATUSES.includes(o.status)
+  const free = orders.filter(
+    (o) => (o.status || "new") === "new" && !o.driver_id && !o.plant_id
   );
+  // Мои заказы в работе — любой статус между «принят» и «готов».
+  // Раньше здесь был только in_progress, и заказ пропадал у водителя,
+  // как только админ переводил его в «Назначен миксер» / «В пути».
+  const isMyOpenOrder = (o) =>
+    o.driver_id === user?.id &&
+    (o.status || "new") !== "done" &&
+    o.status !== "cancelled";
+  const active = orders.filter(isMyOpenOrder);
   const completed = orders.filter(
     (o) => o.driver_id === user?.id && o.status === "done"
   );
   // Пока у водителя есть незавершённый заказ (не оплачен или ждёт
   // подтверждения менеджера) — новые заявки принимать нельзя.
-  const hasUnfinishedOrder = orders.some(
-    (o) => o.driver_id === user?.id && o.status !== "done"
-  );
+  // Отменённый заказ не считается незавершённым — иначе водитель
+  // навсегда терял возможность брать новые заявки после отмены клиентом.
+  const hasUnfinishedOrder = orders.some(isMyOpenOrder);
 
   const accept = async (o) => {
     if (hasUnfinishedOrder) {
@@ -146,16 +150,30 @@ export default function DriverHome() {
     // Сам взял — уведомлять «вам назначен заказ» не нужно.
     myOrderIdsRef.current?.add(o.id);
     try {
-      await base44.entities.Order.update(o.id, {
-        driver_id: user.id,
-        driver_name: user.full_name || user.driver_name || "Водитель",
-        status: "in_progress",
-        accepted_at: new Date().toISOString(),
-      });
+      // Забираем заказ, только если он всё ещё свободен: если два водителя
+      // нажали одновременно, второй не перезапишет первого.
+      const { data, error } = await supabase
+        .from("orders")
+        .update({
+          driver_id: user.id,
+          driver_name: user.full_name || user.driver_name || "Водитель",
+          status: "in_progress",
+          accepted_at: new Date().toISOString(),
+        })
+        .eq("id", o.id)
+        .eq("status", "new")
+        .is("driver_id", null)
+        .select();
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        alert(t("Этот заказ уже взял другой водитель."));
+      }
     } catch (e) {
       console.error(e);
+      alert(t("Не удалось взять заказ. Проверьте интернет и попробуйте ещё раз."));
     } finally {
       setBusy(null);
+      load();
     }
   };
 
@@ -168,6 +186,7 @@ export default function DriverHome() {
       console.error(e);
     } finally {
       setBusy(null);
+      load();
     }
   };
 
@@ -221,7 +240,7 @@ export default function DriverHome() {
         <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 text-purple-800 rounded-xl px-3 py-2.5 text-xs font-semibold">
           <Truck className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            {t("Вы в парке завода «{name}». Заказы вам выдаёт завод. Кубовик (остатки) — по-прежнему ваш личный.", {
+            {t("Вы в парке завода «{name}». Заказы от завода появятся здесь. Личные заявки из ленты и Кубовик — ваши, завод их не видит.", {
               name: myPlant ? plantName(myPlant) : "…",
             })}
           </span>
@@ -398,41 +417,34 @@ export default function DriverHome() {
                   />
                 </div>
               )}
-              <button
-                onClick={() => complain(o)}
-                disabled={busy === o.id}
-                className="w-full text-xs font-bold py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 inline-flex items-center justify-center gap-1"
-              >
-                <Flag className="w-3.5 h-3.5" />
-                {t("Жалоба: клиент не оплатил")}
-              </button>
+              {/* Если клиент уже оплатил — жаловаться на неоплату незачем. */}
+              {!o.client_paid && !o.commission_paid && (
+                <button
+                  onClick={() => complain(o)}
+                  disabled={busy === o.id}
+                  className="w-full text-xs font-bold py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 inline-flex items-center justify-center gap-1"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  {t("Жалоба: клиент не оплатил")}
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {!inFleet && (
       <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1">
         {t("Свободные заказы ({count})", { count: free.length })}
       </div>
-      )}
 
-      {!inFleet && hasUnfinishedOrder && (
+      {hasUnfinishedOrder && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
           <Ban className="w-4 h-4 shrink-0" />
           {t("У вас есть незавершённый заказ — заверьте оплату и дождитесь подтверждения менеджера, чтобы принимать новые заявки.")}
         </div>
       )}
 
-      {inFleet ? (
-        !loading && active.length === 0 && (
-          <div className="text-center py-16 text-neutral-400">
-            <Inbox className="w-10 h-10 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">{t("Сейчас нет заказов от завода")}</p>
-            <p className="text-xs mt-1">{t("Когда завод выделит вас на заявку, она появится здесь")}</p>
-          </div>
-        )
-      ) : loading ? (
+      {loading ? (
         <div className="text-center py-16 text-neutral-400">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
           {t("Загрузка...")}

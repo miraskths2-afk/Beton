@@ -1,9 +1,9 @@
-import React, { useEffect, useState, lazy, Suspense } from "react";
+import React, { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ORDER_STATUSES, STATUS_FLOW, normPhone } from "@/lib/orderStatuses";
+import { ORDER_STATUSES, STATUS_FLOW, normPhone, canClientCancel } from "@/lib/orderStatuses";
 import {
   Package,
   Truck,
@@ -257,7 +257,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick }) 
         </div>
       )}
 
-      {isActive && (
+      {isActive && canClientCancel(o) && (
         <button
           onClick={() => onCancel(o.id)}
           disabled={busy === o.id}
@@ -282,6 +282,10 @@ export default function OrderTracking() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [ratePick, setRatePick] = useState({});
+  // Заказы, о принятии которых мы уже сообщили. Supabase присылает в
+  // payload.old только id (без driver_id), поэтому без этого списка
+  // «Заказ принят!» всплывало заново на каждое изменение заказа.
+  const notifiedAccepted = useRef(null);
 
   const fetchMine = async (num) => {
     if (!num) return;
@@ -289,6 +293,11 @@ export default function OrderTracking() {
     try {
       const all = await base44.entities.Order.list("-created_date", 200);
       const mine = all.filter((o) => normPhone(o.phone) === num);
+      if (notifiedAccepted.current === null) {
+        notifiedAccepted.current = new Set(
+          mine.filter((o) => o.driver_id).map((o) => o.id)
+        );
+      }
       setOrders(mine);
     } catch (err) {
       console.error(err);
@@ -310,16 +319,20 @@ export default function OrderTracking() {
     if (!activePhone) return;
     const unsub = base44.entities.Order.subscribe((payload) => {
       fetchMine(activePhone);
-      const wasFree = !payload?.old?.driver_id;
+      const orderId = payload?.new?.id;
+      const alreadyNotified =
+        !!orderId && !!notifiedAccepted.current?.has(orderId);
       const nowAssigned = !!payload?.new?.driver_id;
       const belongsToMe =
         payload?.new?.phone && normPhone(payload.new.phone) === activePhone;
       if (
         payload?.eventType === "UPDATE" &&
-        wasFree &&
+        !alreadyNotified &&
         nowAssigned &&
         belongsToMe
       ) {
+        if (!notifiedAccepted.current) notifiedAccepted.current = new Set();
+        notifiedAccepted.current.add(orderId);
         notify(
           t("Заказ принят!"),
           t("Миксерист {name} принял ваш заказ", {

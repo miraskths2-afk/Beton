@@ -57,7 +57,7 @@ export default function DriverLocationBroadcaster() {
     setOnline(false);
   };
 
-  // Если админ снял водителя с линии на своей карте — браузер должен
+  // Если админ или завод снял водителя с линии на своей карте — браузер должен
   // сразу перестать слать координаты, иначе следующее обновление GPS
   // тут же вернёт его обратно на линию без его ведома. Здесь setOffline
   // уже не нужен — запись в базе и так обновил админ, тут только
@@ -73,6 +73,15 @@ export default function DriverLocationBroadcaster() {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
         setOnline(false);
+      }
+      // Завод поставил миксериста на линию — начинаем снова
+      // отправлять координаты с этого телефона.
+      if (
+        payload?.new?.driver_id === user.id &&
+        payload.new.is_online === true &&
+        watchIdRef.current === null
+      ) {
+        goOnline();
       }
     });
     return unsub;

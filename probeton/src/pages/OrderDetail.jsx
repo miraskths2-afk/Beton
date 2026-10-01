@@ -2,7 +2,7 @@ import React, { useEffect, useState, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44, supabase } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { ORDER_STATUSES, STATUS_FLOW } from "@/lib/orderStatuses";
+import { ORDER_STATUSES, STATUS_FLOW, normPhone, canClientCancel } from "@/lib/orderStatuses";
 import { getEffectiveRole } from "@/lib/effectiveRole";
 import {
   ArrowLeft,
@@ -119,13 +119,21 @@ export default function OrderDetail() {
   // Сам водитель завершает заказ через оплату (см. кнопку ниже),
   // а не напрямую — иначе можно было бы обойти проверку оплаты.
   const canManage = user?.role === "admin";
-  // Завод не видит миксеристов на карте и не отменяет заказ клиента
+  // Завод видит миксериста на карте только на своей заявке; на чужой
+  // (личной заявке миксериста) — нет. Заказ клиента завод не отменяет
   // (вместо этого он возвращает заявку в общую ленту на своей Главной).
   const isPlant = getEffectiveRole(user, viewMode) === "plant";
   // Номера телефонов видят только диспетчер и завод. Заказчик и
   // миксерист общаются через чат, не видя номеров друг друга.
   const canSeePhones = user?.role === "admin" || user?.account_type === "plant";
   const chatRole = getChatRole(user, "order", o);
+  const hideDriverMap = isPlant && o.plant_id !== user?.id;
+  // Отменить заказ может админ или сам заказчик (по номеру телефона), и
+  // заказчик — только пока бетон не начали готовить. Водитель отменить
+  // чужой заказ не может — иначе он обходил бы оплату сервисного сбора.
+  const isOrderClient =
+    !isPlant && !!user?.phone && normPhone(user.phone) === normPhone(o.phone);
+  const canCancel = canManage || (isOrderClient && canClientCancel(o));
 
   const cancelOrder = async () => {
     if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
@@ -155,6 +163,12 @@ export default function OrderDetail() {
   };
 
   const removeOrder = async () => {
+    // Заказ из повторяющегося расписания база создаст заново — отменяем.
+    if (o.recurring_id) {
+      if (!confirm(t("Это заказ из повторяющегося расписания. Удалённый, он создастся заново, поэтому мы его отменим. Отменить?"))) return;
+      await setStatus("cancelled");
+      return;
+    }
     if (!confirm(t("Удалить эту заявку безвозвратно?"))) return;
     setBusy(true);
     try {
@@ -227,9 +241,9 @@ export default function OrderDetail() {
             </div>
           )}
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
-            {isPlant ? t("Миксерист") : t("Миксерист и маршрут до объекта")}
+            {hideDriverMap ? t("Миксерист") : t("Миксерист и маршрут до объекта")}
           </div>
-          {!isPlant && (
+          {!hideDriverMap && (
           <Suspense
             fallback={
               <div className="h-[45vh] rounded-2xl bg-neutral-100 animate-pulse" />
@@ -294,7 +308,7 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {(!hasDriverMap || isPlant) && hasDeliveryPoint && (
+      {(!hasDriverMap || hideDriverMap) && hasDeliveryPoint && (
         <div className="space-y-2">
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
             {t("Место доставки")}
@@ -479,7 +493,7 @@ export default function OrderDetail() {
       )}
 
 
-      {isOrderActive && !isPlant && (
+      {isOrderActive && canCancel && (
         <button
           onClick={cancelOrder}
           disabled={cancelling}

@@ -6,6 +6,7 @@ import DriverApproval from "@/components/DriverApproval";
 import CommissionApproval from "@/components/CommissionApproval";
 import TopupApproval from "@/components/TopupApproval";
 import DriverPaymentApproval from "@/components/DriverPaymentApproval";
+import FleetRequestApproval from "@/components/FleetRequestApproval";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import QuickOrderForm from "@/components/QuickOrderForm";
 import { runRecurringNow } from "@/components/RecurringOrdersManager";
@@ -39,7 +40,10 @@ export default function AdminHome() {
   }, []);
 
   const total = orders.length;
-  const active = orders.filter((o) => (o.status || "new") !== "done").length;
+  // Отменённые заказы — не «в работе».
+  const active = orders.filter(
+    (o) => (o.status || "new") !== "done" && o.status !== "cancelled"
+  ).length;
   const done = orders.filter((o) => o.status === "done").length;
 
   const today = new Date().toDateString();
@@ -131,6 +135,7 @@ export default function AdminHome() {
         </div>
         <div className="p-2 space-y-3">
           <DriverApproval />
+          <FleetRequestApproval />
           <DriverPaymentApproval />
           <CommissionApproval />
           <TopupApproval />
