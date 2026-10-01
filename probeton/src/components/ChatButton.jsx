@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { chatPath, displayText, useChatUnread } from "@/lib/chat";
+import { chatPath, previewText, useChatUnread } from "@/lib/chat";
 import { t } from "@/lib/i18n";
 
 // Кнопка «Написать …» вместо номера телефона. Показывает число
@@ -31,7 +31,7 @@ export default function ChatButton({ kind, id, role, label, compact = false, cla
         <span className="block font-bold truncate">{label || t("Открыть чат")}</span>
         {!compact && last && (
           <span className="block text-[11px] text-green-100 truncate">
-            {displayText(last.message, role)}
+            {previewText(last, role)}
           </span>
         )}
       </span>

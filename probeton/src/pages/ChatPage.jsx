@@ -14,9 +14,17 @@ import {
   Loader2,
   MessageCircle,
   ShieldCheck,
+  Mic,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
+import {
+  useVoiceRecorder,
+  VoiceBubble,
+  canRecordVoice,
+  fmtDuration,
+  MAX_VOICE_SECONDS,
+} from "@/components/ChatVoice";
 import {
   CHAT_TABLE,
   ROLE_LABEL,
@@ -25,6 +33,8 @@ import {
   displayText,
   sendChatMessage,
   markChatRead,
+  uploadVoice,
+  VOICE_LABEL,
 } from "@/lib/chat";
 import { t, locale } from "@/lib/i18n";
 
@@ -78,6 +88,8 @@ export default function ChatPage() {
   const lastTypingSentRef = useRef(0);
   const typingTimerRef = useRef(null);
   const firstScrollRef = useRef(true);
+  const recorder = useVoiceRecorder();
+  const [voiceSupported] = useState(() => canRecordVoice());
 
   const role = getChatRole(user, kind, item);
   const isAdmin = role === "admin";
@@ -248,6 +260,11 @@ export default function ChatPage() {
     ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
   }, [text]);
 
+  // Голосовое ограничено по длине — по достижении лимита отправляем.
+  useEffect(() => {
+    if (recorder.recording && recorder.seconds >= MAX_VOICE_SECONDS) finishVoice();
+  }, [recorder.recording, recorder.seconds]);
+
   const myName =
     role === "admin"
       ? "Диспетчер"
@@ -259,6 +276,13 @@ export default function ChatPage() {
         prev.map((p) => (p.id === temp.id ? { ...p, failed: false } : p))
       );
       try {
+        let audioUrl = temp.uploadedUrl || null;
+        if (temp.blob && !audioUrl) {
+          audioUrl = await uploadVoice(temp.blob, kind, id);
+          // Если сохранение сообщения не удастся — при повторе файл
+          // заново не загружаем.
+          temp.uploadedUrl = audioUrl;
+        }
         const saved = await sendChatMessage({
           kind,
           id,
@@ -266,6 +290,8 @@ export default function ChatPage() {
           role,
           name: myName,
           message: temp.message,
+          audioUrl,
+          audioDuration: temp.audio_duration,
         });
         setPending((prev) => prev.filter((p) => p.id !== temp.id));
         setMessages((prev) =>
@@ -274,7 +300,9 @@ export default function ChatPage() {
       } catch (e) {
         console.error(e);
         setPending((prev) =>
-          prev.map((p) => (p.id === temp.id ? { ...p, failed: true } : p))
+          prev.map((p) =>
+            p.id === temp.id ? { ...p, failed: true, uploadedUrl: temp.uploadedUrl } : p
+          )
         );
       }
     },
@@ -287,6 +315,35 @@ export default function ChatPage() {
     const temp = {
       id: `tmp-${Date.now()}-${Math.random()}`,
       message,
+      sender_role: role,
+      sender_name: myName,
+      created_at: new Date().toISOString(),
+      pending: true,
+    };
+    setPending((prev) => [...prev, temp]);
+    deliver(temp);
+  };
+
+  const startVoice = async () => {
+    try {
+      await recorder.start();
+    } catch (e) {
+      console.error(e);
+      alert(
+        t("Нет доступа к микрофону. Разрешите микрофон для этого сайта в настройках браузера.")
+      );
+    }
+  };
+
+  const finishVoice = async () => {
+    const res = await recorder.stop();
+    if (!res || res.duration < 0.7) return; // случайное нажатие
+    const temp = {
+      id: `tmp-${Date.now()}-${Math.random()}`,
+      message: VOICE_LABEL,
+      audio_url: URL.createObjectURL(res.blob),
+      audio_duration: Math.round(res.duration * 10) / 10,
+      blob: res.blob,
       sender_role: role,
       sender_name: myName,
       created_at: new Date().toISOString(),
@@ -375,7 +432,7 @@ export default function ChatPage() {
       ? item.status === "gone"
       : item.status === "done" || item.status === "cancelled";
 
-  const quick = !isAdmin && !text ? QUICK_REPLIES[role] || [] : [];
+  const quick = !isAdmin && !text && !recorder.recording ? QUICK_REPLIES[role] || [] : [];
 
   let lastDay = null;
 
@@ -471,9 +528,13 @@ export default function ChatPage() {
                         : `${m.sender_name || t(ROLE_LABEL[m.sender_role] || "")} · ${t(ROLE_LABEL[m.sender_role] || "")}`}
                     </div>
                   )}
-                  <span className="whitespace-pre-wrap break-words">
-                    {displayText(m.message, role)}
-                  </span>
+                  {m.audio_url ? (
+                    <VoiceBubble src={m.audio_url} duration={m.audio_duration} mine={mine} />
+                  ) : (
+                    <span className="whitespace-pre-wrap break-words">
+                      {displayText(m.message, role)}
+                    </span>
+                  )}
                   <span className="inline-flex items-center gap-0.5 float-right ml-2 mt-1.5 text-[10px] chat-meta translate-y-0.5">
                     {fmtTime(m.created_at)}
                     {mine &&
@@ -529,29 +590,63 @@ export default function ChatPage() {
         className="flex items-end gap-2 px-2 pt-2 bg-neutral-50 shrink-0 border-t border-neutral-200"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="flex-1 flex items-end gap-1 bg-white rounded-3xl border border-neutral-200 pl-4 pr-1 py-1">
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={text}
-            onChange={(e) => onChangeText(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder={t("Сообщение")}
-            className="flex-1 resize-none bg-transparent py-2 text-[15px] leading-5 focus:outline-none max-h-[120px]"
-          />
-          <VoiceInputButton
-            className="w-9 h-9 rounded-full shrink-0"
-            onText={(txt) => setText((prev) => appendSpoken(prev, txt))}
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={!text.trim()}
-          className="w-11 h-11 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center shrink-0 disabled:opacity-50"
-          aria-label={t("Отправить")}
-        >
-          <Send className="w-5 h-5 -ml-0.5" />
-        </button>
+        {recorder.recording ? (
+          <div className="flex-1 flex items-center gap-2 bg-white rounded-3xl border border-neutral-200 pl-1 pr-4 h-11">
+            <button
+              type="button"
+              onClick={recorder.cancel}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-neutral-500 hover:bg-neutral-100"
+              aria-label={t("Удалить запись")}
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-sm font-semibold tabular-nums">
+              {fmtDuration(recorder.seconds)}
+            </span>
+            <span className="text-xs text-neutral-400 truncate">{t("Идёт запись…")}</span>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-end gap-1 bg-white rounded-3xl border border-neutral-200 pl-4 pr-3 py-1">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={text}
+              onChange={(e) => onChangeText(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder={t("Сообщение")}
+              className="flex-1 resize-none bg-transparent py-2 text-[15px] leading-5 focus:outline-none max-h-[120px]"
+            />
+          </div>
+        )}
+        {recorder.recording ? (
+          <button
+            type="button"
+            onClick={finishVoice}
+            className="w-11 h-11 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center shrink-0"
+            aria-label={t("Отправить голосовое")}
+          >
+            <Send className="w-5 h-5 -ml-0.5" />
+          </button>
+        ) : !text.trim() && voiceSupported ? (
+          <button
+            type="button"
+            onClick={startVoice}
+            className="w-11 h-11 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center shrink-0"
+            aria-label={t("Записать голосовое")}
+          >
+            <Mic className="w-5 h-5" />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!text.trim()}
+            className="w-11 h-11 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center shrink-0 disabled:opacity-50"
+            aria-label={t("Отправить")}
+          >
+            <Send className="w-5 h-5 -ml-0.5" />
+          </button>
+        )}
       </form>
     </div>
   );

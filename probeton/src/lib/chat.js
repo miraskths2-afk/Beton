@@ -67,7 +67,29 @@ export function displayText(message, viewerRole) {
   return viewerRole === "admin" ? message : maskPhones(message);
 }
 
-export async function sendChatMessage({ kind, id, user, role, name, message }) {
+// Короткий текст для списков и уведомлений.
+export function previewText(m, viewerRole) {
+  if (!m) return "";
+  if (m.audio_url) return t("🎤 Голосовое сообщение");
+  return displayText(m.message, viewerRole);
+}
+
+export const VOICE_LABEL = "🎤 Голосовое сообщение";
+export const VOICE_BUCKET = "chat-voice";
+
+// Загружает запись голоса в Storage и возвращает публичную ссылку.
+export async function uploadVoice(blob, kind, id) {
+  const type = blob.type || "audio/webm";
+  const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+  const path = `${kind}/${id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage
+    .from(VOICE_BUCKET)
+    .upload(path, blob, { contentType: type.split(";")[0], upsert: false });
+  if (error) throw error;
+  return supabase.storage.from(VOICE_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+export async function sendChatMessage({ kind, id, user, role, name, message, audioUrl, audioDuration }) {
   const { data, error } = await supabase
     .from(CHAT_TABLE)
     .insert({
@@ -76,6 +98,7 @@ export async function sendChatMessage({ kind, id, user, role, name, message }) {
       sender_role: role,
       sender_name: name,
       message,
+      ...(audioUrl ? { audio_url: audioUrl, audio_duration: audioDuration ?? null } : {}),
     })
     .select()
     .single();
@@ -155,7 +178,7 @@ export async function loadMyChats(user) {
     preMessages = await safe(
       supabase
         .from(CHAT_TABLE)
-        .select("id, order_id, leftover_id, sender_role, sender_name, message, created_at, read_at")
+        .select("id, order_id, leftover_id, sender_role, sender_name, message, audio_url, created_at, read_at")
         .order("created_at", { ascending: false })
         .limit(2000)
     );
@@ -223,7 +246,7 @@ export async function loadMyChats(user) {
   if (!messages) {
     const oIds = orders.map((o) => o.id);
     const lIds = leftovers.map((l) => l.id);
-    const fields = "id, order_id, leftover_id, sender_role, sender_name, message, created_at, read_at";
+    const fields = "id, order_id, leftover_id, sender_role, sender_name, message, audio_url, created_at, read_at";
     const [mo, ml] = await Promise.all([
       oIds.length
         ? safe(
@@ -317,7 +340,7 @@ export function useChatUnread(kind, id, role) {
     const load = async () => {
       const { data, error } = await supabase
         .from(CHAT_TABLE)
-        .select("id, sender_role, message, created_at, read_at")
+        .select("id, sender_role, message, audio_url, created_at, read_at")
         .eq(col, id)
         .order("created_at", { ascending: false })
         .limit(50);

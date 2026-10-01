@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { MessageCircle, Flame, Truck, Search, Check, CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ListSkeleton } from "@/components/Skeleton";
-import { loadMyChats, subscribeChatChanges, chatPath, displayText } from "@/lib/chat";
+import { loadMyChats, subscribeChatChanges, chatPath, previewText } from "@/lib/chat";
 import { t, locale } from "@/lib/i18n";
 
 function fmtWhen(ts) {
@@ -167,7 +167,7 @@ export default function ChatsPage() {
                       {c.last ? (
                         <span className="truncate">
                           {isAdmin && c.last.sender_name ? `${c.last.sender_name}: ` : ""}
-                          {displayText(c.last.message, c.role)}
+                          {previewText(c.last, c.role)}
                         </span>
                       ) : (
                         <span className="italic text-neutral-400">{t("Напишите первым")}</span>

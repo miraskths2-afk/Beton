@@ -24,7 +24,7 @@ import { getEffectiveRole } from "@/lib/effectiveRole";
 import { cn } from "@/lib/utils";
 import DriverLocationBroadcaster from "@/components/DriverLocationBroadcaster";
 import MixerIcon from "@/components/MixerIcon";
-import { useTotalUnread, displayText, chatPath } from "@/lib/chat";
+import { useTotalUnread, previewText, chatPath } from "@/lib/chat";
 import { notify } from "@/lib/notifications";
 
 const ALL_ITEMS = [
@@ -57,7 +57,7 @@ export default function Layout() {
     if (pathRef.current === chatPath(chat.kind, chat.id)) return;
     notify(
       `${t("Новое сообщение")}: ${chat.title}`,
-      displayText(chat.message.message, chat.role)
+      previewText(chat.message, chat.role)
     );
   });
   const [isDark, setIsDark] = useState(() =>

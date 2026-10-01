@@ -8,6 +8,7 @@
 --   leftover_id — чат по остатку из Кубовика
 --   sender_id   — кто именно написал (id из app_users)
 --   read_at     — когда собеседник прочитал (для галочек ✓✓)
+--   audio_url   — голосовое сообщение (файл в Storage, бакет chat-voice)
 
 create table if not exists order_messages (
   id uuid primary key default gen_random_uuid(),
@@ -48,5 +49,21 @@ do $$ begin
   alter publication supabase_realtime add table order_messages;
 exception when duplicate_object then null; end $$;
 
+-- Голосовые сообщения: ссылка на аудиофайл и длительность в секундах.
+alter table order_messages add column if not exists audio_url text;
+alter table order_messages add column if not exists audio_duration numeric;
+
+-- Хранилище для голосовых (публичное, как и фото водителей).
+insert into storage.buckets (id, name, public)
+values ('chat-voice', 'chat-voice', true)
+on conflict (id) do nothing;
+
+drop policy if exists "chat_voice_select" on storage.objects;
+drop policy if exists "chat_voice_insert" on storage.objects;
+create policy "chat_voice_select" on storage.objects for select using (bucket_id = 'chat-voice');
+create policy "chat_voice_insert" on storage.objects for insert with check (bucket_id = 'chat-voice');
+
 -- ===== Проверьте после запуска: =====
--- Table Editor → order_messages: есть колонки leftover_id, sender_id, read_at
+-- Table Editor → order_messages: есть колонки leftover_id, sender_id, read_at,
+--   audio_url, audio_duration
+-- Storage → Buckets: есть бакет "chat-voice"
