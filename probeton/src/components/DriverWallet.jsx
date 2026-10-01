@@ -4,6 +4,7 @@ import { Wallet, Loader2, Clock, CheckCircle2, XCircle, ArrowDownLeft, ArrowUpRi
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { requestTopup, formatTenge } from "@/lib/balance";
+import { t, locale } from "@/lib/i18n";
 
 const QUICK_AMOUNTS = [5000, 10000, 20000];
 
@@ -14,7 +15,7 @@ const TOPUP_STATUS = {
 };
 
 const fmtDate = (d) =>
-  new Date(d).toLocaleString("ru-RU", {
+  new Date(d).toLocaleString(locale(), {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -34,7 +35,7 @@ export default function DriverWallet({ wallet }) {
     e.preventDefault();
     const value = Number(amount);
     if (!value || value < 500) {
-      setError("Минимальная сумма пополнения — 500 ₸");
+      setError(t("Минимальная сумма пополнения — 500 ₸"));
       return;
     }
     setSending(true);
@@ -43,10 +44,10 @@ export default function DriverWallet({ wallet }) {
     try {
       await requestTopup(value);
       setAmount("");
-      setMessage("Заявка отправлена. Деньги появятся на балансе, как только диспетчер увидит перевод.");
+      setMessage(t("Заявка отправлена. Деньги появятся на балансе, как только диспетчер увидит перевод."));
       reload();
     } catch (err) {
-      setError(err?.message || "Не удалось отправить заявку");
+      setError(err?.message || t("Не удалось отправить заявку"));
     } finally {
       setSending(false);
     }
@@ -59,19 +60,19 @@ export default function DriverWallet({ wallet }) {
       <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 text-white p-5 shadow-md">
         <div className="flex items-center gap-2 text-orange-100 text-sm">
           <Wallet className="w-4 h-4" />
-          Баланс
+          {t("Баланс")}
         </div>
         <div className="text-4xl font-black mt-2 tabular-nums">
           {balance == null ? "…" : formatTenge(balance)}
         </div>
         {fee > 0 && (
           <div className="text-xs text-orange-100 mt-2">
-            Публикация остатка в{" "}
+            {t("Публикация остатка в")}{" "}
             <Link to="/kubovik" className="underline font-semibold">
-              Кубовике
+              {t("Кубовике")}
             </Link>{" "}
             — {formatTenge(fee)}
-            {balance != null && ` · хватит на ${Math.floor(balance / fee)}`}
+            {balance != null && ` · ${t("хватит на {n}", { n: Math.floor(balance / fee) })}`}
           </div>
         )}
       </div>
@@ -80,13 +81,13 @@ export default function DriverWallet({ wallet }) {
         onSubmit={submit}
         className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-3"
       >
-        <div className="font-bold text-neutral-900">Пополнить баланс</div>
+        <div className="font-bold text-neutral-900">{t("Пополнить баланс")}</div>
         <ol className="text-xs text-neutral-600 space-y-1 list-decimal pl-4">
           <li>
-            Переведите сумму: <b>{settings?.kaspi_details || "реквизиты уточните у диспетчера"}</b>
+            {t("Переведите сумму:")} <b>{settings?.kaspi_details || t("реквизиты уточните у диспетчера")}</b>
           </li>
-          <li>Укажите ту же сумму ниже и нажмите «Я перевёл».</li>
-          <li>Диспетчер проверит перевод и зачислит деньги.</li>
+          <li>{t("Укажите ту же сумму ниже и нажмите «Я перевёл».")}</li>
+          <li>{t("Диспетчер проверит перевод и зачислит деньги.")}</li>
         </ol>
         <div className="flex gap-2">
           {QUICK_AMOUNTS.map((v) => (
@@ -106,7 +107,7 @@ export default function DriverWallet({ wallet }) {
           step="100"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="Сумма, ₸"
+          placeholder={t("Сумма, ₸")}
           className="h-11 rounded-xl"
         />
         {error && <div className="text-xs font-semibold text-red-600">{error}</div>}
@@ -116,30 +117,30 @@ export default function DriverWallet({ wallet }) {
           disabled={sending}
           className="w-full h-11 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-bold"
         >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Я перевёл"}
+          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Я перевёл")}
         </Button>
       </form>
 
       {topups.length > 0 && (
         <div className="space-y-2">
           <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1">
-            Заявки на пополнение
+            {t("Заявки на пополнение")}
           </div>
-          {topups.map((t) => {
-            const st = TOPUP_STATUS[t.status] || TOPUP_STATUS.pending;
+          {topups.map((tp) => {
+            const st = TOPUP_STATUS[tp.status] || TOPUP_STATUS.pending;
             const Icon = st.icon;
             return (
               <div
-                key={t.id}
+                key={tp.id}
                 className="bg-white rounded-xl border border-neutral-200 p-3 flex items-center justify-between"
               >
                 <div className={`flex items-center gap-2 text-sm font-semibold ${st.cls}`}>
                   <Icon className="w-4 h-4" />
-                  {st.label}
+                  {t(st.label)}
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-black tabular-nums">{formatTenge(t.amount)}</div>
-                  <div className="text-[11px] text-neutral-400">{fmtDate(t.created_at)}</div>
+                  <div className="text-sm font-black tabular-nums">{formatTenge(tp.amount)}</div>
+                  <div className="text-[11px] text-neutral-400">{fmtDate(tp.created_at)}</div>
                 </div>
               </div>
             );
@@ -150,7 +151,7 @@ export default function DriverWallet({ wallet }) {
       {transactions.length > 0 && (
         <div className="space-y-2">
           <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1">
-            Движение по балансу
+            {t("Движение по балансу")}
           </div>
           {transactions.map((tx) => {
             const plus = Number(tx.amount) > 0;

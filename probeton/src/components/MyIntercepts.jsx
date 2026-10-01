@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
 import { Flame, MapPin, Phone, CheckCircle2, Loader2, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t, locale } from "@/lib/i18n";
 
 export default function MyIntercepts({ phone }) {
   const [items, setItems] = useState([]);
@@ -45,13 +46,13 @@ export default function MyIntercepts({ phone }) {
     return (
       <div className="text-center py-8 text-neutral-400">
         <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
-        <p className="text-sm">Вы пока ничего не перехватывали в Кубовике</p>
+        <p className="text-sm">{t("Вы пока ничего не перехватывали в Кубовике")}</p>
       </div>
     );
   }
 
   const fmtDate = (d) =>
-    new Date(d).toLocaleString("ru-RU", {
+    new Date(d).toLocaleString(locale(), {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
@@ -70,7 +71,7 @@ export default function MyIntercepts({ phone }) {
             <div className="flex items-center justify-between">
               <span className="font-bold text-sm text-neutral-900 flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5 text-orange-500" />
-                {l.grade} · {l.cubes} куб
+                {l.grade} · {t("{n} куб", { n: l.cubes })}
               </span>
               <span
                 className={cn(
@@ -80,7 +81,7 @@ export default function MyIntercepts({ phone }) {
                     : "bg-green-100 text-green-700"
                 )}
               >
-                {isGone ? "Завершено" : "В процессе"}
+                {isGone ? t("Завершено") : t("В процессе")}
               </span>
             </div>
             <div className="text-xs text-neutral-500 flex items-center gap-1">
@@ -88,7 +89,7 @@ export default function MyIntercepts({ phone }) {
               {l.direction}
             </div>
             <div className="text-sm font-black text-orange-600">
-              {l.price?.toLocaleString("ru-RU")} ₸
+              {l.price?.toLocaleString(locale())} ₸
             </div>
             {!isGone && l.phone && (
               <a
@@ -96,13 +97,13 @@ export default function MyIntercepts({ phone }) {
                 className="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-lg px-2.5 py-1.5"
               >
                 <Phone className="w-3.5 h-3.5" />
-                Водитель: {l.driver_name || ""} · {l.phone}
+                {t("Водитель: {name}", { name: l.driver_name || "" })} · {l.phone}
               </a>
             )}
             {isGone && (
               <div className="flex items-center gap-1.5 text-xs text-neutral-400">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Забрано {fmtDate(l.created_date)}
+                {t("Забрано {date}", { date: fmtDate(l.created_date) })}
               </div>
             )}
           </div>

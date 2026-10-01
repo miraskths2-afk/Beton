@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
+import { t, locale } from "@/lib/i18n";
 const LiveDriverMap = lazy(() => import("@/components/LiveDriverMap"));
 
 function Stars({ value, onChange }) {
@@ -56,7 +57,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
   const material = o.total != null ? Math.max(o.total - commission, 0) : null;
 
   const fmtDate = (d) =>
-    new Date(d).toLocaleString("ru-RU", {
+    new Date(d).toLocaleString(locale(), {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
@@ -78,10 +79,10 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
     >
       <div className="flex items-center justify-between">
         <span className="font-bold text-neutral-900">
-          {o.order_number || "Заказ"}
+          {o.order_number || t("Заказ")}
         </span>
         <span className={cn("px-2 py-1 rounded-lg text-xs font-bold", st.cls)}>
-          {st.label}
+          {t(st.label)}
         </span>
       </div>
 
@@ -91,7 +92,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
           className="w-full flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-lg bg-neutral-900 text-white"
         >
           <MapPin className="w-4 h-4" />
-          {o.driver_id ? "Смотреть на карте" : "Подробнее о заказе"}
+          {o.driver_id ? t("Смотреть на карте") : t("Подробнее о заказе")}
         </button>
       )}
 
@@ -101,11 +102,11 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
             <div>
               {o.grade}
               {o.grade && o.cubes ? " · " : ""}
-              {o.cubes ? `${o.cubes} куб` : ""}
+              {o.cubes ? t("{n} куб", { n: o.cubes }) : ""}
             </div>
           )}
-          {o.delivery_address && <div>Адрес: {o.delivery_address}</div>}
-          {o.comment && <div className="italic">Комментарий: {o.comment}</div>}
+          {o.delivery_address && <div>{t("Адрес: {address}", { address: o.delivery_address })}</div>}
+          {o.comment && <div className="italic">{t("Комментарий: {text}", { text: o.comment })}</div>}
         </div>
       )}
 
@@ -116,11 +117,11 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
             className="flex items-center justify-center gap-2 text-sm font-bold text-white bg-green-600 rounded-lg px-3 py-2.5"
           >
             <Phone className="w-4 h-4" />
-            Миксерист: {driverPhone}
+            {t("Миксерист: {phone}", { phone: driverPhone })}
           </a>
         ) : (
           <div className="text-xs text-neutral-400 text-center px-3 py-2 bg-neutral-100 rounded-lg">
-            Загрузка номера миксериста...
+            {t("Загрузка номера миксериста...")}
           </div>
         )
       )}
@@ -130,7 +131,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
           <div className="flex items-center gap-2 bg-green-600 text-white rounded-lg px-3 py-2.5">
             <Truck className="w-5 h-5" />
             <span className="font-bold text-sm">
-              Миксер выехал — ожидайте подачи!
+              {t("Миксер выехал — ожидайте подачи!")}
             </span>
           </div>
           {o.driver_id && (
@@ -148,12 +149,13 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
       {o.needed_by && (
         <div className="flex items-center gap-2 text-xs font-semibold text-neutral-600 bg-neutral-100 rounded-lg px-3 py-2">
           <Clock className="w-3.5 h-3.5" />
-          Нужен к:{" "}
-          {new Date(o.needed_by).toLocaleString("ru-RU", {
-            day: "2-digit",
-            month: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
+          {t("Нужен к: {date}", {
+            date: new Date(o.needed_by).toLocaleString(locale(), {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
           })}
         </div>
       )}
@@ -161,7 +163,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
       {isCancelled ? (
         <div className="flex items-center gap-2 bg-red-100 text-red-700 rounded-lg px-3 py-2.5">
           <XCircle className="w-5 h-5" />
-          <span className="font-bold text-sm">Заказ отменён</span>
+          <span className="font-bold text-sm">{t("Заказ отменён")}</span>
         </div>
       ) : (
         <div className="flex flex-wrap gap-1.5">
@@ -175,7 +177,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
                   : "bg-neutral-200 text-neutral-400"
               )}
             >
-              {ORDER_STATUSES[s].label}
+              {t(ORDER_STATUSES[s].label)}
             </span>
           ))}
         </div>
@@ -185,47 +187,47 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
         <div className="space-y-3 pt-1">
           <div className="rounded-xl border border-neutral-200 p-3 space-y-1">
             <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
-              Блок А · Оплата за материал водителю
+              {t("Блок А · Оплата за материал водителю")}
             </div>
             <div className="text-lg font-black text-neutral-900">
-              {material != null ? `${material.toLocaleString("ru-RU")} ₸` : "по договорённости"}
+              {material != null ? `${material.toLocaleString(locale())} ₸` : t("по договорённости")}
             </div>
             <div className="text-xs text-neutral-500">
-              Переведите сумму напрямую водителю на Kaspi Gold или по его реквизитам.
+              {t("Переведите сумму напрямую водителю на Kaspi Gold или по его реквизитам.")}
             </div>
             {o.driver_name && (
-              <div className="text-xs text-neutral-600">Водитель: {o.driver_name}</div>
+              <div className="text-xs text-neutral-600">{t("Водитель: {name}", { name: o.driver_name })}</div>
             )}
           </div>
 
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
             <div className="text-xs font-bold text-amber-700 uppercase tracking-wide">
-              Блок Б · Сервисный сбор PROBETON
+              {t("Блок Б · Сервисный сбор PROBETON")}
             </div>
             <div className="text-lg font-black text-neutral-900">
-              {commission.toLocaleString("ru-RU")} ₸
+              {commission.toLocaleString(locale())} ₸
             </div>
-            <div className="text-[11px] text-neutral-500">{o.cubes || 0} куб × 1 000 ₸</div>
+            <div className="text-[11px] text-neutral-500">{t("{n} куб × 1 000 ₸", { n: o.cubes || 0 })}</div>
 
             <div className="flex flex-col items-center justify-center bg-white border border-dashed border-amber-300 rounded-lg p-4">
               <QrCode className="w-16 h-16 text-neutral-800" />
               <div className="text-[10px] text-neutral-500 mt-1">
-                Kaspi QR — реквизиты PROBETON
+                {t("Kaspi QR — реквизиты PROBETON")}
               </div>
             </div>
             <div className="text-[10px] text-neutral-400 leading-snug">
-              Оплачивая счёт, вы подтверждаете выполнение информационных услуг платформой в полном объёме.
+              {t("Оплачивая счёт, вы подтверждаете выполнение информационных услуг платформой в полном объёме.")}
             </div>
 
             {o.commission_paid ? (
               <div className="flex items-center justify-center gap-2 text-sm font-bold text-green-600 bg-green-100 rounded-lg py-2">
                 <CheckCircle2 className="w-4 h-4" />
-                Оплата подтверждена
+                {t("Оплата подтверждена")}
               </div>
             ) : o.client_paid ? (
               <div className="flex items-center justify-center gap-2 text-sm font-bold text-amber-600 bg-amber-100 rounded-lg py-2">
                 <Hourglass className="w-4 h-4 animate-pulse" />
-                Ожидает подтверждения диспетчером
+                {t("Ожидает подтверждения диспетчером")}
               </div>
             ) : (
               <Button
@@ -233,20 +235,20 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
                 disabled={busy === o.id}
                 className="w-full bg-amber-400 hover:bg-amber-300 text-neutral-900 font-bold h-11"
               >
-                {busy === o.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Я оплатил"}
+                {busy === o.id ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Я оплатил")}
               </Button>
             )}
           </div>
 
           <div className="rounded-xl border border-neutral-200 p-3 space-y-2">
             <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
-              Оцените водителя
+              {t("Оцените водителя")}
             </div>
             {o.client_rating ? (
               <div className="flex items-center gap-1">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                 <span className="text-xs text-neutral-500">
-                  Ваша оценка: {o.client_rating}★
+                  {t("Ваша оценка: {n}", { n: o.client_rating })}★
                 </span>
               </div>
             ) : (
@@ -269,12 +271,12 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
           className="w-full flex items-center justify-center gap-2 text-xs font-bold py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
         >
           <Ban className="w-3.5 h-3.5" />
-          Отменить заказ
+          {t("Отменить заказ")}
         </button>
       )}
 
       {!isDone && !isCancelled && (
-        <div className="text-xs text-neutral-500">Создан: {fmtDate(o.created_date)}</div>
+        <div className="text-xs text-neutral-500">{t("Создан: {date}", { date: fmtDate(o.created_date) })}</div>
       )}
     </div>
   );
@@ -327,8 +329,10 @@ export default function OrderTracking() {
         belongsToMe
       ) {
         notify(
-          "Заказ принят!",
-          `Миксерист ${payload.new.driver_name || ""} принял ваш заказ`.trim()
+          t("Заказ принят!"),
+          t("Миксерист {name} принял ваш заказ", {
+            name: payload.new.driver_name || "",
+          }).replace(/\s+/g, " ").trim()
         );
       }
     });
@@ -387,7 +391,7 @@ export default function OrderTracking() {
   };
 
   const cancelOrder = async (id) => {
-    if (!confirm("Отменить этот заказ? Действие нельзя будет вернуть.")) return;
+    if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
     setBusy(id);
     try {
       await base44.entities.Order.update(id, { status: "cancelled" });
@@ -412,9 +416,9 @@ export default function OrderTracking() {
           <Truck className="w-4 h-4 text-green-600" />
         </div>
         <div>
-          <h2 className="font-bold text-neutral-900">Мой заказ</h2>
+          <h2 className="font-bold text-neutral-900">{t("Мой заказ")}</h2>
           <p className="text-xs text-neutral-500">
-            Статус и оплата в реальном времени
+            {t("Статус и оплата в реальном времени")}
           </p>
         </div>
       </div>
@@ -426,14 +430,14 @@ export default function OrderTracking() {
       ) : orders.length === 0 ? (
         <div className="text-center py-8 text-neutral-400">
           <Package className="w-9 h-9 mx-auto mb-2 opacity-40" />
-          <p className="text-sm">У вас пока нет заказов</p>
+          <p className="text-sm">{t("У вас пока нет заказов")}</p>
         </div>
       ) : null}
 
       {activeOrders.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-500 px-1">
-            {activeOrders.length === 1 ? "Активный заказ" : "Активные заказы"}
+            {activeOrders.length === 1 ? t("Активный заказ") : t("Активные заказы")}
           </h3>
           <div className="space-y-3">
             {activeOrders.map((o) => (
@@ -456,7 +460,7 @@ export default function OrderTracking() {
       {historyOrders.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-500 px-1">
-            История заказов
+            {t("История заказов")}
           </h3>
           <div className="space-y-3">
             {historyOrders.map((o) => (

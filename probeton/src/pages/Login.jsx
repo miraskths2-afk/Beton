@@ -8,16 +8,17 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import AuthLayout from "@/components/AuthLayout";
 import MixerIcon from "@/components/MixerIcon";
+import { t } from "@/lib/i18n";
 
 const RESEND_SECONDS = 60;
 
 function authErrorText(err) {
   const msg = (err?.message || "").toLowerCase();
   if (msg.includes("expired") || msg.includes("invalid"))
-    return "Неверный или устаревший код. Проверьте SMS или запросите новый.";
+    return t("Неверный или устаревший код. Проверьте SMS или запросите новый.");
   if (msg.includes("rate") || msg.includes("seconds"))
-    return "Слишком частые попытки. Подождите минуту и попробуйте снова.";
-  return "Не удалось войти. Попробуйте ещё раз.";
+    return t("Слишком частые попытки. Подождите минуту и попробуйте снова.");
+  return t("Не удалось войти. Попробуйте ещё раз.");
 }
 
 export default function Login() {
@@ -40,7 +41,7 @@ export default function Login() {
     e?.preventDefault();
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 10) {
-      setError("Введите корректный номер телефона");
+      setError(t("Введите корректный номер телефона"));
       return;
     }
 
@@ -62,7 +63,7 @@ export default function Login() {
   const verify = async (e) => {
     e.preventDefault();
     if (code.trim().length < 4) {
-      setError("Введите код из SMS");
+      setError(t("Введите код из SMS"));
       return;
     }
     setLoading(true);
@@ -83,12 +84,12 @@ export default function Login() {
     return (
       <AuthLayout
         icon={MixerIcon}
-        title="Код из SMS"
-        subtitle={`Мы отправили код на ${phone}`}
+        title={t("Код из SMS")}
+        subtitle={t("Мы отправили код на {phone}", { phone })}
       >
         <form onSubmit={verify} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Код</label>
+            <label className="block text-sm font-medium mb-1">{t("Код")}</label>
             <div className="relative">
               <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -112,7 +113,7 @@ export default function Login() {
             disabled={loading}
             className="w-full py-2.5 rounded-lg bg-slate-900 text-white font-medium flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Войти"}
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Войти")}
           </button>
 
           <div className="flex items-center justify-between text-sm">
@@ -124,7 +125,7 @@ export default function Login() {
               }}
               className="text-slate-500 underline"
             >
-              Изменить номер
+              {t("Изменить номер")}
             </button>
             <button
               type="button"
@@ -132,7 +133,7 @@ export default function Login() {
               disabled={loading || resendIn > 0}
               className="text-slate-900 font-medium disabled:text-slate-400"
             >
-              {resendIn > 0 ? `Отправить снова через ${resendIn} с` : "Отправить код снова"}
+              {resendIn > 0 ? t("Отправить снова через {n} с", { n: resendIn }) : t("Отправить код снова")}
             </button>
           </div>
         </form>
@@ -143,13 +144,13 @@ export default function Login() {
   return (
     <AuthLayout
       icon={MixerIcon}
-      title="Вход"
-      subtitle="Введите номер телефона — мы пришлём код в SMS"
+      title={t("Вход")}
+      subtitle={t("Введите номер телефона — мы пришлём код в SMS")}
     >
       <form onSubmit={sendCode} className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">
-            Номер телефона
+            {t("Номер телефона")}
           </label>
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -175,7 +176,7 @@ export default function Login() {
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            "Получить код"
+            t("Получить код")
           )}
         </button>
       </form>

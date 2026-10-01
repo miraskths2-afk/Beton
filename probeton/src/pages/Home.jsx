@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
-import { Zap, RotateCcw } from "lucide-react";
+import { Zap, RotateCcw, Repeat } from "lucide-react";
+import RecurringOrdersManager from "@/components/RecurringOrdersManager";
+import { t } from "@/lib/i18n";
 
 const TABS = [
   { id: "quick", label: "Быстрый заказ" },
@@ -20,6 +22,7 @@ export default function Home() {
   const [showQuickForm, setShowQuickForm] = useState(false);
   const [prefill, setPrefill] = useState(null);
   const [lastOrder, setLastOrder] = useState(null);
+  const [showRecurring, setShowRecurring] = useState(false);
 
   useEffect(() => {
     if (!user?.phone) return;
@@ -43,23 +46,23 @@ export default function Home() {
     <div className="p-4 space-y-5">
       {user?.full_name && (
         <p className="px-1 text-sm font-semibold text-neutral-700">
-          Здравствуйте, {user.full_name} 👋
+          {t("Здравствуйте, {name}", { name: user.full_name })} 👋
         </p>
       )}
 
       <div className="flex bg-neutral-200 rounded-xl p-1">
-        {TABS.map((t) => (
+        {TABS.map((tb) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
+            key={tb.id}
+            onClick={() => setTab(tb.id)}
             className={cn(
               "flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all",
-              tab === t.id
+              tab === tb.id
                 ? "bg-white text-neutral-900 shadow-sm"
                 : "text-neutral-500"
             )}
           >
-            {t.label}
+            {t(tb.label)}
           </button>
         ))}
       </div>
@@ -73,9 +76,9 @@ export default function Home() {
               <Zap className="w-6 h-6 text-amber-600" />
             </div>
             <div>
-              <h2 className="font-bold text-neutral-900">Заказ в один клик</h2>
+              <h2 className="font-bold text-neutral-900">{t("Заказ в один клик")}</h2>
               <p className="text-xs text-neutral-500 mt-1">
-                Марка, кубы, адрес и телефон — мы перезвоним
+                {t("Марка, кубы, адрес и телефон — мы перезвоним")}
               </p>
             </div>
             <button
@@ -85,7 +88,7 @@ export default function Home() {
               }}
               className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-semibold h-12 rounded-xl"
             >
-              Заказать
+              {t("Заказать")}
             </button>
             {lastOrder && (
               <button
@@ -93,16 +96,27 @@ export default function Home() {
                 className="w-full border border-neutral-200 text-neutral-700 font-semibold h-11 rounded-xl inline-flex items-center justify-center gap-2 text-sm"
               >
                 <RotateCcw className="w-4 h-4" />
-                Заказать снова: {lastOrder.grade} · {lastOrder.cubes} куб
+                {t("Заказать снова: {grade} · {cubes} куб", { grade: lastOrder.grade, cubes: lastOrder.cubes })}
                 {lastOrder.delivery_address ? ` · ${lastOrder.delivery_address}` : ""}
               </button>
             )}
+            <button
+              onClick={() => setShowRecurring((v) => !v)}
+              className="w-full border border-neutral-200 text-neutral-700 font-semibold h-11 rounded-xl inline-flex items-center justify-center gap-2 text-sm"
+            >
+              <Repeat className="w-4 h-4" />
+              {t("Повторяющийся заказ")}
+            </button>
           </div>
         )
       ) : tab === "calc" ? (
         <ConcreteCalculator />
       ) : (
         <OrderTracking />
+      )}
+
+      {tab === "quick" && !showQuickForm && showRecurring && user?.phone && (
+        <RecurringOrdersManager phone={user.phone} clientName={user.full_name} />
       )}
     </div>
   );

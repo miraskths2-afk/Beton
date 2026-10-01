@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { BadgeCheck, Loader2, Truck } from "lucide-react";
+import { t, locale } from "@/lib/i18n";
 
 export default function DriverPaymentApproval() {
   const [orders, setOrders] = useState([]);
@@ -53,7 +54,7 @@ export default function DriverPaymentApproval() {
       <div className="flex items-center gap-2 px-1">
         <Truck className="w-4 h-4 text-green-600" />
         <h2 className="text-sm font-black text-neutral-900">
-          Оплата от водителей — ждёт подтверждения
+          {t("Оплата от водителей — ждёт подтверждения")}
           <span className="ml-2 px-1.5 py-0.5 rounded-md bg-green-100 text-green-700 text-[10px] font-bold">
             {orders.length}
           </span>
@@ -69,14 +70,14 @@ export default function DriverPaymentApproval() {
           >
             <div className="flex items-center justify-between">
               <div className="font-bold text-neutral-900">
-                {o.order_number || "Заказ"} · {o.driver_name || "Водитель"}
+                {o.order_number || t("Заказ")} · {o.driver_name || t("Водитель")}
               </div>
               <div className="text-sm font-black text-green-600">
-                {commission.toLocaleString("ru-RU")} ₸
+                {commission.toLocaleString(locale())} ₸
               </div>
             </div>
             <div className="text-xs text-neutral-500">
-              {o.cubes || 0} куб × 1 000 ₸ · клиент: {o.phone}
+              {t("{cubes} куб × 1 000 ₸ · клиент: {phone}", { cubes: o.cubes || 0, phone: o.phone })}
             </div>
             <button
               onClick={() => approve(o.id)}
@@ -88,7 +89,7 @@ export default function DriverPaymentApproval() {
               ) : (
                 <>
                   <BadgeCheck className="w-4 h-4" />
-                  Подтвердить оплату и завершить заказ
+                  {t("Подтвердить оплату и завершить заказ")}
                 </>
               )}
             </button>

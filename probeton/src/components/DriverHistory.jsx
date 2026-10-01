@@ -10,6 +10,7 @@ import {
   Eye,
   Trash2,
 } from "lucide-react";
+import { t, locale } from "@/lib/i18n";
 
 export default function DriverHistory() {
   const [orders, setOrders] = useState([]);
@@ -36,7 +37,7 @@ export default function DriverHistory() {
   }, []);
 
   const fmtDate = (d) =>
-    new Date(d).toLocaleString("ru-RU", {
+    new Date(d).toLocaleString(locale(), {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
@@ -55,7 +56,7 @@ export default function DriverHistory() {
   };
 
   const removeRecord = async (id) => {
-    if (!confirm("Удалить эту запись из истории безвозвратно?")) return;
+    if (!confirm(t("Удалить эту запись из истории безвозвратно?"))) return;
     setBusyId(id);
     try {
       await base44.entities.Order.delete(id);
@@ -85,7 +86,7 @@ export default function DriverHistory() {
     if (!byDriver[key]) {
       byDriver[key] = {
         driver_id: key,
-        driver_name: o.driver_name || "Водитель",
+        driver_name: o.driver_name || t("Водитель"),
         orders: [],
         totalCubes: 0,
       };
@@ -107,12 +108,12 @@ export default function DriverHistory() {
           {showHidden ? (
             <>
               <EyeOff className="w-3.5 h-3.5" />
-              Скрыть скрытые записи ({hiddenCount})
+              {t("Скрыть скрытые записи ({n})", { n: hiddenCount })}
             </>
           ) : (
             <>
               <Eye className="w-3.5 h-3.5" />
-              Показать скрытые записи ({hiddenCount})
+              {t("Показать скрытые записи ({n})", { n: hiddenCount })}
             </>
           )}
         </button>
@@ -121,7 +122,7 @@ export default function DriverHistory() {
       {drivers.length === 0 ? (
         <div className="text-center py-8 text-neutral-400">
           <Truck className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          <p className="text-sm">Пока нет завершённых заказов</p>
+          <p className="text-sm">{t("Пока нет завершённых заказов")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -141,7 +142,7 @@ export default function DriverHistory() {
                     {d.driver_name}
                   </div>
                   <div className="text-xs text-neutral-500">
-                    {d.orders.length} заказ(ов) · {d.totalCubes} куб всего
+                    {t("{count} заказ(ов) · {cubes} куб всего", { count: d.orders.length, cubes: d.totalCubes })}
                   </div>
                 </div>
                 {openDriver === d.driver_id ? (
@@ -164,7 +165,7 @@ export default function DriverHistory() {
                       <div className="flex items-center justify-between">
                         <span className="inline-flex items-center gap-1 font-bold text-green-600">
                           <CheckCircle2 className="w-3 h-3" />
-                          {o.order_number || "Заказ"}
+                          {o.order_number || t("Заказ")}
                         </span>
                         <span className="text-neutral-400">
                           {fmtDate(o.created_date)}
@@ -173,7 +174,7 @@ export default function DriverHistory() {
                       <div className="text-neutral-700">{o.what_needed}</div>
                       {o.delivery_address && (
                         <div className="text-neutral-500">
-                          Адрес: {o.delivery_address}
+                          {t("Адрес:")} {o.delivery_address}
                         </div>
                       )}
                       <div className="flex gap-1.5 pt-1">
@@ -185,12 +186,12 @@ export default function DriverHistory() {
                           {o.hidden_from_history ? (
                             <>
                               <Eye className="w-3 h-3" />
-                              Показать
+                              {t("Показать")}
                             </>
                           ) : (
                             <>
                               <EyeOff className="w-3 h-3" />
-                              Скрыть
+                              {t("Скрыть")}
                             </>
                           )}
                         </button>
@@ -200,7 +201,7 @@ export default function DriverHistory() {
                           className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-40 font-semibold"
                         >
                           <Trash2 className="w-3 h-3" />
-                          Удалить
+                          {t("Удалить")}
                         </button>
                       </div>
                     </div>

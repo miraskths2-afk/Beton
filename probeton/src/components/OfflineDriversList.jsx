@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { base44, supabase } from "@/api/base44Client";
 import { Phone, Trash2, Loader2, UserX } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 export default function OfflineDriversList() {
   const [drivers, setDrivers] = useState([]);
@@ -47,7 +48,9 @@ export default function OfflineDriversList() {
   const deleteDriver = async (id, name) => {
     if (
       !confirm(
-        `Удалить аккаунт водителя${name ? ` "${name}"` : ""} безвозвратно? Это действие нельзя отменить.`
+        name
+          ? t("Удалить аккаунт водителя «{name}» безвозвратно? Это действие нельзя отменить.", { name })
+          : t("Удалить аккаунт водителя безвозвратно? Это действие нельзя отменить.")
       )
     )
       return;
@@ -73,7 +76,7 @@ export default function OfflineDriversList() {
   if (drivers.length === 0) {
     return (
       <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-neutral-400">
-        Все водители сейчас на линии
+        {t("Все водители сейчас на линии")}
       </div>
     );
   }
@@ -92,7 +95,7 @@ export default function OfflineDriversList() {
             </div>
             <div className="text-xs text-neutral-500">
               {d.vehicle_plate || "—"} ·{" "}
-              {d.approval_status === "approved" ? "Одобрен" : "На одобрении"}
+              {d.approval_status === "approved" ? t("Одобрен") : t("На одобрении")}
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -100,7 +103,7 @@ export default function OfflineDriversList() {
               <a
                 href={`tel:${d.phone}`}
                 className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
-                title="Позвонить"
+                title={t("Позвонить")}
               >
                 <Phone className="w-4 h-4" />
               </a>
@@ -109,7 +112,7 @@ export default function OfflineDriversList() {
               onClick={() => deleteDriver(d.id, d.full_name || d.driver_name)}
               disabled={busyId === d.id}
               className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-40"
-              title="Удалить аккаунт"
+              title={t("Удалить аккаунт")}
             >
               {busyId === d.id ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

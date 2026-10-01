@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Ban, Trash2, Loader2, Phone } from "lucide-react";
+import { t } from "@/lib/i18n";
 
 export default function BlacklistManager() {
   const [items, setItems] = useState([]);
@@ -43,7 +44,7 @@ export default function BlacklistManager() {
     return (
       <div className="text-center py-8 text-neutral-400">
         <Ban className="w-8 h-8 mx-auto mb-2 opacity-40" />
-        <p className="text-sm">Список пуст</p>
+        <p className="text-sm">{t("Список пуст")}</p>
       </div>
     );
   }
@@ -69,6 +70,7 @@ export default function BlacklistManager() {
           <button
             onClick={() => remove(b.id)}
             className="shrink-0 px-3 py-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100"
+            aria-label={t("Убрать из чёрного списка")}
           >
             <Trash2 className="w-4 h-4" />
           </button>
