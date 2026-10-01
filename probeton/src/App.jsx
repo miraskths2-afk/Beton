@@ -34,6 +34,8 @@ const LeftoverDetail = lazy(() => import("@/pages/LeftoverDetail"));
 const DriverBalance = lazy(() => import("@/pages/DriverBalance"));
 const Kubovik = lazy(() => import("@/pages/Kubovik"));
 const Profile = lazy(() => import("@/pages/Profile"));
+const AdminPlants = lazy(() => import("@/pages/AdminPlants"));
+const PlantFleet = lazy(() => import("@/pages/PlantFleet"));
 
 function PageLoader() {
   return (
@@ -87,6 +89,8 @@ const AuthenticatedApp = () => {
             <Route path="/balance" element={<DriverBalance />} />
             <Route path="/kubovik" element={<Kubovik />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/plants" element={<AdminPlants />} />
+            <Route path="/fleet" element={<PlantFleet />} />
           </Route>
         </Route>
         <Route path="*" element={<PageNotFound />} />

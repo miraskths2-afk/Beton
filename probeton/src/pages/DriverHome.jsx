@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { base44, supabase } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import {
   Inbox,
@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
 import { t, locale } from "@/lib/i18n";
+import { PLANT_ACTIVE_STATUSES, plantName } from "@/lib/plants";
 
 function Stars({ value, onChange }) {
   return (
@@ -51,11 +52,23 @@ export default function DriverHome() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [ratePick, setRatePick] = useState({});
+  const [myPlant, setMyPlant] = useState(null);
+  const myOrderIdsRef = useRef(null);
 
   const load = async () => {
     try {
       const all = await base44.entities.Order.list("-created_date", 200);
       setOrders(all);
+      // Уведомление, когда завод или админ назначили этого миксериста.
+      const mine = all
+        .filter((o) => o.driver_id === user?.id && PLANT_ACTIVE_STATUSES.includes(o.status))
+        .map((o) => o.id);
+      if (myOrderIdsRef.current && user?.notifications_enabled !== false) {
+        if (mine.some((id) => !myOrderIdsRef.current.has(id))) {
+          notify(t("Вам назначен заказ"), t("Откройте ленту, чтобы посмотреть адрес"));
+        }
+      }
+      myOrderIdsRef.current = new Set(mine);
     } catch (err) {
       console.error(err);
     } finally {
@@ -69,8 +82,10 @@ export default function DriverHome() {
       load();
       if (
         user?.notifications_enabled !== false &&
+        !user?.plant_id &&
         payload?.eventType === "INSERT" &&
-        (payload.new?.status || "new") === "new"
+        (payload.new?.status || "new") === "new" &&
+        !payload.new?.plant_id
       ) {
         notify(
           t("Новая заявка!"),
@@ -80,13 +95,38 @@ export default function DriverHome() {
     });
     return unsub;
      
-  }, [user?.notifications_enabled]);
+  }, [user?.notifications_enabled, user?.plant_id]);
+
+  // Миксерист в парке завода: заказы ему выдаёт завод (или админ),
+  // общая лента ему не показывается. Кубовик остаётся его личным.
+  useEffect(() => {
+    if (!user?.plant_id) {
+      setMyPlant(null);
+      return;
+    }
+    let mounted = true;
+    supabase
+      .from("app_users")
+      .select("id, full_name, phone")
+      .eq("id", user.plant_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (mounted) setMyPlant(data || null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [user?.plant_id]);
 
   // Проверка одобрения теперь общая для всех ролей — в ProtectedRoute.
 
-  const free = orders.filter((o) => (o.status || "new") === "new" && !o.driver_id);
+  const inFleet = !!user?.plant_id;
+  // Заявки, переданные заводу, в общей ленте не показываются.
+  const free = inFleet
+    ? []
+    : orders.filter((o) => (o.status || "new") === "new" && !o.driver_id && !o.plant_id);
   const active = orders.filter(
-    (o) => o.driver_id === user?.id && o.status === "in_progress"
+    (o) => o.driver_id === user?.id && PLANT_ACTIVE_STATUSES.includes(o.status)
   );
   const completed = orders.filter(
     (o) => o.driver_id === user?.id && o.status === "done"
@@ -103,6 +143,8 @@ export default function DriverHome() {
       return;
     }
     setBusy(o.id);
+    // Сам взял — уведомлять «вам назначен заказ» не нужно.
+    myOrderIdsRef.current?.add(o.id);
     try {
       await base44.entities.Order.update(o.id, {
         driver_id: user.id,
@@ -174,6 +216,17 @@ export default function DriverHome() {
           {t("Биржа бетона — первый взявший заказ забирает его")}
         </p>
       </div>
+
+      {inFleet && (
+        <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 text-purple-800 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          <Truck className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            {t("Вы в парке завода «{name}». Заказы вам выдаёт завод. Кубовик (остатки) — по-прежнему ваш личный.", {
+              name: myPlant ? plantName(myPlant) : "…",
+            })}
+          </span>
+        </div>
+      )}
 
       {active.length > 0 && (
         <div className="space-y-3">
@@ -359,18 +412,28 @@ export default function DriverHome() {
         </div>
       )}
 
+      {!inFleet && (
       <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1">
         {t("Свободные заказы ({count})", { count: free.length })}
       </div>
+      )}
 
-      {hasUnfinishedOrder && (
+      {!inFleet && hasUnfinishedOrder && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
           <Ban className="w-4 h-4 shrink-0" />
           {t("У вас есть незавершённый заказ — заверьте оплату и дождитесь подтверждения менеджера, чтобы принимать новые заявки.")}
         </div>
       )}
 
-      {loading ? (
+      {inFleet ? (
+        !loading && active.length === 0 && (
+          <div className="text-center py-16 text-neutral-400">
+            <Inbox className="w-10 h-10 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">{t("Сейчас нет заказов от завода")}</p>
+            <p className="text-xs mt-1">{t("Когда завод выделит вас на заявку, она появится здесь")}</p>
+          </div>
+        )
+      ) : loading ? (
         <div className="text-center py-16 text-neutral-400">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
           {t("Загрузка...")}

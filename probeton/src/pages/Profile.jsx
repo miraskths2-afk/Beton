@@ -33,6 +33,7 @@ import { THEMES, getTheme, setTheme } from "@/lib/theme";
 function roleLabel(user) {
   if (user?.role === "admin") return t("Администратор");
   if (user?.account_type === "driver") return t("Водитель");
+  if (user?.account_type === "plant") return t("Завод / БСУ");
   return t("Заказчик / Прораб");
 }
 
@@ -378,7 +379,7 @@ export default function Profile() {
         )}
       </section>
 
-      {user?.role !== "admin" && user?.account_type !== "driver" && (
+      {user?.role !== "admin" && user?.account_type !== "driver" && user?.account_type !== "plant" && (
         <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
           <button
             onClick={() => toggle("myIntercepts")}

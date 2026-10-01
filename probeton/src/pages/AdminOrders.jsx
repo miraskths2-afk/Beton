@@ -20,11 +20,13 @@ import {
   X,
   Download,
   Repeat,
+  Factory,
 } from "lucide-react";
 import { t, locale } from "@/lib/i18n";
 import { exportOrdersCsv } from "@/lib/orderExport";
 import RecurringOrdersManager from "@/components/RecurringOrdersManager";
 import TransferToPlantDialog from "@/components/TransferToPlantDialog";
+import AssignToPlantDialog from "@/components/AssignToPlantDialog";
 import MixerIcon from "@/components/MixerIcon";
 
 const STATUS = {
@@ -61,6 +63,7 @@ export default function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("all");
   const [transferOrder, setTransferOrder] = useState(null);
+  const [plantOrder, setPlantOrder] = useState(null);
   // Массовые действия: режим выбора и набор выбранных заявок.
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
@@ -398,6 +401,21 @@ export default function AdminOrders() {
                       )}
                     </div>
                   )}
+                  {o.plant_id && (
+                    <div className="text-xs font-semibold text-purple-700 pl-6 flex items-center gap-1">
+                      <Factory className="w-3 h-3" />
+                      {t("Завод: {name}", { name: o.plant_name || "—" })}
+                      {!o.driver_id && o.status === "new" && (
+                        <span className="text-neutral-400 font-normal">· {t("ждёт выделения миксера")}</span>
+                      )}
+                    </div>
+                  )}
+                  {o.driver_id && o.driver_name && (
+                    <div className="text-xs text-neutral-500 pl-6 flex items-center gap-1">
+                      <Truck className="w-3 h-3" />
+                      {o.driver_name}
+                    </div>
+                  )}
                   {o.comment && (
                     <div className="text-xs text-neutral-500 pl-6 italic">
                       {t("Комментарий:")} {o.comment}
@@ -446,6 +464,15 @@ export default function AdminOrders() {
                     >
                       <Send className="w-3.5 h-3.5" />
                       {t("Назначить миксер")}
+                    </button>
+                  )}
+                  {(o.status === "new" || o.status === "in_progress") && (
+                    <button
+                      onClick={() => setPlantOrder(o)}
+                      className="flex-1 text-xs font-semibold py-2 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 inline-flex items-center justify-center gap-1"
+                    >
+                      <Factory className="w-3.5 h-3.5" />
+                      {t("Заводу")}
                     </button>
                   )}
                   {o.status === "sent_to_plant" && (
@@ -533,6 +560,12 @@ export default function AdminOrders() {
         open={!!transferOrder}
         onOpenChange={(v) => !v && setTransferOrder(null)}
         onTransferred={load}
+      />
+      <AssignToPlantDialog
+        order={plantOrder}
+        open={!!plantOrder}
+        onOpenChange={(v) => !v && setPlantOrder(null)}
+        onAssigned={load}
       />
     </div>
   );

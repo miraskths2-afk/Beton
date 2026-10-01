@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { base44, supabase } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { ORDER_STATUSES, STATUS_FLOW } from "@/lib/orderStatuses";
+import { getEffectiveRole } from "@/lib/effectiveRole";
 import {
   ArrowLeft,
   Package,
@@ -16,6 +17,7 @@ import {
   XCircle,
   Trash2,
   UserCircle,
+  Factory,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DetailPageSkeleton } from "@/components/Skeleton";
@@ -28,7 +30,7 @@ const OrderChat = lazy(() => import("@/components/OrderChat"));
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, viewMode } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -116,6 +118,9 @@ export default function OrderDetail() {
   // Сам водитель завершает заказ через оплату (см. кнопку ниже),
   // а не напрямую — иначе можно было бы обойти проверку оплаты.
   const canManage = user?.role === "admin";
+  // Завод не видит миксеристов на карте и не отменяет заказ клиента
+  // (вместо этого он возвращает заявку в общую ленту на своей Главной).
+  const isPlant = getEffectiveRole(user, viewMode) === "plant";
 
   const cancelOrder = async () => {
     if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
@@ -217,8 +222,9 @@ export default function OrderDetail() {
             </div>
           )}
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
-            {t("Миксерист и маршрут до объекта")}
+            {isPlant ? t("Миксерист") : t("Миксерист и маршрут до объекта")}
           </div>
+          {!isPlant && (
           <Suspense
             fallback={
               <div className="h-[45vh] rounded-2xl bg-neutral-100 animate-pulse" />
@@ -234,6 +240,7 @@ export default function OrderDetail() {
               height="45vh"
             />
           </Suspense>
+          )}
           {o.driver_name && (
             <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
               {driverPhoto ? (
@@ -266,7 +273,7 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {!hasDriverMap && hasDeliveryPoint && (
+      {(!hasDriverMap || isPlant) && hasDeliveryPoint && (
         <div className="space-y-2">
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
             {t("Место доставки")}
@@ -317,6 +324,13 @@ export default function OrderDetail() {
                 </a>
               )}
             </div>
+          </div>
+        )}
+
+        {o.plant_id && (
+          <div className="flex items-center gap-2 text-sm font-semibold text-purple-700">
+            <Factory className="w-4 h-4 shrink-0" />
+            {t("Завод: {name}", { name: o.plant_name || "—" })}
           </div>
         )}
 
@@ -447,10 +461,20 @@ export default function OrderDetail() {
         >
           <OrderChat
             orderId={o.id}
-            myRole={user?.role === "admin" ? "admin" : user?.id === o.driver_id ? "driver" : "client"}
+            myRole={
+              user?.role === "admin"
+                ? "admin"
+                : user?.id === o.driver_id
+                ? "driver"
+                : isPlant
+                ? "plant"
+                : "client"
+            }
             myName={
               user?.role === "admin"
                 ? "Диспетчер"
+                : isPlant
+                ? user?.full_name || "Завод"
                 : user?.id === o.driver_id
                 ? user?.full_name || "Миксерист"
                 : user?.full_name || "Заказчик"
@@ -459,7 +483,7 @@ export default function OrderDetail() {
         </Suspense>
       )}
 
-      {isOrderActive && (
+      {isOrderActive && !isPlant && (
         <button
           onClick={cancelOrder}
           disabled={cancelling}

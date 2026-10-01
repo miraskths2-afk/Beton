@@ -9,6 +9,7 @@ import driver from "./driver";
 import order from "./order";
 import admin from "./admin";
 import balance from "./balance";
+import plant from "./plant";
 
 export default {
   ...features,
@@ -17,4 +18,5 @@ export default {
   ...order,
   ...admin,
   ...balance,
+  ...plant,
 };

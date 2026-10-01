@@ -12,6 +12,7 @@ import { Loader2, Send, Truck, MapPin, Navigation } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { distanceKm, formatKm } from "@/lib/geo";
 import { t } from "@/lib/i18n";
+import { plantName } from "@/lib/plants";
 
 export default function TransferToPlantDialog({
   order,
@@ -54,6 +55,9 @@ export default function TransferToPlantDialog({
         // ставим ближайших свободных наверх (как подбор курьера в
         // Bolt/Wolt). Занятые — всегда в конце списка.
         const locById = Object.fromEntries((online || []).map((r) => [r.driver_id, r]));
+        const plantById = Object.fromEntries(
+          all.filter((u) => u.account_type === "plant").map((u) => [u.id, u])
+        );
         const hasTarget = order?.delivery_lat != null && order?.delivery_lng != null;
         const list = all
           .filter((u) => ids.includes(u.id))
@@ -62,7 +66,7 @@ export default function TransferToPlantDialog({
             const km = hasTarget && loc
               ? distanceKm(loc.lat, loc.lng, order.delivery_lat, order.delivery_lng)
               : null;
-            return { ...u, isBusy: busyIds.has(u.id), distanceKm: km };
+            return { ...u, isBusy: busyIds.has(u.id), distanceKm: km, plant: plantById[u.plant_id] || null };
           })
           .sort((a, b) => {
             if (a.isBusy !== b.isBusy) return a.isBusy ? 1 : -1;
@@ -91,9 +95,19 @@ export default function TransferToPlantDialog({
     if (!driver || driver.isBusy) return;
     setLoading(true);
     try {
+      // Миксерист из парка завода — заявка переходит и к его заводу,
+      // чтобы завод видел и вёл её. Независимый — заявка без завода.
       await base44.entities.Order.update(order.id, {
         driver_id: driver.id,
         driver_name: driver.full_name || driver.driver_name || driver.phone || "Водитель",
+        // Если supabase_plants.sql ещё не выполнен, колонок plant_* нет —
+        // тогда их не трогаем, чтобы назначение работало как раньше.
+        ...("plant_id" in order
+          ? {
+              plant_id: driver.plant ? driver.plant.id : null,
+              plant_name: driver.plant ? plantName(driver.plant) : null,
+            }
+          : {}),
         status: "in_progress",
         accepted_at: new Date().toISOString(),
       });
@@ -158,6 +172,7 @@ export default function TransferToPlantDialog({
                     <div className="text-xs text-neutral-500 flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
                       {d.isBusy ? t("Занят другим заказом") : d.vehicle_plate || t("На линии")}
+                      {d.plant && ` · ${t("Парк: {name}", { name: plantName(d.plant) })}`}
                     </div>
                   </div>
                   {d.distanceKm != null && (

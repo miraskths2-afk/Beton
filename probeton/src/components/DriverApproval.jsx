@@ -86,7 +86,11 @@ export default function DriverApproval() {
             </span>
           </div>
           <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
-            {d.account_type === "driver" ? t("Водитель") : t("Заказчик")}
+            {d.account_type === "driver"
+              ? t("Водитель")
+              : d.account_type === "plant"
+              ? t("Завод / БСУ")
+              : t("Заказчик")}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
             {d.phone && (
@@ -144,7 +148,11 @@ export default function DriverApproval() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-neutral-500">
-                  {d.account_type === "driver" ? d.vehicle_plate : t("Заказчик")}
+                  {d.account_type === "driver"
+                    ? d.vehicle_plate
+                    : d.account_type === "plant"
+                    ? t("Завод / БСУ")
+                    : t("Заказчик")}
                 </span>
                 <button
                   onClick={() => setStatus(d.id, "pending")}

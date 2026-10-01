@@ -9,6 +9,7 @@ const ROLE_LABEL = {
   client: "Заказчик",
   driver: "Миксерист",
   admin: "Диспетчер",
+  plant: "Завод",
 };
 
 export default function OrderChat({ orderId, myRole, myName }) {

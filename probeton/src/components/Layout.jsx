@@ -11,6 +11,8 @@ import {
   UserCircle,
   Sun,
   Moon,
+  Factory,
+  Users,
 } from "lucide-react";
 import { queryClientInstance } from "@/lib/query-client";
 import { t, getLang, setLang } from "@/lib/i18n";
@@ -32,8 +34,12 @@ const ALL_ITEMS = [
   { to: "/", label: "Главная", icon: LayoutDashboard, end: true, roles: ["admin"] },
   { to: "/orders", label: "Заявки", icon: ClipboardList, end: false, roles: ["admin"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["admin"] },
+  { to: "/plants", label: "Заводы", icon: Factory, end: false, roles: ["admin"] },
   { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["admin"] },
-  { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "admin"] },
+  { to: "/", label: "Заявки", icon: ClipboardList, end: true, roles: ["plant"] },
+  { to: "/fleet", label: "Парк", icon: Users, end: false, roles: ["plant"] },
+  { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["plant"] },
+  { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "admin", "plant"] },
 ];
 
 export default function Layout() {
@@ -88,6 +94,8 @@ export default function Layout() {
                 ? t("Кабинет партнёра")
                 : role === "admin"
                 ? t("Диспетчер")
+                : role === "plant"
+                ? t("Кабинет завода")
                 : t("Биржа бетона")}
             </div>
           </div>
