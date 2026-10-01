@@ -35,6 +35,14 @@ const DriverBalance = lazy(() => import("@/pages/DriverBalance"));
 const Kubovik = lazy(() => import("@/pages/Kubovik"));
 const Profile = lazy(() => import("@/pages/Profile"));
 
+// Страница «Заявки» — только для настоящего админа. Раньше заказчик или
+// водитель мог открыть /orders по прямой ссылке и видеть/удалять все заказы.
+function AdminOnly({ children }) {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <Navigate to="/" replace />;
+  return children;
+}
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center py-24">
@@ -81,7 +89,14 @@ const AuthenticatedApp = () => {
           <Route element={<Layout />}>
             <Route path="/" element={<RoleHome />} />
             <Route path="/mapa" element={<MapPage />} />
-            <Route path="/orders" element={<AdminOrders />} />
+            <Route
+              path="/orders"
+              element={
+                <AdminOnly>
+                  <AdminOrders />
+                </AdminOnly>
+              }
+            />
             <Route path="/order/:id" element={<OrderDetail />} />
             <Route path="/leftover/:id" element={<LeftoverDetail />} />
             <Route path="/balance" element={<DriverBalance />} />

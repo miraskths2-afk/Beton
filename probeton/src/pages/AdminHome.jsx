@@ -39,7 +39,10 @@ export default function AdminHome() {
   }, []);
 
   const total = orders.length;
-  const active = orders.filter((o) => (o.status || "new") !== "done").length;
+  // Отменённые заказы — не «в работе».
+  const active = orders.filter(
+    (o) => (o.status || "new") !== "done" && o.status !== "cancelled"
+  ).length;
   const done = orders.filter((o) => o.status === "done").length;
 
   const today = new Date().toDateString();

@@ -29,7 +29,8 @@ export default function DriverBalance() {
     (o) => o.driver_id === user?.id && o.status === "done"
   );
   const active = orders.filter(
-    (o) => o.driver_id === user?.id && o.status !== "done"
+    (o) =>
+      o.driver_id === user?.id && o.status !== "done" && o.status !== "cancelled"
   );
   const totalSum = done.reduce((sum, o) => sum + (o.cubes || 0) * 1000, 0);
   const totalCubes = done.reduce((sum, o) => sum + (o.cubes || 0), 0);

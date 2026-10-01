@@ -13,7 +13,11 @@ export default function DriverPaymentApproval() {
       const all = await base44.entities.Order.list("-created_date", 200);
       setOrders(
         all.filter(
-          (o) => o.driver_paid && !o.driver_payment_confirmed && o.status !== "done"
+          (o) =>
+            o.driver_paid &&
+            !o.driver_payment_confirmed &&
+            o.status !== "done" &&
+            o.status !== "cancelled"
         )
       );
     } catch (e) {

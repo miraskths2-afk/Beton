@@ -59,14 +59,18 @@ export default function OrderChat({ orderId, myRole, myName }) {
     setSending(true);
     setText("");
     try {
-      await supabase.from("order_messages").insert({
+      const { error } = await supabase.from("order_messages").insert({
         order_id: orderId,
         sender_role: myRole,
         sender_name: myName,
         message: trimmed,
       });
+      if (error) throw error;
     } catch (e) {
       console.error(e);
+      // Сообщение не ушло — возвращаем текст в поле, чтобы не потерялся.
+      setText(trimmed);
+      alert(t("Сообщение не отправлено. Проверьте интернет и попробуйте ещё раз."));
     } finally {
       setSending(false);
     }

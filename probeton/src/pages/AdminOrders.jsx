@@ -37,10 +37,10 @@ const STATUS = {
   cancelled: { label: "Отменён клиентом", icon: Ban, cls: "bg-red-100 text-red-700" },
 };
 
-// Категории вкладки "Заявки". "Все" намеренно не включает завершённые —
-// они показываются только в категории "Готово".
+// Категории вкладки "Заявки". "Все" намеренно не включает завершённые
+// и отменённые — они показываются в своих категориях.
 const CATEGORIES = [
-  { id: "all", label: "Все", match: (s) => s !== "done" },
+  { id: "all", label: "Все", match: (s) => s !== "done" && s !== "cancelled" },
   { id: "new", label: "Новые", match: (s) => (s || "new") === "new" },
   {
     id: "searching",
@@ -53,6 +53,7 @@ const CATEGORIES = [
     match: (s) => s === "in_progress" || s === "en_route",
   },
   { id: "done", label: "Готово", match: (s) => s === "done" },
+  { id: "cancelled", label: "Отменены", match: (s) => s === "cancelled" },
 ];
 
 export default function AdminOrders() {
@@ -99,12 +100,21 @@ export default function AdminOrders() {
     }
   };
 
-  const remove = async (id) => {
+  const remove = async (o) => {
+    // Заказ из «повторяющегося» нельзя просто удалить — база создаст его
+    // заново при следующей проверке расписания. Такой заказ отменяем.
+    if (o.recurring_id) {
+      if (!confirm(t("Это заказ из повторяющегося расписания. Удалённый, он создастся заново, поэтому мы его отменим. Отменить?"))) return;
+      await updateStatus(o.id, "cancelled");
+      return;
+    }
+    if (!confirm(t("Удалить эту заявку безвозвратно?"))) return;
     try {
-      await base44.entities.Order.delete(id);
-      setOrders((prev) => prev.filter((o) => o.id !== id));
+      await base44.entities.Order.delete(o.id);
+      setOrders((prev) => prev.filter((x) => x.id !== o.id));
     } catch (err) {
       console.error(err);
+      alert(t("Не удалось удалить заявку. Попробуйте ещё раз."));
     }
   };
 
@@ -172,9 +182,28 @@ export default function AdminOrders() {
     }
     setBulkBusy(true);
     try {
-      const { error } = await supabase.from("orders").delete().in("id", ids);
-      if (error) throw error;
-      setOrders((prev) => prev.filter((o) => !selected.has(o.id)));
+      // Заказы из повторяющегося расписания отменяем, а не удаляем —
+      // иначе база создаст их заново.
+      const recurringIds = orders
+        .filter((o) => selected.has(o.id) && o.recurring_id)
+        .map((o) => o.id);
+      const deleteIds = ids.filter((id) => !recurringIds.includes(id));
+      if (deleteIds.length) {
+        const { error } = await supabase.from("orders").delete().in("id", deleteIds);
+        if (error) throw error;
+      }
+      if (recurringIds.length) {
+        const { error } = await supabase
+          .from("orders")
+          .update({ status: "cancelled" })
+          .in("id", recurringIds);
+        if (error) throw error;
+      }
+      setOrders((prev) =>
+        prev
+          .filter((o) => !deleteIds.includes(o.id))
+          .map((o) => (recurringIds.includes(o.id) ? { ...o, status: "cancelled" } : o))
+      );
       exitSelectMode();
     } catch (err) {
       console.error(err);
@@ -271,7 +300,7 @@ export default function AdminOrders() {
       </button>
       {showRecurring && <RecurringOrdersManager />}
 
-      <div className="grid grid-cols-5 gap-1.5">
+      <div className="grid grid-cols-3 gap-1.5">
         {CATEGORIES.map((c) => (
           <button
             key={c.id}
@@ -466,7 +495,7 @@ export default function AdminOrders() {
                       {t("Миксер выехал")}
                     </button>
                   )}
-                  {o.status !== "done" && (
+                  {o.status !== "done" && o.status !== "cancelled" && (
                     <button
                       onClick={() => updateStatus(o.id, "done")}
                       className="flex-1 text-xs font-semibold py-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200"
@@ -482,7 +511,7 @@ export default function AdminOrders() {
                     <Ban className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => remove(o.id)}
+                    onClick={() => remove(o)}
                     className="px-3 py-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100"
                   >
                     <Trash2 className="w-4 h-4" />

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, lazy, Suspense } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { base44, supabase } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,7 +71,8 @@ export default function Kubovik() {
   const [sortBy, setSortBy] = useState("new"); // "new" | "price_asc" | "price_desc"
   const [gradeFilter, setGradeFilter] = useState("all");
 
-  const [clientPhone, setClientPhone] = useState("");
+  // Номер прораба подставляем из его аккаунта — не нужно вводить заново.
+  const [clientPhone, setClientPhone] = useState(user?.phone || "");
   const [revealed, setRevealed] = useState({});
   const [category, setCategory] = useState("available");
   const [driverCategory, setDriverCategory] = useState("available");
@@ -170,16 +171,31 @@ export default function Kubovik() {
     }
     try {
       const pos = await getCurrentPosition();
-      await base44.entities.Leftover.update(l.id, {
-        status: "intercepted",
-        intercepted_by_phone: clientPhone.trim(),
-        intercepted_lat: pos?.lat ?? null,
-        intercepted_lng: pos?.lng ?? null,
-        intercepted_at: new Date().toISOString(),
-      });
+      // Перехватываем, только если остаток ещё свободен: если два прораба
+      // нажали одновременно, второй не перезапишет первого.
+      const { data, error } = await supabase
+        .from("leftovers")
+        .update({
+          status: "intercepted",
+          intercepted_by_phone: clientPhone.trim(),
+          intercepted_lat: pos?.lat ?? null,
+          intercepted_lng: pos?.lng ?? null,
+          intercepted_at: new Date().toISOString(),
+        })
+        .eq("id", l.id)
+        .eq("status", "available")
+        .select();
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        alert(t("Этот остаток уже перехватил другой прораб"));
+        load();
+        return;
+      }
       setRevealed((p) => ({ ...p, [l.id]: true }));
+      load();
     } catch (e) {
       console.error(e);
+      alert(t("Не удалось перехватить остаток. Проверьте интернет и попробуйте ещё раз."));
     }
   };
 
