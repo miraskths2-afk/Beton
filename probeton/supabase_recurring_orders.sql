@@ -16,16 +16,7 @@
 --
 -- Полностью безопасно запускать повторно.
 -- Вставьте целиком в Supabase -> SQL Editor -> Run.
--- Порядок: сначала supabase_security_v4.sql, потом этот файл.
 -- ============================================================
-
--- Этот файл запускается ПОСЛЕ supabase_security_v4.sql.
-do $$ begin
-  perform 'public.is_admin()'::regprocedure;
-  perform 'public.my_phone()'::regprocedure;
-exception when undefined_function then
-  raise exception 'Сначала выполните supabase_security_v4.sql, потом этот файл';
-end $$;
 
 create table if not exists recurring_orders (
   id uuid primary key default gen_random_uuid(),
@@ -55,14 +46,9 @@ create unique index if not exists orders_recurring_unique
   on orders (recurring_id, recurring_date)
   where recurring_id is not null;
 
--- Доступ: заказчик видит и меняет только правила на свой номер,
--- админ — все. Использует функции из supabase_security_v4.sql.
 alter table recurring_orders enable row level security;
 drop policy if exists "recurring_orders_all" on recurring_orders;
-drop policy if exists "recurring_orders_own" on recurring_orders;
-create policy "recurring_orders_own" on recurring_orders for all to authenticated
-  using (is_admin() or norm_phone(phone) = my_phone())
-  with check (is_admin() or norm_phone(phone) = my_phone());
+create policy "recurring_orders_all" on recurring_orders for all using (true) with check (true);
 
 do $$ begin
   alter publication supabase_realtime add table recurring_orders;
@@ -126,8 +112,7 @@ begin
 end;
 $$;
 
-revoke execute on function generate_recurring_orders() from anon, public;
-grant execute on function generate_recurring_orders() to authenticated;
+grant execute on function generate_recurring_orders() to anon, authenticated;
 
 -- ===== Автозапуск каждые 15 минут (pg_cron) =====
 -- Если здесь будет ошибка про pg_cron — включите расширение вручную:

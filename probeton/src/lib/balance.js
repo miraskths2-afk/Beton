@@ -1,6 +1,6 @@
 // Баланс водителя и настройки платформы. Все изменения денег идут
-// через серверные функции (supabase_security_v4.sql) — браузер сам
-// баланс поменять не может.
+// через функции в базе (supabase_balance.sql): списание за остаток,
+// заявка на пополнение, подтверждение пополнения админом.
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/api/base44Client";
 
@@ -25,14 +25,18 @@ export async function updateSettings(fields) {
   return data;
 }
 
-export async function requestTopup(amount) {
-  const { data, error } = await supabase.rpc("request_topup", { p_amount: amount });
+export async function requestTopup(userId, amount) {
+  const { data, error } = await supabase.rpc("request_topup", {
+    p_user_id: userId,
+    p_amount: amount,
+  });
   if (error) throw error;
   return data;
 }
 
-export async function reviewTopup(id, approve) {
+export async function reviewTopup(adminId, id, approve) {
   const { data, error } = await supabase.rpc("review_topup", {
+    p_admin_id: adminId,
     p_id: id,
     p_approve: approve,
   });
@@ -40,8 +44,9 @@ export async function reviewTopup(id, approve) {
   return data;
 }
 
-export async function publishLeftover({ grade, cubes, direction, price, phone, minutes }) {
+export async function publishLeftover({ userId, grade, cubes, direction, price, phone, minutes }) {
   const { data, error } = await supabase.rpc("publish_leftover", {
+    p_user_id: userId,
     p_grade: grade,
     p_cubes: cubes,
     p_direction: direction,
@@ -113,5 +118,5 @@ export function useWallet(userId) {
     };
   }, [userId, reload]);
 
-  return { balance, settings, topups, transactions, reload };
+  return { userId, balance, settings, topups, transactions, reload };
 }

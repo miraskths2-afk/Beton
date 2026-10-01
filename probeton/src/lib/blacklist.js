@@ -1,14 +1,13 @@
-import { supabase } from "@/api/base44Client";
+import { base44 } from "@/api/base44Client";
 
-// Проверка идёт на сервере (функция is_blacklisted) — сам чёрный список
-// в браузер больше не отдаётся.
+const norm = (p) => (p || "").replace(/\D/g, "").slice(-10);
+
 export async function isBlacklisted(phone) {
-  const digits = (phone || "").replace(/\D/g, "");
-  if (!digits) return false;
+  const num = norm(phone);
+  if (!num) return false;
   try {
-    const { data, error } = await supabase.rpc("is_blacklisted", { p_phone: digits });
-    if (error) throw error;
-    return !!data;
+    const all = await base44.entities.Blacklist.list();
+    return all.some((b) => norm(b.phone) === num);
   } catch (e) {
     return false;
   }

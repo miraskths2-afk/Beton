@@ -122,6 +122,7 @@ export default function Kubovik() {
       // Публикация платная: сервер сам проверит баланс, спишет цену
       // публикации и создаст остаток (функция publish_leftover).
       await publishLeftover({
+        userId: user?.id,
         grade,
         cubes: parseFloat(cubes),
         direction: direction.trim(),

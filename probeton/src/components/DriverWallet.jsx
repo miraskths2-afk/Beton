@@ -25,7 +25,7 @@ const fmtDate = (d) =>
 // Баланс водителя: сколько денег на счёте, пополнение через Kaspi
 // (диспетчер подтверждает приход) и история списаний.
 export default function DriverWallet({ wallet }) {
-  const { balance, settings, topups, transactions, reload } = wallet;
+  const { userId, balance, settings, topups, transactions, reload } = wallet;
   const [amount, setAmount] = useState("");
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
@@ -42,7 +42,7 @@ export default function DriverWallet({ wallet }) {
     setError("");
     setMessage("");
     try {
-      await requestTopup(value);
+      await requestTopup(userId, value);
       setAmount("");
       setMessage(t("Заявка отправлена. Деньги появятся на балансе, как только диспетчер увидит перевод."));
       reload();

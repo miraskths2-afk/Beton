@@ -100,33 +100,39 @@ function makeEntity(table) {
 }
 
 const USERS_TABLE = TABLES.User;
-const ROLE_KEY = "probeton_role";
+const CURRENT_PHONE_KEY = "probeton_current_phone";
 
-// Приводит любой ввод ("8 700 123 45 67", "+7(700)1234567", "7001234567")
-// к международному виду +77001234567, который ждёт Supabase Auth.
-export function toE164(phone) {
-  const digits = (phone || "").replace(/\D/g, "");
-  const last10 = digits.slice(-10);
-  if (last10.length < 10) return null;
-  return "+7" + last10;
+function cleanPhone(phone) {
+  return (phone || "").replace(/\D/g, "");
 }
 
-function notAuthorized() {
-  const err = new Error("Не авторизован");
-  err.status = 401;
-  return err;
-}
+async function findOrCreateUserByPhone(phone, extra = {}) {
+  const phoneDigits = cleanPhone(phone);
+  if (!phoneDigits) throw new Error("Введите номер телефона");
 
-// Находит (или создаёт при первом входе) запись в app_users для номера,
-// подтверждённого SMS-кодом. Всё решается на сервере — см.
-// claim_account в supabase_security_v4.sql.
-async function claimAccount() {
-  const accountType = localStorage.getItem(ROLE_KEY) || "client";
-  const { data, error } = await supabase.rpc("claim_account", {
-    p_account_type: accountType,
-  });
-  if (error) throw error;
-  return data;
+  const { data: existing, error: findError } = await supabase
+    .from(USERS_TABLE)
+    .select("*")
+    .eq("phone", phoneDigits)
+    .maybeSingle();
+  if (findError) throw findError;
+
+  if (existing) return existing;
+
+  const { data: created, error: createError } = await supabase
+    .from(USERS_TABLE)
+    .insert({
+      phone: phoneDigits,
+      role: "user",
+      // Заказчик получает доступ сразу при первом входе. Водителю, как и
+      // раньше, для первого входа нужно одобрение диспетчера.
+      approval_status: extra.account_type === "driver" ? "pending" : "approved",
+      ...extra,
+    })
+    .select()
+    .single();
+  if (createError) throw createError;
+  return created;
 }
 
 export const base44 = {
@@ -147,47 +153,41 @@ export const base44 = {
   },
 
   auth: {
-    // Шаг 1 входа: отправить SMS с кодом на номер.
-    async sendCode(phone) {
-      const e164 = toE164(phone);
-      if (!e164) throw new Error("Введите корректный номер телефона");
-      const { error } = await supabase.auth.signInWithOtp({ phone: e164 });
-      if (error) throw error;
-      return e164;
-    },
-
-    // Шаг 2 входа: проверить код из SMS и открыть аккаунт.
-    async verifyCode(phone, code) {
-      const e164 = toE164(phone);
-      const { error } = await supabase.auth.verifyOtp({
-        phone: e164,
-        token: (code || "").trim(),
-        type: "sms",
-      });
-      if (error) throw error;
-      return claimAccount();
+    // Новый упрощённый вход: только по номеру телефона, без пароля.
+    async loginWithPhone(phone, extra = {}) {
+      const user = await findOrCreateUserByPhone(phone, extra);
+      localStorage.setItem(CURRENT_PHONE_KEY, user.phone);
+      return user;
     },
 
     async me() {
-      const { data } = await supabase.auth.getSession();
-      if (!data?.session) throw notAuthorized();
-      try {
-        const user = await claimAccount();
-        if (!user) throw notAuthorized();
-        return user;
-      } catch (e) {
-        console.error(e);
-        throw notAuthorized();
+      const phone = localStorage.getItem(CURRENT_PHONE_KEY);
+      if (!phone) {
+        const err = new Error("Не авторизован");
+        err.status = 401;
+        throw err;
       }
+      const { data, error } = await supabase
+        .from(USERS_TABLE)
+        .select("*")
+        .eq("phone", phone)
+        .maybeSingle();
+      if (error || !data) {
+        localStorage.removeItem(CURRENT_PHONE_KEY);
+        const err = new Error("Не авторизован");
+        err.status = 401;
+        throw err;
+      }
+      return data;
     },
 
     async updateMe(fields) {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth?.user) throw new Error("Не авторизован");
+      const phone = localStorage.getItem(CURRENT_PHONE_KEY);
+      if (!phone) throw new Error("Не авторизован");
       const { data, error } = await supabase
         .from(USERS_TABLE)
         .update(fields)
-        .eq("auth_id", auth.user.id)
+        .eq("phone", phone)
         .select()
         .single();
       if (error) throw error;
@@ -195,21 +195,25 @@ export const base44 = {
     },
 
     async logout() {
-      try {
-        const { data: auth } = await supabase.auth.getUser();
-        if (auth?.user) {
+      const phone = localStorage.getItem(CURRENT_PHONE_KEY);
+      if (phone) {
+        try {
           // При следующем входе этому номеру снова понадобится одобрение
           // диспетчера. Админов эта логика не касается.
           await supabase
             .from(USERS_TABLE)
             .update({ approval_status: "pending" })
-            .eq("auth_id", auth.user.id)
+            .eq("phone", phone)
             .neq("role", "admin");
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e) {
-        console.error(e);
       }
-      await supabase.auth.signOut();
+      localStorage.removeItem(CURRENT_PHONE_KEY);
+    },
+
+    isAuthenticated() {
+      return !!localStorage.getItem(CURRENT_PHONE_KEY);
     },
 
     redirectToLogin() {

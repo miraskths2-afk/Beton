@@ -3,10 +3,12 @@ import { supabase } from "@/api/base44Client";
 import { BadgeCheck, Loader2, Wallet, X, Settings2 } from "lucide-react";
 import { reviewTopup, fetchSettings, updateSettings, formatTenge } from "@/lib/balance";
 import { t } from "@/lib/i18n";
+import { useAuth } from "@/lib/AuthContext";
 
 // Админ: заявки водителей на пополнение баланса + цена публикации
 // остатка в Кубовике и реквизиты Kaspi, которые видят водители.
 export default function TopupApproval() {
+  const { user } = useAuth();
   const [topups, setTopups] = useState([]);
   const [drivers, setDrivers] = useState({});
   const [busy, setBusy] = useState(null);
@@ -62,7 +64,7 @@ export default function TopupApproval() {
     if (!approve && !confirm(t("Отклонить заявку? Деньги не будут зачислены."))) return;
     setBusy(id);
     try {
-      await reviewTopup(id, approve);
+      await reviewTopup(user?.id, id, approve);
       await load();
     } catch (e) {
       alert(e?.message || t("Не удалось обработать заявку"));
