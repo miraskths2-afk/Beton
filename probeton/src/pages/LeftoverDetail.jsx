@@ -82,6 +82,7 @@ export default function LeftoverDetail() {
       navigate(-1);
     } catch (err) {
       console.error(err);
+      alert(t("Не удалось удалить остаток. Попробуйте ещё раз."));
       setBusy(false);
     }
   };

@@ -7,6 +7,7 @@ import React, {
   useContext,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import { base44 } from "@/api/base44Client";
 
@@ -28,8 +29,14 @@ export const AuthProvider = ({ children }) => {
     setViewModeState(mode);
   };
 
+  // Полноэкранная «загрузка» нужна только при самой первой проверке.
+  // Повторные проверки (после сохранения профиля, опрос экрана ожидания)
+  // идут тихо: раньше они на секунду убирали весь сайт со страницы, из-за
+  // чего водитель на линии «выпадал» с карты, а экран ожидания мигал.
+  const firstCheckDone = useRef(false);
+
   const checkUserAuth = useCallback(async () => {
-    setIsLoadingAuth(true);
+    if (!firstCheckDone.current) setIsLoadingAuth(true);
     try {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
@@ -38,6 +45,7 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
     } finally {
+      firstCheckDone.current = true;
       setIsLoadingAuth(false);
       setAuthChecked(true);
     }

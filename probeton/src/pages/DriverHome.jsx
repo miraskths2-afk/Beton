@@ -124,17 +124,22 @@ export default function DriverHome() {
   const free = orders.filter(
     (o) => (o.status || "new") === "new" && !o.driver_id && !o.plant_id
   );
-  const active = orders.filter(
-    (o) => o.driver_id === user?.id && PLANT_ACTIVE_STATUSES.includes(o.status)
-  );
+  // Мои заказы в работе — любой статус между «принят» и «готов».
+  // Раньше здесь был только in_progress, и заказ пропадал у водителя,
+  // как только админ переводил его в «Назначен миксер» / «В пути».
+  const isMyOpenOrder = (o) =>
+    o.driver_id === user?.id &&
+    (o.status || "new") !== "done" &&
+    o.status !== "cancelled";
+  const active = orders.filter(isMyOpenOrder);
   const completed = orders.filter(
     (o) => o.driver_id === user?.id && o.status === "done"
   );
   // Пока у водителя есть незавершённый заказ (не оплачен или ждёт
   // подтверждения менеджера) — новые заявки принимать нельзя.
-  const hasUnfinishedOrder = orders.some(
-    (o) => o.driver_id === user?.id && o.status !== "done"
-  );
+  // Отменённый заказ не считается незавершённым — иначе водитель
+  // навсегда терял возможность брать новые заявки после отмены клиентом.
+  const hasUnfinishedOrder = orders.some(isMyOpenOrder);
 
   const accept = async (o) => {
     if (hasUnfinishedOrder) {
@@ -145,16 +150,30 @@ export default function DriverHome() {
     // Сам взял — уведомлять «вам назначен заказ» не нужно.
     myOrderIdsRef.current?.add(o.id);
     try {
-      await base44.entities.Order.update(o.id, {
-        driver_id: user.id,
-        driver_name: user.full_name || user.driver_name || user.phone || "Водитель",
-        status: "in_progress",
-        accepted_at: new Date().toISOString(),
-      });
+      // Забираем заказ, только если он всё ещё свободен: если два водителя
+      // нажали одновременно, второй не перезапишет первого.
+      const { data, error } = await supabase
+        .from("orders")
+        .update({
+          driver_id: user.id,
+          driver_name: user.full_name || user.driver_name || user.phone || "Водитель",
+          status: "in_progress",
+          accepted_at: new Date().toISOString(),
+        })
+        .eq("id", o.id)
+        .eq("status", "new")
+        .is("driver_id", null)
+        .select();
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        alert(t("Этот заказ уже взял другой водитель."));
+      }
     } catch (e) {
       console.error(e);
+      alert(t("Не удалось взять заказ. Проверьте интернет и попробуйте ещё раз."));
     } finally {
       setBusy(null);
+      load();
     }
   };
 
@@ -167,6 +186,7 @@ export default function DriverHome() {
       console.error(e);
     } finally {
       setBusy(null);
+      load();
     }
   };
 
@@ -398,14 +418,17 @@ export default function DriverHome() {
                   />
                 </div>
               )}
-              <button
-                onClick={() => complain(o)}
-                disabled={busy === o.id}
-                className="w-full text-xs font-bold py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 inline-flex items-center justify-center gap-1"
-              >
-                <Flag className="w-3.5 h-3.5" />
-                {t("Жалоба: клиент не оплатил")}
-              </button>
+              {/* Если клиент уже оплатил — жаловаться на неоплату незачем. */}
+              {!o.client_paid && !o.commission_paid && (
+                <button
+                  onClick={() => complain(o)}
+                  disabled={busy === o.id}
+                  className="w-full text-xs font-bold py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 inline-flex items-center justify-center gap-1"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  {t("Жалоба: клиент не оплатил")}
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -38,6 +38,10 @@ export default function DriverWallet({ wallet }) {
       setError(t("Минимальная сумма пополнения — 500 ₸"));
       return;
     }
+    if (value > 500000) {
+      setError(t("Максимальная сумма одной заявки — 500 000 ₸"));
+      return;
+    }
     setSending(true);
     setError("");
     setMessage("");
