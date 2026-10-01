@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/api/base44Client";
-import { Loader2, Phone, UserPlus, UserMinus, LogOut, Truck } from "lucide-react";
+import { Loader2, Phone, UserPlus, UserMinus, LogOut, LogIn, Truck, Hourglass, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import {
   fetchFleet,
+  fetchFleetRequests,
+  putOnLine,
   fetchDriverState,
   findUserByPhone,
   driverName,
@@ -14,21 +16,27 @@ import { setOffline } from "@/lib/driverLocation";
 
 // Парк миксеристов одного завода. Используется и самим заводом
 // (страница «Парк»), и админом (страница «Заводы»).
-// Завод добавляет миксериста по номеру телефона, может снять его с
-// линии и убрать из парка. Оплату по-прежнему подтверждает только админ.
+// Завод добавляет миксериста по номеру телефона (в парк он попадает
+// после одобрения админом), ставит на линию и снимает с неё, убирает
+// из парка. На карте завод своих миксеристов здесь не видит — только
+// отметку «на линии». Админ добавляет в парк сразу, без запроса.
+// Оплату по-прежнему подтверждает только админ.
 export default function FleetManager({ plantId, isAdmin = false }) {
   const [fleet, setFleet] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [state, setState] = useState({ online: new Set(), busy: new Set() });
   const [loading, setLoading] = useState(true);
   const [phone, setPhone] = useState("");
   const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const load = async () => {
     try {
-      const list = await fetchFleet(plantId);
+      const [list, reqs] = await Promise.all([fetchFleet(plantId), fetchFleetRequests(plantId)]);
       setFleet(list);
+      setRequests(reqs);
       setState(await fetchDriverState(list.map((d) => d.id)));
     } catch (e) {
       console.error(e);
@@ -53,6 +61,7 @@ export default function FleetManager({ plantId, isAdmin = false }) {
   const addDriver = async (e) => {
     e.preventDefault();
     setError("");
+    setNotice("");
     setAdding(true);
     try {
       const u = await findUserByPhone(phone);
@@ -68,6 +77,10 @@ export default function FleetManager({ plantId, isAdmin = false }) {
         setError(t("Этот миксерист уже в парке."));
         return;
       }
+      if (!isAdmin && u.plant_request_id === plantId) {
+        setError(t("Запрос на этого миксериста уже отправлен админу."));
+        return;
+      }
       if (u.plant_id) {
         if (!isAdmin) {
           setError(t("Этот миксерист уже в парке другого завода. Перевести его может админ."));
@@ -75,12 +88,19 @@ export default function FleetManager({ plantId, isAdmin = false }) {
         }
         if (!confirm(t("Миксерист уже в парке другого завода. Перевести его в этот парк?"))) return;
       }
+      // Завод отправляет запрос — в парк миксерист попадёт после
+      // одобрения админом. Админ добавляет сразу.
       const { error: upErr } = await supabase
         .from("app_users")
-        .update({ plant_id: plantId })
+        .update(
+          isAdmin
+            ? { plant_id: plantId, plant_request_id: null }
+            : { plant_request_id: plantId }
+        )
         .eq("id", u.id);
       if (upErr) throw upErr;
       setPhone("");
+      if (!isAdmin) setNotice(t("Запрос отправлен. Миксерист появится в парке после одобрения админом."));
       await load();
     } catch (err) {
       console.error(err);
@@ -100,6 +120,41 @@ export default function FleetManager({ plantId, isAdmin = false }) {
         .eq("id", d.id);
       if (upErr) throw upErr;
       setFleet((prev) => prev.filter((x) => x.id !== d.id));
+    } catch (err) {
+      console.error(err);
+      setError(t(plantsErrorText(err)));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const cancelRequest = async (d) => {
+    setBusyId(d.id);
+    try {
+      const { error: upErr } = await supabase
+        .from("app_users")
+        .update({ plant_request_id: null })
+        .eq("id", d.id)
+        .eq("plant_request_id", plantId);
+      if (upErr) throw upErr;
+      setRequests((prev) => prev.filter((x) => x.id !== d.id));
+    } catch (err) {
+      console.error(err);
+      setError(t(plantsErrorText(err)));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const bringOnLine = async (d) => {
+    setBusyId(d.id);
+    setError("");
+    try {
+      const ok = await putOnLine(d.id);
+      if (!ok) {
+        setError(t("«{name}» ещё ни разу не выходил на линию — пусть сначала включит линию на своём телефоне.", { name: driverName(d) }));
+      }
+      await load();
     } catch (err) {
       console.error(err);
       setError(t(plantsErrorText(err)));
@@ -142,6 +197,39 @@ export default function FleetManager({ plantId, isAdmin = false }) {
 
       {error && (
         <div className="text-xs font-semibold text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>
+      )}
+      {notice && (
+        <div className="text-xs font-semibold text-green-700 bg-green-50 rounded-lg px-3 py-2">{notice}</div>
+      )}
+
+      {requests.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-amber-600 px-1">
+            {t("Ждут одобрения админа ({n})", { n: requests.length })}
+          </div>
+          {requests.map((d) => (
+            <div
+              key={d.id}
+              className="bg-amber-50 rounded-xl p-3 border border-amber-200 flex items-center justify-between gap-2"
+            >
+              <div className="min-w-0 flex items-center gap-2">
+                <Hourglass className="w-4 h-4 text-amber-600 shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-bold text-sm text-neutral-900 truncate">{driverName(d)}</div>
+                  <div className="text-xs text-neutral-500">{d.vehicle_plate || d.phone}</div>
+                </div>
+              </div>
+              <button
+                onClick={() => cancelRequest(d)}
+                disabled={busyId === d.id}
+                className="p-2 rounded-lg bg-white text-neutral-500 hover:bg-neutral-100 disabled:opacity-40 shrink-0"
+                title={t("Отменить запрос")}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
 
       {loading ? (
@@ -189,7 +277,7 @@ export default function FleetManager({ plantId, isAdmin = false }) {
                       <Phone className="w-4 h-4" />
                     </a>
                   )}
-                  {online && (
+                  {online ? (
                     <button
                       onClick={() => takeOffLine(d)}
                       disabled={busyId === d.id}
@@ -197,6 +285,15 @@ export default function FleetManager({ plantId, isAdmin = false }) {
                       title={t("Убрать с линии")}
                     >
                       <LogOut className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => bringOnLine(d)}
+                      disabled={busyId === d.id}
+                      className="p-2 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-40"
+                      title={t("Поставить на линию")}
+                    >
+                      <LogIn className="w-4 h-4" />
                     </button>
                   )}
                   <button

@@ -8,6 +8,9 @@
 --     «работает / не работает» (plant_active).
 --  2. Парк завода: у миксериста появляется plant_id — id завода,
 --     к которому он прикреплён. Пусто = независимый миксерист.
+--     Когда завод добавляет миксериста, сначала заполняется
+--     plant_request_id (запрос), а в парк он попадает только после
+--     одобрения админом на Главной.
 --  3. У заявки появляется plant_id / plant_name — завод, которому
 --     передана заявка (админом или завод сам принял её из ленты).
 --  4. Проверки в базе:
@@ -30,6 +33,8 @@
 
 alter table app_users add column if not exists plant_id uuid
   references app_users(id) on delete set null;
+alter table app_users add column if not exists plant_request_id uuid
+  references app_users(id) on delete set null;
 alter table app_users add column if not exists plant_address text;
 alter table app_users add column if not exists plant_lat double precision;
 alter table app_users add column if not exists plant_lng double precision;
@@ -40,6 +45,7 @@ alter table orders add column if not exists plant_id uuid
 alter table orders add column if not exists plant_name text;
 
 create index if not exists app_users_plant_id_idx on app_users (plant_id);
+create index if not exists app_users_plant_request_id_idx on app_users (plant_request_id);
 create index if not exists orders_plant_id_idx on orders (plant_id);
 
 -- ===== 2. Парк: только миксерист и только к заводу =====
@@ -61,12 +67,22 @@ begin
       raise exception 'Миксериста можно добавить только в парк завода';
     end if;
   end if;
+  if new.plant_request_id is not null then
+    if new.account_type is distinct from 'driver' then
+      raise exception 'В парк завода можно добавить только миксериста';
+    end if;
+    if not exists (
+      select 1 from app_users where id = new.plant_request_id and account_type = 'plant'
+    ) then
+      raise exception 'Запрос в парк можно отправить только от завода';
+    end if;
+  end if;
   return new;
 end $$;
 
 drop trigger if exists app_users_plant_check on app_users;
 create trigger app_users_plant_check
-  before insert or update of plant_id, account_type on app_users
+  before insert or update of plant_id, plant_request_id, account_type on app_users
   for each row execute function app_users_plant_check();
 
 -- Аккаунт перестал быть заводом -> освобождаем его парк и заявки,
@@ -77,6 +93,7 @@ language plpgsql as $$
 begin
   if old.account_type = 'plant' and new.account_type is distinct from 'plant' then
     update app_users set plant_id = null where plant_id = new.id;
+    update app_users set plant_request_id = null where plant_request_id = new.id;
     update orders set plant_id = null, plant_name = null
       where plant_id = new.id and driver_id is null and status = 'new';
   end if;

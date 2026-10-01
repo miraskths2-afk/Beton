@@ -82,7 +82,6 @@ export default function DriverHome() {
       load();
       if (
         user?.notifications_enabled !== false &&
-        !user?.plant_id &&
         payload?.eventType === "INSERT" &&
         (payload.new?.status || "new") === "new" &&
         !payload.new?.plant_id
@@ -95,10 +94,10 @@ export default function DriverHome() {
     });
     return unsub;
      
-  }, [user?.notifications_enabled, user?.plant_id]);
+  }, [user?.notifications_enabled]);
 
-  // Миксерист в парке завода: заказы ему выдаёт завод (или админ),
-  // общая лента ему не показывается. Кубовик остаётся его личным.
+  // Миксерист в парке завода: завод выдаёт ему свои заказы, но личные
+  // заявки из общей ленты и Кубовик остаются его — завод их не видит.
   useEffect(() => {
     if (!user?.plant_id) {
       setMyPlant(null);
@@ -122,9 +121,9 @@ export default function DriverHome() {
 
   const inFleet = !!user?.plant_id;
   // Заявки, переданные заводу, в общей ленте не показываются.
-  const free = inFleet
-    ? []
-    : orders.filter((o) => (o.status || "new") === "new" && !o.driver_id && !o.plant_id);
+  const free = orders.filter(
+    (o) => (o.status || "new") === "new" && !o.driver_id && !o.plant_id
+  );
   const active = orders.filter(
     (o) => o.driver_id === user?.id && PLANT_ACTIVE_STATUSES.includes(o.status)
   );
@@ -221,7 +220,7 @@ export default function DriverHome() {
         <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 text-purple-800 rounded-xl px-3 py-2.5 text-xs font-semibold">
           <Truck className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            {t("Вы в парке завода «{name}». Заказы вам выдаёт завод. Кубовик (остатки) — по-прежнему ваш личный.", {
+            {t("Вы в парке завода «{name}». Заказы от завода появятся здесь. Личные заявки из ленты и Кубовик — ваши, завод их не видит.", {
               name: myPlant ? plantName(myPlant) : "…",
             })}
           </span>
@@ -412,28 +411,18 @@ export default function DriverHome() {
         </div>
       )}
 
-      {!inFleet && (
       <div className="text-xs font-bold text-neutral-400 uppercase tracking-wide px-1">
         {t("Свободные заказы ({count})", { count: free.length })}
       </div>
-      )}
 
-      {!inFleet && hasUnfinishedOrder && (
+      {hasUnfinishedOrder && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
           <Ban className="w-4 h-4 shrink-0" />
           {t("У вас есть незавершённый заказ — заверьте оплату и дождитесь подтверждения менеджера, чтобы принимать новые заявки.")}
         </div>
       )}
 
-      {inFleet ? (
-        !loading && active.length === 0 && (
-          <div className="text-center py-16 text-neutral-400">
-            <Inbox className="w-10 h-10 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">{t("Сейчас нет заказов от завода")}</p>
-            <p className="text-xs mt-1">{t("Когда завод выделит вас на заявку, она появится здесь")}</p>
-          </div>
-        )
-      ) : loading ? (
+      {loading ? (
         <div className="text-center py-16 text-neutral-400">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
           {t("Загрузка...")}

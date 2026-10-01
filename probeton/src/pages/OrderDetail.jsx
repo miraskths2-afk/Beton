@@ -118,9 +118,11 @@ export default function OrderDetail() {
   // Сам водитель завершает заказ через оплату (см. кнопку ниже),
   // а не напрямую — иначе можно было бы обойти проверку оплаты.
   const canManage = user?.role === "admin";
-  // Завод не видит миксеристов на карте и не отменяет заказ клиента
+  // Завод видит миксериста на карте только на своей заявке; на чужой
+  // (личной заявке миксериста) — нет. Заказ клиента завод не отменяет
   // (вместо этого он возвращает заявку в общую ленту на своей Главной).
   const isPlant = getEffectiveRole(user, viewMode) === "plant";
+  const hideDriverMap = isPlant && o.plant_id !== user?.id;
 
   const cancelOrder = async () => {
     if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
@@ -222,9 +224,9 @@ export default function OrderDetail() {
             </div>
           )}
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
-            {isPlant ? t("Миксерист") : t("Миксерист и маршрут до объекта")}
+            {hideDriverMap ? t("Миксерист") : t("Миксерист и маршрут до объекта")}
           </div>
-          {!isPlant && (
+          {!hideDriverMap && (
           <Suspense
             fallback={
               <div className="h-[45vh] rounded-2xl bg-neutral-100 animate-pulse" />
@@ -273,7 +275,7 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {(!hasDriverMap || isPlant) && hasDeliveryPoint && (
+      {(!hasDriverMap || hideDriverMap) && hasDeliveryPoint && (
         <div className="space-y-2">
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
             {t("Место доставки")}

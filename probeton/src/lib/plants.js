@@ -47,6 +47,29 @@ export async function fetchFleet(plantId) {
   return data || [];
 }
 
+// Миксеристы, которых завод попросил добавить в парк — ждут одобрения админа.
+export async function fetchFleetRequests(plantId) {
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("*")
+    .eq("plant_request_id", plantId);
+  if (error) throw error;
+  return data || [];
+}
+
+// Поставить миксериста на линию по его последней известной точке.
+// Если у миксериста открыт сайт — его телефон сразу начнёт снова
+// отправлять координаты (см. DriverLocationBroadcaster).
+export async function putOnLine(driverId) {
+  const { data, error } = await supabase
+    .from("driver_locations")
+    .update({ is_online: true, updated_at: new Date().toISOString() })
+    .eq("driver_id", driverId)
+    .select("driver_id");
+  if (error) throw error;
+  return (data || []).length > 0;
+}
+
 // Номер в базе хранится цифрами так, как его ввели при входе
 // (7701..., 8701... или 701...). Ищем по последним 10 цифрам.
 export async function findUserByPhone(phone) {

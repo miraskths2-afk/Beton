@@ -16,6 +16,7 @@ const ICONS = {
   plant_off: pin("#a3a3a3", "🏭"),
   client: pin("#3b82f6", "📍"),
   client_mine: pin("#f59e0b", "📍"),
+  truck: pin("#22c55e", "🚚"),
 };
 
 const ALMATY = [43.238, 76.945];
