@@ -38,11 +38,42 @@ import {
 } from "@/lib/chat";
 import { t, locale } from "@/lib/i18n";
 
-const QUICK_REPLIES = {
-  driver: ["Выезжаю", "Буду через 10 минут", "Я на месте", "Куда подъехать для разгрузки?"],
-  client: ["Где вы сейчас?", "Жду на объекте", "Подъезд свободен", "Спасибо!"],
-  plant: ["Миксер выехал", "Уточните адрес, пожалуйста"],
+// Быстрые команды — как в Яндекс Такси: одно нажатие, и собеседник
+// видит понятный статус. «Задерживаюсь» сначала спрашивает, на сколько.
+const DELAYS = [10, 20, 30, 60];
+const QUICK_COMMANDS = {
+  driver: [
+    { emoji: "🚚", label: "Еду" },
+    { emoji: "⏱", label: "Задерживаюсь", delay: true },
+    { emoji: "📍", label: "Приехал" },
+    { emoji: "🏭", label: "Загружаюсь на заводе" },
+    { emoji: "🔄", label: "Начал выгрузку" },
+    { emoji: "✅", label: "Выгрузил" },
+    { emoji: "❓", label: "Куда подъехать?" },
+  ],
+  client: [
+    { emoji: "👍", label: "Жду" },
+    { emoji: "📍", label: "Где вы сейчас?" },
+    { emoji: "🚧", label: "Подъезд свободен" },
+    { emoji: "⏱", label: "Задержусь", delay: true },
+    { emoji: "🙏", label: "Спасибо!" },
+  ],
+  plant: [
+    { emoji: "🚚", label: "Миксер выехал" },
+    { emoji: "⏱", label: "Задерживаемся", delay: true },
+    { emoji: "❓", label: "Уточните адрес, пожалуйста" },
+  ],
 };
+
+function commandText(cmd, minutes) {
+  const base = `${cmd.emoji} ${t(cmd.label)}`;
+  return minutes ? `${base} ${t("на {n} мин", { n: minutes })}` : base;
+}
+
+// Сообщение, отправленное быстрой командой, выделяем жирным.
+const COMMAND_EMOJIS = ["🚚", "⏱", "📍", "🏭", "🔄", "✅", "❓", "👍", "🚧", "🙏"];
+const isCommandMessage = (m) =>
+  !m.audio_url && COMMAND_EMOJIS.some((e) => (m.message || "").startsWith(e + " "));
 
 const ROLE_COLOR = {
   client: "text-blue-600",
@@ -81,6 +112,7 @@ export default function ChatPage() {
   const [text, setText] = useState("");
   const [peer, setPeer] = useState(null);
   const [peerTyping, setPeerTyping] = useState(false);
+  const [delayCmd, setDelayCmd] = useState(null);
 
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
@@ -432,7 +464,7 @@ export default function ChatPage() {
       ? item.status === "gone"
       : item.status === "done" || item.status === "cancelled";
 
-  const quick = !isAdmin && !text && !recorder.recording ? QUICK_REPLIES[role] || [] : [];
+  const quick = !isAdmin && !text && !recorder.recording ? QUICK_COMMANDS[role] || [] : [];
 
   let lastDay = null;
 
@@ -531,7 +563,12 @@ export default function ChatPage() {
                   {m.audio_url ? (
                     <VoiceBubble src={m.audio_url} duration={m.audio_duration} mine={mine} />
                   ) : (
-                    <span className="whitespace-pre-wrap break-words">
+                    <span
+                      className={cn(
+                        "whitespace-pre-wrap break-words",
+                        isCommandMessage(m) && "font-bold"
+                      )}
+                    >
                       {displayText(m.message, role)}
                     </span>
                   )}
@@ -569,18 +606,46 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Быстрые ответы */}
+      {/* Быстрые команды */}
       {quick.length > 0 && (
         <div className="flex gap-2 overflow-x-auto px-3 py-2 bg-neutral-50 shrink-0 border-t border-neutral-200">
-          {quick.map((q) => (
-            <button
-              key={q}
-              onClick={() => sendText(t(q))}
-              className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
-            >
-              {t(q)}
-            </button>
-          ))}
+          {delayCmd ? (
+            <>
+              <button
+                onClick={() => setDelayCmd(null)}
+                className="shrink-0 text-xs font-bold px-3 py-2 rounded-full bg-neutral-200 text-neutral-700"
+                aria-label={t("Назад")}
+              >
+                ←
+              </button>
+              <span className="shrink-0 self-center text-xs font-semibold text-neutral-500">
+                {t("На сколько?")}
+              </span>
+              {DELAYS.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => {
+                    sendText(commandText(delayCmd, n));
+                    setDelayCmd(null);
+                  }}
+                  className="shrink-0 text-sm font-bold px-4 py-2 rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                >
+                  {t("{n} мин", { n })}
+                </button>
+              ))}
+            </>
+          ) : (
+            quick.map((cmd) => (
+              <button
+                key={cmd.label}
+                onClick={() => (cmd.delay ? setDelayCmd(cmd) : sendText(commandText(cmd)))}
+                className="shrink-0 text-sm font-semibold px-3.5 py-2 rounded-full border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100 inline-flex items-center gap-1.5"
+              >
+                <span>{cmd.emoji}</span>
+                {t(cmd.label)}
+              </button>
+            ))
+          )}
         </div>
       )}
 
