@@ -10,6 +10,7 @@ import order from "./order";
 import admin from "./admin";
 import balance from "./balance";
 import plant from "./plant";
+import chat from "./chat";
 
 export default {
   ...features,
@@ -19,4 +20,5 @@ export default {
   ...admin,
   ...balance,
   ...plant,
+  ...chat,
 };

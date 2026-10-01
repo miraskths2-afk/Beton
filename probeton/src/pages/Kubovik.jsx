@@ -17,7 +17,6 @@ import {
   MapPin,
   Loader2,
   Package,
-  Phone,
   CheckCircle2,
   Plus,
   Flame,
@@ -29,6 +28,7 @@ import { normPhone } from "@/lib/orderStatuses";
 import { ListSkeleton } from "@/components/Skeleton";
 import { useWallet, publishLeftover, formatTenge } from "@/lib/balance";
 import { t, locale } from "@/lib/i18n";
+import ChatButton from "@/components/ChatButton";
 const LazyStaticPointMap = lazy(() => import("@/components/StaticPointMap"));
 
 const GRADES = ["М150", "М200", "М300", "М400"];
@@ -71,7 +71,9 @@ export default function Kubovik() {
   const [sortBy, setSortBy] = useState("new"); // "new" | "price_asc" | "price_desc"
   const [gradeFilter, setGradeFilter] = useState("all");
 
-  const [clientPhone, setClientPhone] = useState("");
+  // Перехват идёт на номер аккаунта — вводить его вручную не нужно.
+  const [clientPhone, setClientPhone] = useState(user?.phone || "");
+  const isAdmin = user?.role === "admin";
   const [revealed, setRevealed] = useState({});
   const [category, setCategory] = useState("available");
   const [driverCategory, setDriverCategory] = useState("available");
@@ -343,6 +345,9 @@ export default function Kubovik() {
             <Label className="text-sm font-semibold text-neutral-700">
               {t("Телефон для связи")}
             </Label>
+            <p className="text-xs text-neutral-400 -mt-1">
+              {t("Виден только диспетчеру. Прораб напишет вам в чат.")}
+            </p>
             <Input
               type="tel"
               value={phone}
@@ -472,14 +477,13 @@ export default function Kubovik() {
                   </div>
                 )}
                 {l.status === "intercepted" && l.intercepted_by_phone && (
-                  <a
-                    href={`tel:${l.intercepted_by_phone}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-2 flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
-                  >
-                    <Phone className="w-4 h-4" />
-                    {t("Прораб: {phone}", { phone: l.intercepted_by_phone })}
-                  </a>
+                  <ChatButton
+                    kind="leftover"
+                    id={l.id}
+                    role="driver"
+                    label={t("Написать прорабу")}
+                    className="mt-2"
+                  />
                 )}
                 {l.status === "intercepted" &&
                   l.intercepted_lat != null &&
@@ -493,7 +497,7 @@ export default function Kubovik() {
                         <LazyStaticPointMap
                           lat={l.intercepted_lat}
                           lng={l.intercepted_lng}
-                          label={t("Прораб: {phone}", { phone: l.intercepted_by_phone || "" })}
+                          label={t("Прораб")}
                         />
                       </Suspense>
                     </div>
@@ -532,18 +536,20 @@ export default function Kubovik() {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl p-4 border border-neutral-200 shadow-sm space-y-2">
-        <Label className="text-sm font-semibold text-neutral-700">
-          {t("Ваш телефон (для перехвата)")}
-        </Label>
-        <Input
-          type="tel"
-          value={clientPhone}
-          onChange={(e) => setClientPhone(e.target.value)}
-          placeholder="+7 700 000 00 00"
-          className="h-12 rounded-xl"
-        />
-      </div>
+      {!user?.phone && (
+        <div className="bg-white rounded-2xl p-4 border border-neutral-200 shadow-sm space-y-2">
+          <Label className="text-sm font-semibold text-neutral-700">
+            {t("Ваш телефон (для перехвата)")}
+          </Label>
+          <Input
+            type="tel"
+            value={clientPhone}
+            onChange={(e) => setClientPhone(e.target.value)}
+            placeholder="+7 700 000 00 00"
+            className="h-12 rounded-xl"
+          />
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Select value={sortBy} onValueChange={setSortBy}>
@@ -659,29 +665,25 @@ export default function Kubovik() {
                 </div>
 
                 {isDone ? null : isTaken ? (
-                  isMyIntercept ? (
-                    <a
-                      href={`tel:${l.phone}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2.5"
-                    >
-                      <Phone className="w-4 h-4" />
-                      {t("Позвонить водителю: {phone}", { phone: l.phone })}
-                    </a>
+                  isMyIntercept || isRevealed ? (
+                    <ChatButton
+                      kind="leftover"
+                      id={l.id}
+                      role="client"
+                      label={t("Написать миксеристу")}
+                    />
+                  ) : isAdmin ? (
+                    <ChatButton
+                      kind="leftover"
+                      id={l.id}
+                      role="admin"
+                      label={t("Переписка по остатку")}
+                    />
                   ) : (
                     <div className="text-xs font-semibold text-neutral-400 text-center py-2">
                       {t("Этот остаток уже перехватил другой прораб")}
                     </div>
                   )
-                ) : isRevealed ? (
-                  <a
-                    href={`tel:${l.phone}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2.5"
-                  >
-                    <Phone className="w-4 h-4" />
-                    {t("Позвонить водителю: {phone}", { phone: l.phone })}
-                  </a>
                 ) : (
                   <Button
                     onClick={(e) => {

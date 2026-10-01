@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
-import { Flame, MapPin, Phone, CheckCircle2, Loader2, Package } from "lucide-react";
+import { Flame, MapPin, CheckCircle2, Loader2, Package } from "lucide-react";
+import ChatButton from "@/components/ChatButton";
 import { cn } from "@/lib/utils";
 import { t, locale } from "@/lib/i18n";
 
@@ -91,15 +92,15 @@ export default function MyIntercepts({ phone }) {
             <div className="text-sm font-black text-orange-600">
               {l.price?.toLocaleString(locale())} ₸
             </div>
-            {!isGone && l.phone && (
-              <a
-                href={`tel:${l.phone}`}
-                className="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-lg px-2.5 py-1.5"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                {t("Водитель: {name}", { name: l.driver_name || "" })} · {l.phone}
-              </a>
-            )}
+            <ChatButton
+              kind="leftover"
+              id={l.id}
+              role="client"
+              compact
+              label={t("Написать миксеристу{name}", {
+                name: l.driver_name ? ` · ${l.driver_name}` : "",
+              })}
+            />
             {isGone && (
               <div className="flex items-center gap-1.5 text-xs text-neutral-400">
                 <CheckCircle2 className="w-3.5 h-3.5" />

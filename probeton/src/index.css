@@ -264,3 +264,22 @@
 .dark .app-header.text-white {
   color: #fafafa;
 }
+
+/* ===== Чат (в стиле мессенджера) ===== */
+.chat-wallpaper {
+  background-color: #efeae2;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+.chat-bubble-mine { background-color: #d9fdd3; color: #111b21; }
+.chat-bubble-other { background-color: #ffffff; color: #111b21; }
+.chat-meta { color: rgba(17, 27, 33, 0.5); }
+.chat-notice { background-color: #fff8c5; color: #54656f; }
+.dark .chat-wallpaper {
+  background-color: #0b141a;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+}
+.dark .chat-bubble-mine { background-color: #005c4b; color: #e9edef; }
+.dark .chat-bubble-other { background-color: #202c33; color: #e9edef; }
+.dark .chat-meta { color: rgba(233, 237, 239, 0.6); }
+.dark .chat-notice { background-color: #182229; color: #8696a0; }

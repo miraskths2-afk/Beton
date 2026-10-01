@@ -17,6 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 import { DetailPageSkeleton } from "@/components/Skeleton";
 import { t, locale } from "@/lib/i18n";
+import ChatButton from "@/components/ChatButton";
+import { getChatRole } from "@/lib/chat";
 
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
 const OrderRouteMap = lazy(() => import("@/components/OrderRouteMap"));
@@ -58,6 +60,9 @@ export default function LeftoverDetail() {
   }, [id]);
 
   const canManage = user?.role === "admin" || user?.id === item?.driver_id;
+  // Номера видит только диспетчер — миксерист и прораб общаются в чате.
+  const canSeePhones = user?.role === "admin";
+  const chatRole = getChatRole(user, "leftover", item);
 
   const setStatus = async (status) => {
     setBusy(true);
@@ -206,7 +211,7 @@ export default function LeftoverDetail() {
             <StaticPointMap
               lat={l.intercepted_lat}
               lng={l.intercepted_lng}
-              label={l.intercepted_by_phone}
+              label={canSeePhones ? l.intercepted_by_phone : t("Прораб")}
               height="28vh"
             />
           </Suspense>
@@ -229,7 +234,7 @@ export default function LeftoverDetail() {
           </div>
         )}
 
-        {l.phone && (
+        {canSeePhones && l.phone && (
           <a
             href={`tel:${l.phone}`}
             className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
@@ -239,7 +244,7 @@ export default function LeftoverDetail() {
           </a>
         )}
 
-        {l.intercepted_by_phone && (
+        {canSeePhones && l.intercepted_by_phone && (
           <a
             href={`tel:${l.intercepted_by_phone}`}
             className="flex items-center gap-2 text-sm font-bold text-green-700 bg-green-50 rounded-lg px-3 py-2"
@@ -247,6 +252,21 @@ export default function LeftoverDetail() {
             <Phone className="w-4 h-4" />
             {t("Перехватил: {phone}", { phone: l.intercepted_by_phone })}
           </a>
+        )}
+
+        {l.intercepted_by_phone && chatRole && (
+          <ChatButton
+            kind="leftover"
+            id={l.id}
+            role={chatRole}
+            label={
+              chatRole === "admin"
+                ? t("Переписка миксериста и прораба")
+                : chatRole === "driver"
+                ? t("Написать прорабу")
+                : t("Написать миксеристу")
+            }
+          />
         )}
       </div>
 
@@ -283,7 +303,7 @@ export default function LeftoverDetail() {
               <div className="pb-1">
                 <div className="text-sm font-semibold text-neutral-800">
                   {t("Перехвачен прорабом")}
-                  {l.intercepted_by_phone ? ` — ${l.intercepted_by_phone}` : ""}
+                  {canSeePhones && l.intercepted_by_phone ? ` — ${l.intercepted_by_phone}` : ""}
                 </div>
                 <div className="text-xs text-neutral-400">
                   {fmtDate(l.intercepted_at)}

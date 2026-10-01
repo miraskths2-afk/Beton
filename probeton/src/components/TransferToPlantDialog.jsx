@@ -99,7 +99,7 @@ export default function TransferToPlantDialog({
       // чтобы завод видел и вёл её. Независимый — заявка без завода.
       await base44.entities.Order.update(order.id, {
         driver_id: driver.id,
-        driver_name: driver.full_name || driver.driver_name || driver.phone || "Водитель",
+        driver_name: driver.full_name || driver.driver_name || "Водитель",
         // Если supabase_plants.sql ещё не выполнен, колонок plant_* нет —
         // тогда их не трогаем, чтобы назначение работало как раньше.
         ...("plant_id" in order

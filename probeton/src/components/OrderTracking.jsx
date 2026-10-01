@@ -1,6 +1,6 @@
 import React, { useEffect, useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import { base44, supabase } from "@/api/base44Client";
+import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ORDER_STATUSES, STATUS_FLOW, normPhone } from "@/lib/orderStatuses";
@@ -16,11 +16,11 @@ import {
   MapPin,
   XCircle,
   Ban,
-  Phone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
 import { t, locale } from "@/lib/i18n";
+import ChatButton from "@/components/ChatButton";
 const LiveDriverMap = lazy(() => import("@/components/LiveDriverMap"));
 
 function Stars({ value, onChange }) {
@@ -45,7 +45,7 @@ function Stars({ value, onChange }) {
   );
 }
 
-function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, driverPhone }) {
+function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick }) {
   const navigate = useNavigate();
   const st = ORDER_STATUSES[o.status || "new"];
   const currentIdx = STATUS_FLOW.indexOf(o.status || "new");
@@ -110,20 +110,13 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, ratePick, setRatePick, dr
         </div>
       )}
 
-      {isActive && o.driver_id && (
-        driverPhone ? (
-          <a
-            href={`tel:${driverPhone}`}
-            className="flex items-center justify-center gap-2 text-sm font-bold text-white bg-green-600 rounded-lg px-3 py-2.5"
-          >
-            <Phone className="w-4 h-4" />
-            {t("Миксерист: {phone}", { phone: driverPhone })}
-          </a>
-        ) : (
-          <div className="text-xs text-neutral-400 text-center px-3 py-2 bg-neutral-100 rounded-lg">
-            {t("Загрузка номера миксериста...")}
-          </div>
-        )
+      {o.driver_id && (
+        <ChatButton
+          kind="order"
+          id={o.id}
+          role="client"
+          label={t("Написать миксеристу")}
+        />
       )}
 
       {isEnRoute && (
@@ -289,7 +282,6 @@ export default function OrderTracking() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [ratePick, setRatePick] = useState({});
-  const [driverPhones, setDriverPhones] = useState({});
 
   const fetchMine = async (num) => {
     if (!num) return;
@@ -338,35 +330,6 @@ export default function OrderTracking() {
     });
     return unsub;
   }, [activePhone]);
-
-  useEffect(() => {
-    const ids = [
-      ...new Set(
-        orders
-          .filter((o) => o.status !== "done" && o.status !== "cancelled" && o.driver_id)
-          .map((o) => o.driver_id)
-      ),
-    ];
-    if (ids.length === 0) return;
-    let mounted = true;
-    supabase
-      .from("app_users")
-      .select("id, phone")
-      .in("id", ids)
-      .then(({ data }) => {
-        if (!mounted || !data) return;
-        setDriverPhones((prev) => {
-          const next = { ...prev };
-          data.forEach((u) => {
-            next[u.id] = u.phone;
-          });
-          return next;
-        });
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [orders]);
 
   const payDone = async (id) => {
     setBusy(id);
@@ -450,7 +413,6 @@ export default function OrderTracking() {
                 onCancel={cancelOrder}
                 ratePick={ratePick}
                 setRatePick={setRatePick}
-                driverPhone={o.driver_id ? driverPhones[o.driver_id] : null}
               />
             ))}
           </div>

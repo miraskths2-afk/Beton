@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, NavLink, Link, useLocation } from "react-router-dom";
 import {
   Truck,
   MapPin,
@@ -13,6 +13,7 @@ import {
   Moon,
   Factory,
   Users,
+  MessageCircle,
 } from "lucide-react";
 import { queryClientInstance } from "@/lib/query-client";
 import { t, getLang, setLang } from "@/lib/i18n";
@@ -23,6 +24,8 @@ import { getEffectiveRole } from "@/lib/effectiveRole";
 import { cn } from "@/lib/utils";
 import DriverLocationBroadcaster from "@/components/DriverLocationBroadcaster";
 import MixerIcon from "@/components/MixerIcon";
+import { useTotalUnread, displayText, chatPath } from "@/lib/chat";
+import { notify } from "@/lib/notifications";
 
 const ALL_ITEMS = [
   { to: "/", label: "Заказ", icon: Truck, end: true, roles: ["client"] },
@@ -46,6 +49,17 @@ export default function Layout() {
   const { user, viewMode } = useAuth();
   const role = getEffectiveRole(user, viewMode);
   const items = ALL_ITEMS.filter((it) => it.roles.includes(role));
+  const location = useLocation();
+  const pathRef = React.useRef(location.pathname);
+  pathRef.current = location.pathname;
+  const unreadChats = useTotalUnread(user, (chat) => {
+    // Если этот чат уже открыт — уведомление не нужно.
+    if (pathRef.current === chatPath(chat.kind, chat.id)) return;
+    notify(
+      `${t("Новое сообщение")}: ${chat.title}`,
+      displayText(chat.message.message, chat.role)
+    );
+  });
   const [isDark, setIsDark] = useState(() =>
     document.documentElement.classList.contains("dark")
   );
@@ -104,6 +118,19 @@ export default function Layout() {
           <div className="text-xs text-neutral-300 font-medium hidden sm:block">
             {t("Алматинская область")}
           </div>
+          <Link
+            to="/chats"
+            className="relative w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center"
+            aria-label={t("Чаты")}
+            title={t("Чаты")}
+          >
+            <MessageCircle className="w-4 h-4" />
+            {unreadChats > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[10px] font-black flex items-center justify-center">
+                {unreadChats > 99 ? "99+" : unreadChats}
+              </span>
+            )}
+          </Link>
           <button
             onClick={() => setLang(getLang() === "kk" ? "ru" : "kk")}
             className="h-8 px-2 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-black tracking-wide"

@@ -6,7 +6,6 @@ import {
   Inbox,
   Package,
   MapPin,
-  Phone,
   CheckCircle2,
   Loader2,
   Clock,
@@ -21,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
 import { t, locale } from "@/lib/i18n";
+import ChatButton from "@/components/ChatButton";
 import { PLANT_ACTIVE_STATUSES, plantName } from "@/lib/plants";
 
 function Stars({ value, onChange }) {
@@ -148,7 +148,7 @@ export default function DriverHome() {
     try {
       await base44.entities.Order.update(o.id, {
         driver_id: user.id,
-        driver_name: user.full_name || user.driver_name || user.phone || "Водитель",
+        driver_name: user.full_name || user.driver_name || "Водитель",
         status: "in_progress",
         accepted_at: new Date().toISOString(),
       });
@@ -300,13 +300,12 @@ export default function DriverHome() {
                   </a>
                 </div>
               )}
-              <a
-                href={`tel:${o.phone}`}
-                className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
-              >
-                <Phone className="w-4 h-4" />
-                {t("Клиент: {phone}", { phone: o.phone })}
-              </a>
+              <ChatButton
+                kind="order"
+                id={o.id}
+                role="driver"
+                label={t("Написать заказчику")}
+              />
               {o.driver_payment_confirmed ? (
                 <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-100 text-green-700 inline-flex items-center justify-center gap-1">
                   <CheckCircle2 className="w-4 h-4" />
@@ -493,7 +492,7 @@ export default function DriverHome() {
               )}
               <div className="flex items-center gap-2 text-xs text-neutral-500 bg-neutral-50 rounded-lg px-3 py-2">
                 <Headphones className="w-3.5 h-3.5 text-neutral-400" />
-                {t("Контакты скрыты — связь через диспетчера")}
+                {t("Номер скрыт — после принятия откроется чат с заказчиком")}
               </div>
               <button
                 onClick={() => accept(o)}

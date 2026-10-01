@@ -36,6 +36,8 @@ const Kubovik = lazy(() => import("@/pages/Kubovik"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const AdminPlants = lazy(() => import("@/pages/AdminPlants"));
 const PlantFleet = lazy(() => import("@/pages/PlantFleet"));
+const ChatsPage = lazy(() => import("@/pages/ChatsPage"));
+const ChatPage = lazy(() => import("@/pages/ChatPage"));
 
 function PageLoader() {
   return (
@@ -80,6 +82,8 @@ const AuthenticatedApp = () => {
             />
           }
         >
+          {/* Открытый чат — на весь экран, без шапки и нижнего меню */}
+          <Route path="/chat/:kind/:id" element={<ChatPage />} />
           <Route element={<Layout />}>
             <Route path="/" element={<RoleHome />} />
             <Route path="/mapa" element={<MapPage />} />
@@ -91,6 +95,7 @@ const AuthenticatedApp = () => {
             <Route path="/profile" element={<Profile />} />
             <Route path="/plants" element={<AdminPlants />} />
             <Route path="/fleet" element={<PlantFleet />} />
+            <Route path="/chats" element={<ChatsPage />} />
           </Route>
         </Route>
         <Route path="*" element={<PageNotFound />} />

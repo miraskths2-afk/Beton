@@ -22,10 +22,11 @@ import {
 import { cn } from "@/lib/utils";
 import { DetailPageSkeleton } from "@/components/Skeleton";
 import { t, locale } from "@/lib/i18n";
+import ChatButton from "@/components/ChatButton";
+import { getChatRole } from "@/lib/chat";
 
 const OrderRouteMap = lazy(() => import("@/components/OrderRouteMap"));
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
-const OrderChat = lazy(() => import("@/components/OrderChat"));
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -121,6 +122,10 @@ export default function OrderDetail() {
   // Завод не видит миксеристов на карте и не отменяет заказ клиента
   // (вместо этого он возвращает заявку в общую ленту на своей Главной).
   const isPlant = getEffectiveRole(user, viewMode) === "plant";
+  // Номера телефонов видят только диспетчер и завод. Заказчик и
+  // миксерист общаются через чат, не видя номеров друг друга.
+  const canSeePhones = user?.role === "admin" || user?.account_type === "plant";
+  const chatRole = getChatRole(user, "order", o);
 
   const cancelOrder = async () => {
     if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
@@ -255,7 +260,7 @@ export default function OrderDetail() {
               {t("Водитель: {name}", { name: o.driver_name })}
             </div>
           )}
-          {driverPhone && (
+          {canSeePhones && driverPhone && (
             <a
               href={`tel:${driverPhone}`}
               className="flex items-center justify-center gap-2 text-sm font-bold text-white bg-green-600 rounded-lg px-3 py-2.5"
@@ -267,9 +272,25 @@ export default function OrderDetail() {
         </div>
       )}
 
+      {o.driver_id && chatRole && (
+        <ChatButton
+          kind="order"
+          id={o.id}
+          role={chatRole}
+          label={
+            chatRole === "admin"
+              ? t("Переписка миксериста и заказчика")
+              : chatRole === "driver"
+              ? t("Написать заказчику")
+              : t("Написать миксеристу")
+          }
+          className="rounded-xl"
+        />
+      )}
+
       {isOrderActive && !o.driver_id && (
         <div className="text-xs text-neutral-400 text-center px-3 py-2 bg-neutral-100 rounded-lg">
-          {t("Номер телефона миксериста появится здесь, как только он примет заказ")}
+          {t("Чат с миксеристом появится здесь, как только он примет заказ")}
         </div>
       )}
 
@@ -348,13 +369,15 @@ export default function OrderDetail() {
           </div>
         )}
 
-        <a
-          href={`tel:${o.phone}`}
-          className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
-        >
-          <Phone className="w-4 h-4" />
-          {o.phone}
-        </a>
+        {canSeePhones && (
+          <a
+            href={`tel:${o.phone}`}
+            className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
+          >
+            <Phone className="w-4 h-4" />
+            {o.phone}
+          </a>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-3">
@@ -455,33 +478,6 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {o.driver_id && (
-        <Suspense
-          fallback={<div className="h-40 rounded-2xl bg-neutral-100 animate-pulse" />}
-        >
-          <OrderChat
-            orderId={o.id}
-            myRole={
-              user?.role === "admin"
-                ? "admin"
-                : user?.id === o.driver_id
-                ? "driver"
-                : isPlant
-                ? "plant"
-                : "client"
-            }
-            myName={
-              user?.role === "admin"
-                ? "Диспетчер"
-                : isPlant
-                ? user?.full_name || "Завод"
-                : user?.id === o.driver_id
-                ? user?.full_name || "Миксерист"
-                : user?.full_name || "Заказчик"
-            }
-          />
-        </Suspense>
-      )}
 
       {isOrderActive && !isPlant && (
         <button
