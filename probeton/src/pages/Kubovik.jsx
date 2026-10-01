@@ -138,9 +138,12 @@ export default function Kubovik() {
       setTimeout(() => setDone(false), 3500);
     } catch (e) {
       console.error(e);
+      const msg = e?.message || "";
       setPostError(
-        e?.message ||
-          t("Не удалось опубликовать остаток. Проверьте подключение и попробуйте ещё раз.")
+        /publish_leftover|schema cache/i.test(msg)
+          ? t("В базе ещё не выполнен файл supabase_balance.sql. Выполните его в Supabase → SQL Editor.")
+          : msg ||
+              t("Не удалось опубликовать остаток. Проверьте подключение и попробуйте ещё раз.")
       );
     } finally {
       setSubmitting(false);
