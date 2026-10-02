@@ -132,7 +132,8 @@ export function pumpErrorText(err) {
   if (
     /(service_type|pump_boom|pump_hours|pump_rate|pump_prepaid|pump_for_order_id|pump_hire_open|pump_rates|pump_fee|pump_service_fee|pump_start|pump_finish)/.test(msg) ||
     /order_messages_channel_check/.test(msg) ||
-    /только миксериста/.test(msg)
+    // Старое сообщение без насосников = supabase_pump.sql не выполнен.
+    /только миксериста(?! или насосника)/.test(msg)
   ) {
     return t("В базе нет полей для АБН. Выполните файл supabase_pump.sql в Supabase → SQL Editor.");
   }

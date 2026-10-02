@@ -30,7 +30,7 @@ import { plantName, plantsErrorText } from "@/lib/plants";
 import AssignFleetDriverDialog from "@/components/AssignFleetDriverDialog";
 import OrderExtras from "@/components/OrderExtras";
 import ChatButton from "@/components/ChatButton";
-import { isPumpOrder, attachPumpOrdersToPlant, pumpErrorText, pumpServiceFee, workerLabel } from "@/lib/pump";
+import { isPumpOrder, attachPumpOrdersToPlant, pumpErrorText, pumpFinish, pumpServiceFee, workerLabel } from "@/lib/pump";
 import { fetchSettings, formatTenge } from "@/lib/balance";
 import PumpWorkTimer from "@/components/PumpWorkTimer";
 
@@ -53,6 +53,7 @@ export default function PlantHome() {
   const [assignOrder, setAssignOrder] = useState(null);
   const [settings, setSettings] = useState(null);
   const myIdsRef = useRef(null);
+  const takenIdsRef = useRef(new Set());
 
   const load = async () => {
     try {
@@ -60,8 +61,13 @@ export default function PlantHome() {
       setOrders(all);
       // Уведомление: админ передал заводу новую заявку.
       const mine = all.filter((o) => o.plant_id === user?.id).map((o) => o.id);
+      // Рейсы, которые завод сам создал при выделении нескольких миксеров
+      // (parent_order_id), и заявки, взятые заводом из ленты, — не «от админа».
       if (myIdsRef.current && user?.notifications_enabled !== false) {
-        const fresh = mine.filter((id) => !myIdsRef.current.has(id));
+        const fresh = all
+          .filter((o) => o.plant_id === user?.id && !o.parent_order_id && !o.pump_for_order_id)
+          .map((o) => o.id)
+          .filter((id) => !myIdsRef.current.has(id) && !takenIdsRef.current.has(id));
         if (fresh.length > 0) {
           notify(t("Новая заявка для завода"), t("Админ передал вам заявку — выделите миксер"));
         }
@@ -135,14 +141,22 @@ export default function PlantHome() {
       setError(t("Сначала выделите исполнителя на все машины и насос этой заявки."));
       return;
     }
-    const pumpRunning = rows.some((r) => isPumpOrder(r) && r.arrived_at && !r.unloaded_at);
+    // Таймер насоса надо остановить до закрытия: после закрытия насосник
+    // уже не увидит кнопку остановки, и часы считались бы бесконечно.
+    const running = rows.filter((r) => isPumpOrder(r) && r.arrived_at && !r.unloaded_at);
+    if (running.length > 0) {
+      if (!confirm(t("Насос ещё работает. Остановить его таймер сейчас? Часы зафиксируются, и сбор пересчитается. Потом нажмите «Заявка выполнена» ещё раз."))) return;
+      run(o.id, async () => {
+        for (const r of running) await pumpFinish(r.driver_id, r.id);
+      });
+      return;
+    }
     const fee = groupFee(rows);
     if (
       !confirm(
-        (pumpRunning ? t("Насос ещё не остановил таймер — сбор посчитаем по текущим часам.") + "\n\n" : "") +
-          t("Заявка выполнена? Оплатите сервисный сбор PROBETON {fee} на Kaspi. Админ проверит оплату и закроет заявку.", {
-            fee: formatTenge(fee),
-          })
+        t("Заявка выполнена? Оплатите сервисный сбор PROBETON {fee} на Kaspi. Админ проверит оплату и закроет заявку.", {
+          fee: formatTenge(fee),
+        })
       )
     )
       return;
@@ -182,6 +196,7 @@ export default function PlantHome() {
       if (user?.role === "admin") {
         throw new Error(t("Это режим просмотра админа — принимать заявки может только настоящий завод."));
       }
+      takenIdsRef.current.add(o.id);
       const { data, error: upErr } = await supabase
         .from("orders")
         .update({ plant_id: user.id, plant_name: plantName(user) })
@@ -564,9 +579,13 @@ export default function PlantHome() {
                       </button>
                       <div className="text-[11px] text-neutral-400 text-center">
                         {groupOf(groupKey(o)).length > 1
-                          ? t("Закрывает всю заявку сразу — бетон и насос вместе ({n} шт.). Потом админ подтвердит оплату.", {
-                              n: groupOf(groupKey(o)).length,
-                            })
+                          ? groupOf(groupKey(o)).some(isPumpOrder)
+                            ? t("Закрывает всю заявку сразу — бетон и насос вместе ({n} шт.). Потом админ подтвердит оплату.", {
+                                n: groupOf(groupKey(o)).length,
+                              })
+                            : t("Закрывает всю заявку сразу — все машины ({n} шт.). Потом админ подтвердит оплату.", {
+                                n: groupOf(groupKey(o)).length,
+                              })
                           : t("Нажмите, когда заявка выполнена. Потом админ подтвердит оплату.")}
                       </div>
                     </div>

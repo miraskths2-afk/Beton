@@ -191,7 +191,9 @@ export default function OrderDetail() {
   const isPlant = getEffectiveRole(user, viewMode) === "plant";
   // Номера телефонов видят только диспетчер и завод. Заказчик и
   // миксерист общаются через чат, не видя номеров друг друга.
-  const canSeePhones = user?.role === "admin" || user?.account_type === "plant";
+  // Завод видит номера только у своих заявок.
+  const canSeePhones =
+    user?.role === "admin" || (user?.account_type === "plant" && o.plant_id === user?.id);
   const chatRole = getChatRole(user, "order", o);
   const plantChatRole = getChatRole(user, "plant", o);
   const fleetChatRole = getChatRole(user, "fleet", o);

@@ -7,7 +7,8 @@ import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 import TermsContent from "@/components/TermsContent";
 import MixerIcon from "@/components/MixerIcon";
 import { t } from "@/lib/i18n";
-import { EQUIPMENT, needsVehicleInfo } from "@/lib/equipment";
+import { EQUIPMENT, equipmentFor, needsVehicleInfo } from "@/lib/equipment";
+import { PUMP_BOOMS, boomLabel } from "@/lib/pump";
 
 // Показывается один раз новому пользователю (или когда меняется версия
 // соглашения). Сначала просим имя, если его ещё нет, затем — согласие
@@ -25,7 +26,8 @@ export default function Onboarding() {
     needsName ? "name" : needsVehicle ? "vehicle" : "terms"
   );
   const [plate, setPlate] = useState(user?.vehicle_plate || "");
-  const [equipment, setEquipment] = useState(user?.equipment_type || "mixer");
+  const isPump = user?.account_type === "pump";
+  const [boom, setBoom] = useState(user?.pump_boom ? String(user.pump_boom) : "");
   const [name, setName] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -68,12 +70,17 @@ export default function Onboarding() {
       setError(t("Введите гос. номер полностью, например 123 ABC 02"));
       return;
     }
+    if (isPump && !boom) {
+      setError(t("Выберите длину стрелы насоса"));
+      return;
+    }
     setBusy(true);
     setError("");
     try {
       await base44.auth.updateMe({
         vehicle_plate: cleanPlate,
-        equipment_type: equipment,
+        equipment_type: equipmentFor(user),
+        ...(isPump ? { pump_boom: Number(boom) } : {}),
       });
       await checkUserAuth();
       if (needsTerms) {
@@ -181,22 +188,28 @@ export default function Onboarding() {
                 autoFocus
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-neutral-700">
-                {t("Вид техники")}
-              </label>
-              <select
-                value={equipment}
-                onChange={(e) => setEquipment(e.target.value)}
-                className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-neutral-800"
-              >
-                {Object.entries(EQUIPMENT).map(([id, label]) => (
-                  <option key={id} value={id}>
-                    {t(label)}
-                  </option>
-                ))}
-              </select>
+            <div className="text-sm text-neutral-700">
+              {t("Вид техники")}: <span className="font-semibold">{t(EQUIPMENT[equipmentFor(user)])}</span>
             </div>
+            {isPump && (
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-neutral-700">
+                  {t("Длина стрелы")}
+                </label>
+                <select
+                  value={boom}
+                  onChange={(e) => setBoom(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-neutral-800"
+                >
+                  <option value="">{t("Выберите")}</option>
+                  {PUMP_BOOMS.map((b) => (
+                    <option key={b} value={b}>
+                      {boomLabel(b)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               type="submit"

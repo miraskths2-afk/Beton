@@ -138,6 +138,13 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
       };
       // Свой насос нашёлся — найм на сайте больше не нужен.
       if (pump) fields.pump_hire_open = false;
+      // Сменили исполнителя до конца работы — его таймер начнётся заново,
+      // а не от времени приезда прежнего.
+      if (order.driver_id && order.driver_id !== d.id && !order.unloaded_at) {
+        fields.arrived_at = null;
+        fields.downtime_hours = 0;
+        fields.downtime_fee = 0;
+      }
       if ((order.status || "new") === "new") {
         fields.status = "in_progress";
         fields.accepted_at = new Date().toISOString();

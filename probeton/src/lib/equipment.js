@@ -1,14 +1,16 @@
-// Виды техники миксериста. Ключ хранится в app_users.equipment_type.
+// Вид техники исполнителя. Ключ хранится в app_users.equipment_type и
+// определяется ролью: миксерист — миксер, насосник — АБН (длину стрелы
+// насосник указывает отдельно, app_users.pump_boom).
 export const EQUIPMENT = {
   mixer: "Миксер (АБС)",
-  pump_16: "АБН 16м",
-  pump_24: "АБН 24м",
-  pump_36: "АБН 36м",
-  pump_52: "АБН 52м",
+  pump: "Автобетононасос (АБН)",
 };
 
-// Миксерист при регистрации обязательно указывает данные своей техники.
+export const equipmentFor = (user) => (user?.account_type === "pump" ? "pump" : "mixer");
+
+// Миксерист и насосник при регистрации обязательно указывают гос. номер,
+// насосник — ещё и длину стрелы.
 export const needsVehicleInfo = (user) =>
-  user?.account_type === "driver" &&
   user?.role !== "admin" &&
-  (!user?.vehicle_plate || !user?.equipment_type);
+  ((user?.account_type === "driver" && !user?.vehicle_plate) ||
+    (user?.account_type === "pump" && (!user?.vehicle_plate || !user?.pump_boom)));

@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Check, X, UserCheck, Loader2, Phone, Car } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { EQUIPMENT } from "@/lib/equipment";
+import { pumpTitle } from "@/lib/pump";
 
 
 export default function DriverApproval() {
@@ -101,10 +102,16 @@ export default function DriverApproval() {
                 {d.vehicle_plate}
               </span>
             )}
-            {d.account_type === "driver" && d.equipment_type && (
+            {d.account_type === "driver" && (
               <span className="inline-flex items-center gap-1">
                 <UserCheck className="w-3 h-3" />
-                {EQUIPMENT[d.equipment_type] ? t(EQUIPMENT[d.equipment_type]) : d.equipment_type}
+                {t(EQUIPMENT.mixer)}
+              </span>
+            )}
+            {d.account_type === "pump" && d.pump_boom && (
+              <span className="inline-flex items-center gap-1">
+                <UserCheck className="w-3 h-3" />
+                {pumpTitle(d.pump_boom)}
               </span>
             )}
           </div>

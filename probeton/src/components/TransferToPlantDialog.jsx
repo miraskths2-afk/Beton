@@ -25,10 +25,12 @@ export default function TransferToPlantDialog({
   const [loadingDrivers, setLoadingDrivers] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setSelectedId(null);
+    setError("");
     setLoadingDrivers(true);
     (async () => {
       try {
@@ -65,6 +67,8 @@ export default function TransferToPlantDialog({
         const list = all
           .filter((u) => ids.includes(u.id))
           .filter((u) => (wantPump ? u.account_type === "pump" : u.account_type !== "pump"))
+          // Бетон с документами везёт только миксер из парка завода.
+          .filter((u) => !order?.with_documents || u.plant_id)
           .map((u) => {
             const loc = locById[u.id];
             const km = hasTarget && loc
@@ -119,6 +123,7 @@ export default function TransferToPlantDialog({
       onOpenChange(false);
     } catch (err) {
       console.error(err);
+      setError(err?.message || t("Не удалось назначить. Попробуйте ещё раз."));
     } finally {
       setLoading(false);
     }
@@ -198,6 +203,7 @@ export default function TransferToPlantDialog({
           )}
         </div>
 
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("Отмена")}

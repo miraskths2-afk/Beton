@@ -74,6 +74,7 @@ function PlantForm({ plant, onSaved, onCancel }) {
           ...fields,
           account_type: "plant",
           plant_id: null,
+          plant_request_id: null,
           plant_active: true,
           approval_status: "approved",
         };

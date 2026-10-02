@@ -679,7 +679,7 @@ export default function DriverHome() {
       {hasUnfinishedOrder && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
           <Ban className="w-4 h-4 shrink-0" />
-          {t("У вас есть незавершённый заказ — заверьте оплату и дождитесь подтверждения менеджера, чтобы принимать новые заявки.")}
+          {t("У вас есть незавершённый заказ — оплатите сервисный сбор и дождитесь подтверждения менеджера, чтобы принимать новые заявки.")}
         </div>
       )}
 

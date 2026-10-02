@@ -9,6 +9,9 @@ import { t } from "@/lib/i18n";
 export default function DriverCancelRequest({ order, onChanged }) {
   const [busy, setBusy] = useState(false);
 
+  // Работа уже сделана — отменять нечего.
+  if (order.unloaded_at) return null;
+
   if (order.cancel_requested_at) {
     return (
       <div className="w-full text-xs font-bold py-2.5 px-3 rounded-lg bg-neutral-100 text-neutral-600 inline-flex items-center justify-center gap-1.5 text-center">

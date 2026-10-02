@@ -8,6 +8,7 @@
 
 import { supabase } from "@/api/base44Client";
 import { t } from "@/lib/i18n";
+import { canClientCancel, orderGroupRoot } from "@/lib/orderStatuses";
 
 export const WARN_LIMIT = 3;
 
@@ -20,9 +21,28 @@ export async function addWarning(userId, reason) {
   return Number(data || 0);
 }
 
-// Отмена заказа самим заказчиком: предупреждаем заранее, отменяем,
-// выдаём предупреждение. Возвращает true, если заказ отменён.
+// Все строки одной заявки (рейсы миксеров и АБН к бетону), которые ещё
+// не закрыты.
+async function openGroupRows(order) {
+  const root = orderGroupRoot(order);
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .or(`id.eq.${root},parent_order_id.eq.${root},pump_for_order_id.eq.${root}`)
+    .not("status", "in", "(done,cancelled)");
+  if (error) throw error;
+  return data?.length ? data : [order];
+}
+
+// Отмена заказа самим заказчиком: предупреждаем заранее, отменяем всю
+// заявку (все рейсы и насос к ней) и выдаём одно предупреждение.
+// Возвращает true, если заказ отменён.
 export async function cancelOrderAsClient(order, user) {
+  const rows = await openGroupRows(order);
+  if (rows.some((r) => !canClientCancel(r))) {
+    alert(t("Часть заказа уже в работе: машина приехала или оплата отмечена. Отменить его можно только через диспетчера."));
+    return false;
+  }
   const current = Number(user?.warnings || 0);
   const next = current + 1;
   const text =
@@ -34,7 +54,7 @@ export async function cancelOrderAsClient(order, user) {
   const { error } = await supabase
     .from("orders")
     .update({ status: "cancelled", cancelled_by: "client" })
-    .eq("id", order.id);
+    .in("id", rows.map((r) => r.id));
   if (error) throw error;
 
   if (user?.id && user?.role !== "admin") {
