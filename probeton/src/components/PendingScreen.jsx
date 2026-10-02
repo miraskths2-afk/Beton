@@ -1,6 +1,7 @@
 import React from "react";
 import { Hourglass, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 
 export default function PendingScreen({ status, reapproval = false }) {
   const rejected = status === "rejected";
@@ -19,14 +20,14 @@ export default function PendingScreen({ status, reapproval = false }) {
         )}
       </div>
       <h1 className="text-xl font-black text-neutral-900">
-        {rejected ? "Заявка отклонена" : "Ожидание одобрения"}
+        {rejected ? t("Заявка отклонена") : t("Ожидание одобрения")}
       </h1>
       <p className="text-sm text-neutral-500 mt-2 max-w-xs">
         {rejected
-          ? "К сожалению, ваша заявка отклонена. Свяжитесь с диспетчером для уточнения."
+          ? t("К сожалению, ваша заявка отклонена. Свяжитесь с диспетчером для уточнения.")
           : reapproval
-          ? "При повторном входе требуется подтверждение диспетчера. Как только вас одобрят, сайт снова станет доступен."
-          : "Диспетчер рассматривает вашу заявку. Как только вас одобрят, здесь появится лента свободных заказов."}
+          ? t("При повторном входе требуется подтверждение диспетчера. Как только вас одобрят, сайт снова станет доступен.")
+          : t("Диспетчер рассматривает вашу заявку. Как только вас одобрят, здесь появится лента свободных заказов.")}
       </p>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,8 +11,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Zap, Loader2, CheckCircle2, Clock } from "lucide-react";
+import {
+  Zap,
+  Loader2,
+  CheckCircle2,
+  Clock,
+  Truck,
+  Droplets,
+  Camera,
+  X,
+  FileText,
+  Repeat,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { isBlacklisted } from "@/lib/blacklist";
+import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
+import { t } from "@/lib/i18n";
+import {
+  MIXER_CAPACITY,
+  UNLOAD_METHODS,
+  trucksEstimate,
+  trucksText,
+  uploadSitePhoto,
+  orderDetailsErrorText,
+} from "@/lib/orderExtras";
 
 const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
@@ -29,37 +51,91 @@ export default function QuickOrderForm({ prefill }) {
   );
   const [comment, setComment] = useState("");
   const [phone, setPhone] = useState(prefill?.phone || "");
+  // Как выгружают бетон: "slide" (слив на землю) | "pump" (в насос).
+  const [unloadMethod, setUnloadMethod] = useState(prefill?.unload_method || "");
+  // Лоток при сливе: "yes" | "no" | "" (ещё не выбрано).
+  const [chute, setChute] = useState(
+    prefill?.unload_method === "slide" ? (prefill?.chute_needed ? "yes" : "no") : ""
+  );
+  const [chuteMeters, setChuteMeters] = useState(
+    prefill?.chute_meters ? String(prefill.chute_meters) : ""
+  );
+  const [mayReorder, setMayReorder] = useState(false);
+  const [withDocuments, setWithDocuments] = useState(!!prefill?.with_documents);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [accessConfirmed, setAccessConfirmed] = useState(false);
+  const photoInputRef = useRef(null);
+  // Дозаказ к уже выполненной заявке (кнопка «Дозаказать»).
+  const reorderOf = prefill?.reorderOf || null;
   const [timing, setTiming] = useState("asap"); // "asap" | "scheduled"
   const [neededBy, setNeededBy] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
+
+  const trucks = trucksEstimate(cubes);
+  const unloadValid =
+    unloadMethod === "pump" ||
+    (unloadMethod === "slide" &&
+      (chute === "no" || (chute === "yes" && Number(chuteMeters) > 0)));
+  const accessValid = !!photoFile || accessConfirmed;
+
   const isValid =
-    cubes && Number(cubes) > 0 && address.trim() && phone.trim() && !!location;
+    cubes &&
+    Number(cubes) > 0 &&
+    address.trim() &&
+    phone.trim() &&
+    !!location &&
+    unloadValid &&
+    accessValid;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isValid) return;
     if (timing === "scheduled" && !neededBy) return;
     if (await isBlacklisted(phone.trim())) {
-      alert("Этот номер в чёрном списке PROBETON. Заказ недоступен.");
+      alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен."));
       return;
     }
     setLoading(true);
     setError("");
     try {
+      const sitePhotoUrl = photoFile ? await uploadSitePhoto(photoFile) : null;
+      const cubesNum = parseFloat(cubes);
+      const pricePerCube = prefill?.price_per_cube ?? null;
       await base44.entities.Order.create({
         order_number: "PB-" + Date.now().toString().slice(-6),
         what_needed: `${cubes} м³ бетона ${grade}, адрес: ${address.trim()}`,
         grade,
-        cubes: parseFloat(cubes),
+        cubes: cubesNum,
         delivery_address: address.trim(),
         delivery_lat: location?.lat ?? null,
         delivery_lng: location?.lng ?? null,
         comment: comment.trim() || null,
         phone: phone.trim(),
-        order_type: "quick",
+        order_type: prefill?.order_type === "calculator" ? "calculator" : "quick",
+        price_per_cube: pricePerCube,
+        total: pricePerCube != null ? pricePerCube * cubesNum : null,
+        unload_method: unloadMethod,
+        chute_needed: unloadMethod === "slide" && chute === "yes",
+        chute_meters:
+          unloadMethod === "slide" && chute === "yes" ? parseFloat(chuteMeters) : null,
+        may_reorder: mayReorder,
+        reorder_of: reorderOf?.id || null,
+        with_documents: withDocuments,
+        site_photo_url: sitePhotoUrl,
+        access_confirmed: !sitePhotoUrl && accessConfirmed,
         status: "new",
         needed_by:
           timing === "scheduled" ? new Date(neededBy).toISOString() : null,
@@ -73,12 +149,20 @@ export default function QuickOrderForm({ prefill }) {
       setPhone("");
       setTiming("asap");
       setNeededBy("");
+      setUnloadMethod("");
+      setChute("");
+      setChuteMeters("");
+      setMayReorder(false);
+      setWithDocuments(false);
+      setPhotoFile(null);
+      setAccessConfirmed(false);
       setTimeout(() => setSuccess(false), 4000);
     } catch (err) {
       console.error(err);
       setError(
-        err?.message ||
-          "Не удалось сохранить заявку. Проверьте подключение и попробуйте ещё раз."
+        err?.message
+          ? orderDetailsErrorText(err)
+          : t("Не удалось сохранить заявку. Проверьте подключение и попробуйте ещё раз.")
       );
     } finally {
       setLoading(false);
@@ -91,9 +175,9 @@ export default function QuickOrderForm({ prefill }) {
         <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
           <CheckCircle2 className="w-8 h-8 text-green-600" />
         </div>
-        <h3 className="font-bold text-lg text-neutral-900">Заявка принята!</h3>
+        <h3 className="font-bold text-lg text-neutral-900">{t("Заявка принята!")}</h3>
         <p className="text-sm text-neutral-500 mt-1">
-          Наш менеджер свяжется с вами в ближайшее время.
+          {t("Наш менеджер свяжется с вами в ближайшее время.")}
         </p>
       </div>
     );
@@ -101,6 +185,14 @@ export default function QuickOrderForm({ prefill }) {
 
   // Минимальное допустимое время в поле "выбрать время" — через 30 минут от сейчас.
   const minDateTime = new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16);
+
+  const choiceCls = (active) =>
+    cn(
+      "h-11 rounded-xl text-sm font-semibold border transition-colors px-2",
+      active
+        ? "bg-neutral-900 text-white border-neutral-900"
+        : "bg-white text-neutral-600 border-neutral-200"
+    );
 
   return (
     <form
@@ -112,17 +204,24 @@ export default function QuickOrderForm({ prefill }) {
           <Zap className="w-4 h-4 text-amber-600" />
         </div>
         <div>
-          <h2 className="font-bold text-neutral-900">Заказ в один клик</h2>
+          <h2 className="font-bold text-neutral-900">{t("Заказ в один клик")}</h2>
           <p className="text-xs text-neutral-500">
-            Заполните поля — мы перезвоним
+            {t("Заполните поля — мы перезвоним")}
           </p>
         </div>
       </div>
 
+      {reorderOf && (
+        <div className="flex items-center gap-2 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <Repeat className="w-4 h-4 shrink-0" />
+          {t("Дозаказ к заявке {number}", { number: reorderOf.number || "" })}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-neutral-700">
-            Марка бетона
+            {t("Марка бетона")}
           </Label>
           <Select value={grade} onValueChange={setGrade}>
             <SelectTrigger className="h-11 rounded-xl">
@@ -140,7 +239,7 @@ export default function QuickOrderForm({ prefill }) {
 
         <div className="space-y-2">
           <Label htmlFor="cubes" className="text-sm font-semibold text-neutral-700">
-            Кубов
+            {t("Кубов")}
           </Label>
           <Input
             id="cubes"
@@ -149,30 +248,140 @@ export default function QuickOrderForm({ prefill }) {
             step="0.5"
             value={cubes}
             onChange={(e) => setCubes(e.target.value)}
-            placeholder="Напр. 5"
+            placeholder={t("Напр. 5")}
             className="h-11"
             required
           />
         </div>
       </div>
 
+      {trucks > 0 && (
+        <div className="flex items-start gap-2 text-xs text-neutral-700 bg-neutral-100 rounded-lg px-3 py-2">
+          <Truck className="w-4 h-4 shrink-0 text-neutral-500" />
+          <span>
+            {t("Понадобится примерно {trucks}", { trucks: trucksText(trucks) })}{" "}
+            <span className="text-neutral-400">
+              {t("(примерно, в среднем ~{cap} м³ в одном миксере)", { cap: MIXER_CAPACITY })}
+            </span>
+          </span>
+        </div>
+      )}
+
+      <label className="flex items-start gap-2.5 rounded-xl border border-neutral-200 px-3 py-2.5 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={mayReorder}
+          onChange={(e) => setMayReorder(e.target.checked)}
+          className="mt-0.5 w-4 h-4 accent-neutral-900"
+        />
+        <span className="text-sm text-neutral-800">
+          <span className="font-semibold">{t("Возможен дозаказ")}</span>
+          <span className="block text-xs text-neutral-500">
+            {t("Не уверен, что этого объёма хватит — после выполнения могу заказать ещё")}
+          </span>
+        </span>
+      </label>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-neutral-700 flex items-center gap-1.5">
+          <Droplets className="w-3.5 h-3.5" />
+          {t("Как будет выгружаться бетон")} <span className="text-red-500">*</span>
+        </Label>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(UNLOAD_METHODS).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setUnloadMethod(id)}
+              className={choiceCls(unloadMethod === id)}
+            >
+              {t(label)}
+            </button>
+          ))}
+        </div>
+        {unloadMethod === "slide" && (
+          <div className="space-y-2 rounded-xl bg-neutral-50 border border-neutral-200 p-3">
+            <div className="text-xs font-semibold text-neutral-700">
+              {t("Нужен лоток (удлинитель), чтобы дотянуть бетон до дальних мест?")}{" "}
+              <span className="text-red-500">*</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setChute("yes")} className={choiceCls(chute === "yes")}>
+                {t("Да, нужен")}
+              </button>
+              <button type="button" onClick={() => setChute("no")} className={choiceCls(chute === "no")}>
+                {t("Не нужен")}
+              </button>
+            </div>
+            {chute === "yes" && (
+              <div className="space-y-1">
+                <Label htmlFor="chuteMeters" className="text-xs font-semibold text-neutral-600">
+                  {t("Примерно сколько метров лотка")}
+                </Label>
+                <Input
+                  id="chuteMeters"
+                  type="number"
+                  min="1"
+                  max="30"
+                  step="1"
+                  value={chuteMeters}
+                  onChange={(e) => setChuteMeters(e.target.value)}
+                  placeholder={t("Напр. 4")}
+                  className="h-11"
+                  required
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <label
+        className={cn(
+          "flex items-start gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer",
+          withDocuments ? "border-indigo-300 bg-indigo-50" : "border-neutral-200"
+        )}
+      >
+        <input
+          type="checkbox"
+          checked={withDocuments}
+          onChange={(e) => setWithDocuments(e.target.checked)}
+          className="mt-0.5 w-4 h-4 accent-indigo-600"
+        />
+        <span className="text-sm text-neutral-800">
+          <span className="font-semibold inline-flex items-center gap-1">
+            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+            {t("Бетон с документами")}
+          </span>
+          <span className="block text-xs text-neutral-500">
+            {t("Официальный договор и документы на бетон. Выполняют только заводы: цена выше, качество надёжное.")}
+          </span>
+        </span>
+      </label>
+
       <div className="space-y-2">
         <Label htmlFor="address" className="text-sm font-semibold text-neutral-700">
-          Адрес / место доставки
+          {t("Адрес / место доставки")}
         </Label>
-        <Input
-          id="address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Напр.: Наурызбайский р-н, ул. Абая 10"
-          className="h-11"
-          required
-        />
+        <div className="flex gap-2">
+          <Input
+            id="address"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder={t("Напр.: Наурызбайский р-н, ул. Абая 10")}
+            className="h-11"
+            required
+          />
+          <VoiceInputButton
+            className="h-11 w-11"
+            onText={(txt) => setAddress((prev) => appendSpoken(prev, txt))}
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
         <Label className="text-sm font-semibold text-neutral-700">
-          Место объекта на карте
+          {t("Место объекта на карте")}
         </Label>
         <Suspense
           fallback={
@@ -189,21 +398,87 @@ export default function QuickOrderForm({ prefill }) {
 
       <div className="space-y-2">
         <Label htmlFor="comment" className="text-sm font-semibold text-neutral-700">
-          Дополнительные комментарии
+          {t("Дополнительные комментарии")}
         </Label>
-        <Textarea
-          id="comment"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Необязательно: подъезд, ориентир, пожелания к подаче..."
-          rows={2}
-          className="resize-none"
+        <div className="flex gap-2 items-start">
+          <Textarea
+            id="comment"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder={t("Необязательно: подъезд, ориентир, пожелания к подаче...")}
+            rows={2}
+            className="resize-none"
+          />
+          <VoiceInputButton
+            onText={(txt) => setComment((prev) => appendSpoken(prev, txt))}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-neutral-700 flex items-center gap-1.5">
+          <Camera className="w-3.5 h-3.5" />
+          {t("Фото заезда на объект")}
+        </Label>
+        <p className="text-xs text-neutral-500">
+          {t("Сфотографируйте въезд, чтобы миксерист заранее знал, что проедет. Если заезд затруднён — клиент обязан обеспечить проходимый заезд для миксера.")}
+        </p>
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) setPhotoFile(f);
+            e.target.value = "";
+          }}
         />
+        {photoPreview ? (
+          <div className="relative">
+            <img
+              src={photoPreview}
+              alt=""
+              className="w-full max-h-56 object-cover rounded-xl border border-neutral-200"
+            />
+            <button
+              type="button"
+              onClick={() => setPhotoFile(null)}
+              className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center"
+              aria-label={t("Убрать фото")}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="w-full h-11 rounded-xl border border-dashed border-neutral-300 text-sm font-semibold text-neutral-600 inline-flex items-center justify-center gap-2"
+            >
+              <Camera className="w-4 h-4" />
+              {t("Добавить фото заезда")}
+            </button>
+            <label className="flex items-start gap-2.5 rounded-xl border border-neutral-200 px-3 py-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={accessConfirmed}
+                onChange={(e) => setAccessConfirmed(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-neutral-900"
+              />
+              <span className="text-xs text-neutral-700">
+                {t("Без фото: я уверен, что миксер проедет. Если заезд окажется затруднён — обеспечу проходимый заезд.")}
+              </span>
+            </label>
+          </>
+        )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="phone" className="text-sm font-semibold text-neutral-700">
-          Номер телефона клиента
+          {t("Номер телефона клиента")}
         </Label>
         <Input
           id="phone"
@@ -219,7 +494,7 @@ export default function QuickOrderForm({ prefill }) {
       <div className="space-y-2">
         <Label className="text-sm font-semibold text-neutral-700 flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5" />
-          Когда нужен бетон
+          {t("Когда нужен бетон")}
         </Label>
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -231,7 +506,7 @@ export default function QuickOrderForm({ prefill }) {
                 : "bg-white text-neutral-600 border-neutral-200"
             }`}
           >
-            Как можно скорее
+            {t("Как можно скорее")}
           </button>
           <button
             type="button"
@@ -242,7 +517,7 @@ export default function QuickOrderForm({ prefill }) {
                 : "bg-white text-neutral-600 border-neutral-200"
             }`}
           >
-            Выбрать время
+            {t("Выбрать время")}
           </button>
         </div>
         {timing === "scheduled" && (
@@ -256,6 +531,13 @@ export default function QuickOrderForm({ prefill }) {
           />
         )}
       </div>
+
+      {Number(cubes) > 0 && (!unloadValid || !accessValid) && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-0.5">
+          {!unloadValid && <div>• {t("Укажите, как будет выгружаться бетон (и нужен ли лоток)")}</div>}
+          {!accessValid && <div>• {t("Добавьте фото заезда или отметьте, что заезд свободный")}</div>}
+        </div>
+      )}
 
       {error && (
         <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -271,10 +553,10 @@ export default function QuickOrderForm({ prefill }) {
         {loading ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Отправка...
+            {t("Отправка...")}
           </>
         ) : (
-          "Заказать бетон"
+          t("Заказать бетон")
         )}
       </Button>
     </form>

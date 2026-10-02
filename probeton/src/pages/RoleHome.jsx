@@ -3,10 +3,11 @@ import { useAuth } from "@/lib/AuthContext";
 import { getEffectiveRole } from "@/lib/effectiveRole";
 
 // Ленивая загрузка: браузер скачивает код только той "домашней" страницы,
-// которая реально нужна этому пользователю, а не всех трёх сразу.
+// которая реально нужна этому пользователю, а не всех сразу.
 const Home = lazy(() => import("@/pages/Home"));
 const AdminHome = lazy(() => import("@/pages/AdminHome"));
 const DriverHome = lazy(() => import("@/pages/DriverHome"));
+const PlantHome = lazy(() => import("@/pages/PlantHome"));
 
 function Loader() {
   return (
@@ -26,6 +27,8 @@ export default function RoleHome() {
         <AdminHome />
       ) : role === "driver" ? (
         <DriverHome />
+      ) : role === "plant" ? (
+        <PlantHome />
       ) : (
         <Home />
       )}

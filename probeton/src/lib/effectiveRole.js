@@ -5,5 +5,6 @@
 export function getEffectiveRole(user, viewMode) {
   if (user?.role === "admin") return viewMode || "admin";
   if (user?.account_type === "driver") return "driver";
+  if (user?.account_type === "plant") return "plant";
   return "client";
 }

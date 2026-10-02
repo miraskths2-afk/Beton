@@ -77,8 +77,17 @@ function makeEntity(table) {
     },
 
     async delete(id) {
-      const { error } = await supabase.from(table).delete().eq("id", id);
+      const { data, error } = await supabase
+        .from(table)
+        .delete()
+        .eq("id", id)
+        .select("id");
       if (error) throw error;
+      // База может молча не удалить строку (если правило доступа не
+      // разрешает) — тогда честно сообщаем об ошибке, а не «удалено».
+      if (!data || data.length === 0) {
+        throw new Error("Не удалось удалить: запись не найдена или нет доступа");
+      }
       return true;
     },
 

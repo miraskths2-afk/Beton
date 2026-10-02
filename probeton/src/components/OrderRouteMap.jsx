@@ -10,6 +10,7 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLocations, subscribeToLocations } from "@/lib/driverLocation";
+import { t } from "@/lib/i18n";
 
 const truckIcon = L.divIcon({
   className: "",
@@ -130,19 +131,19 @@ export default function OrderRouteMap({ driverId, destination, height = "45vh" }
 
         {destination && (
           <Marker position={[destination.lat, destination.lng]} icon={pinIcon}>
-            <Popup>Объект — куда везти</Popup>
+            <Popup>{t("Объект — куда везти")}</Popup>
           </Marker>
         )}
 
         {driverPos && (
           <Marker position={[driverPos.lat, driverPos.lng]} icon={truckIcon}>
-            <Popup>Миксерист сейчас здесь</Popup>
+            <Popup>{t("Миксерист сейчас здесь")}</Popup>
           </Marker>
         )}
       </MapContainer>
       {route && (
         <div className="bg-blue-50 text-blue-700 text-center py-2 text-sm font-bold">
-          🚚 Приедет через ~{route.durationMin} мин · {route.distanceKm} км
+          🚚 {t("Приедет через ~{min} мин · {km} км", { min: route.durationMin, km: route.distanceKm })}
         </div>
       )}
     </div>

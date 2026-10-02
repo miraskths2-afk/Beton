@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 import TermsContent from "@/components/TermsContent";
 import MixerIcon from "@/components/MixerIcon";
+import { t } from "@/lib/i18n";
 
 // Показывается один раз новому пользователю (или когда меняется версия
 // соглашения). Сначала просим имя, если его ещё нет, затем — согласие
@@ -31,7 +32,7 @@ export default function Onboarding() {
   const submitName = async (e) => {
     e.preventDefault();
     if (name.trim().length < 2) {
-      setError("Введите имя, минимум 2 буквы");
+      setError(t("Введите имя, минимум 2 буквы"));
       return;
     }
     setBusy(true);
@@ -46,7 +47,7 @@ export default function Onboarding() {
       }
     } catch (err) {
       console.error(err);
-      setError("Не удалось сохранить имя, попробуйте ещё раз");
+      setError(t("Не удалось сохранить имя, попробуйте ещё раз"));
     } finally {
       setBusy(false);
     }
@@ -64,7 +65,7 @@ export default function Onboarding() {
       finishIfDone();
     } catch (err) {
       console.error(err);
-      setError("Не удалось сохранить согласие, попробуйте ещё раз");
+      setError(t("Не удалось сохранить согласие, попробуйте ещё раз"));
     } finally {
       setBusy(false);
     }
@@ -92,16 +93,16 @@ export default function Onboarding() {
             </div>
             <div>
               <h1 className="text-xl font-black text-neutral-900">
-                Как вас зовут?
+                {t("Как вас зовут?")}
               </h1>
               <p className="text-sm text-neutral-500 mt-1">
-                Так к вам будут обращаться в приложении
+                {t("Так к вам будут обращаться в приложении")}
               </p>
             </div>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ваше имя"
+              placeholder={t("Ваше имя")}
               className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-800"
               autoFocus
             />
@@ -111,7 +112,7 @@ export default function Onboarding() {
               disabled={busy}
               className="w-full py-2.5 rounded-lg bg-neutral-900 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Продолжить"}
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Продолжить")}
             </button>
           </form>
         )}
@@ -122,7 +123,7 @@ export default function Onboarding() {
               <FileCheck2 className="w-6 h-6 text-amber-600" />
             </div>
             <h1 className="text-xl font-black text-neutral-900">
-              Пользовательское соглашение
+              {t("Пользовательское соглашение")}
             </h1>
             <div className="max-h-[45vh] overflow-y-auto pr-1 text-sm border border-neutral-100 rounded-xl p-3 bg-neutral-50">
               <TermsContent />
@@ -134,7 +135,7 @@ export default function Onboarding() {
                 onChange={(e) => setAgreed(e.target.checked)}
                 className="mt-1 w-4 h-4"
               />
-              Я принимаю Пользовательское соглашение
+              {t("Я принимаю Пользовательское соглашение")}
             </label>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
@@ -145,7 +146,7 @@ export default function Onboarding() {
               {busy ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                "Принять и продолжить"
+                t("Принять и продолжить")
               )}
             </button>
           </div>

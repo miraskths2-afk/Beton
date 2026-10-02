@@ -2,7 +2,8 @@ import React, { useEffect, useState, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44, supabase } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { ORDER_STATUSES, STATUS_FLOW } from "@/lib/orderStatuses";
+import { ORDER_STATUSES, STATUS_FLOW, normPhone, canClientCancel } from "@/lib/orderStatuses";
+import { getEffectiveRole } from "@/lib/effectiveRole";
 import {
   ArrowLeft,
   Package,
@@ -16,18 +17,23 @@ import {
   XCircle,
   Trash2,
   UserCircle,
+  Factory,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DetailPageSkeleton } from "@/components/Skeleton";
+import { t, locale } from "@/lib/i18n";
+import ChatButton from "@/components/ChatButton";
+import { getChatRole } from "@/lib/chat";
+import OrderExtras from "@/components/OrderExtras";
+import DowntimeTimer from "@/components/DowntimeTimer";
 
 const OrderRouteMap = lazy(() => import("@/components/OrderRouteMap"));
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
-const OrderChat = lazy(() => import("@/components/OrderChat"));
 
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, viewMode } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -35,6 +41,7 @@ export default function OrderDetail() {
   const [busy, setBusy] = useState(false);
   const [driverPhone, setDriverPhone] = useState(null);
   const [driverPhoto, setDriverPhoto] = useState(null);
+  const [trips, setTrips] = useState([]);
 
   const load = async () => {
     try {
@@ -82,6 +89,27 @@ export default function OrderDetail() {
     };
   }, [order?.driver_id]);
 
+  // Другие машины (рейсы) этой же заявки, если завод выделил несколько миксеров.
+  const tripRoot = order?.trips_total > 1 ? order.parent_order_id || order.id : null;
+  useEffect(() => {
+    if (!tripRoot) {
+      setTrips([]);
+      return;
+    }
+    let mounted = true;
+    supabase
+      .from("orders")
+      .select("id, order_number, trip_no, trips_total, driver_name, cubes, status")
+      .or(`id.eq.${tripRoot},parent_order_id.eq.${tripRoot}`)
+      .order("trip_no", { ascending: true })
+      .then(({ data }) => {
+        if (mounted) setTrips(data || []);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [tripRoot, order?.status]);
+
   if (loading) {
     return <DetailPageSkeleton />;
   }
@@ -90,12 +118,12 @@ export default function OrderDetail() {
     return (
       <div className="p-6 text-center text-neutral-400">
         <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />
-        <p className="text-sm">Заказ не найден</p>
+        <p className="text-sm">{t("Заказ не найден")}</p>
         <button
           onClick={() => navigate(-1)}
           className="mt-4 text-sm font-bold text-neutral-900 underline"
         >
-          Назад
+          {t("Назад")}
         </button>
       </div>
     );
@@ -115,9 +143,32 @@ export default function OrderDetail() {
   // Сам водитель завершает заказ через оплату (см. кнопку ниже),
   // а не напрямую — иначе можно было бы обойти проверку оплаты.
   const canManage = user?.role === "admin";
+  // Завод видит миксериста на карте только на своей заявке; на чужой
+  // (личной заявке миксериста) — нет. Заказ клиента завод не отменяет
+  // (вместо этого он возвращает заявку в общую ленту на своей Главной).
+  const isPlant = getEffectiveRole(user, viewMode) === "plant";
+  // Номера телефонов видят только диспетчер и завод. Заказчик и
+  // миксерист общаются через чат, не видя номеров друг друга.
+  const canSeePhones = user?.role === "admin" || user?.account_type === "plant";
+  const chatRole = getChatRole(user, "order", o);
+  const hideDriverMap = isPlant && o.plant_id !== user?.id;
+  // Отменить заказ может админ или сам заказчик (по номеру телефона), и
+  // заказчик — только пока бетон не начали готовить. Водитель отменить
+  // чужой заказ не может — иначе он обходил бы оплату сервисного сбора.
+  const isOrderClient =
+    !isPlant && !!user?.phone && normPhone(user.phone) === normPhone(o.phone);
+  const timerRole =
+    o.driver_id && o.driver_id === user?.id
+      ? "driver"
+      : isOrderClient
+      ? "client"
+      : user?.role === "admin"
+      ? "admin"
+      : "view";
+  const canCancel = canManage || (isOrderClient && canClientCancel(o));
 
   const cancelOrder = async () => {
-    if (!confirm("Отменить этот заказ? Действие нельзя будет вернуть.")) return;
+    if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
     setCancelling(true);
     try {
       await base44.entities.Order.update(o.id, { status: "cancelled" });
@@ -144,7 +195,13 @@ export default function OrderDetail() {
   };
 
   const removeOrder = async () => {
-    if (!confirm("Удалить эту заявку безвозвратно?")) return;
+    // Заказ из повторяющегося расписания база создаст заново — отменяем.
+    if (o.recurring_id) {
+      if (!confirm(t("Это заказ из повторяющегося расписания. Удалённый, он создастся заново, поэтому мы его отменим. Отменить?"))) return;
+      await setStatus("cancelled");
+      return;
+    }
+    if (!confirm(t("Удалить эту заявку безвозвратно?"))) return;
     setBusy(true);
     try {
       await base44.entities.Order.delete(o.id);
@@ -156,7 +213,7 @@ export default function OrderDetail() {
   };
 
   const fmtDate = (d) =>
-    new Date(d).toLocaleString("ru-RU", {
+    new Date(d).toLocaleString(locale(), {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
@@ -170,22 +227,22 @@ export default function OrderDetail() {
         className="flex items-center gap-1.5 text-sm font-semibold text-neutral-600"
       >
         <ArrowLeft className="w-4 h-4" />
-        Назад
+        {t("Назад")}
       </button>
 
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-black text-neutral-900">
-          {o.order_number || "Заказ"}
+          {o.order_number || t("Заказ")}
         </h1>
         <span className={cn("px-2.5 py-1 rounded-lg text-xs font-bold", st.cls)}>
-          {st.label}
+          {t(st.label)}
         </span>
       </div>
 
       {isCancelled ? (
         <div className="flex items-center gap-2 bg-red-100 text-red-700 rounded-lg px-3 py-2.5">
           <XCircle className="w-5 h-5" />
-          <span className="font-bold text-sm">Заказ отменён</span>
+          <span className="font-bold text-sm">{t("Заказ отменён")}</span>
         </div>
       ) : (
         <div className="flex flex-wrap gap-1.5">
@@ -199,7 +256,7 @@ export default function OrderDetail() {
                   : "bg-neutral-200 text-neutral-400"
               )}
             >
-              {ORDER_STATUSES[s].label}
+              {t(ORDER_STATUSES[s].label)}
             </span>
           ))}
         </div>
@@ -211,13 +268,14 @@ export default function OrderDetail() {
             <div className="flex items-center gap-2 bg-green-600 text-white rounded-lg px-3 py-2.5">
               <Truck className="w-5 h-5" />
               <span className="font-bold text-sm">
-                Миксер выехал — ожидайте подачи!
+                {t("Миксер выехал — ожидайте подачи!")}
               </span>
             </div>
           )}
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
-            Миксерист и маршрут до объекта
+            {hideDriverMap ? t("Миксерист") : t("Миксерист и маршрут до объекта")}
           </div>
+          {!hideDriverMap && (
           <Suspense
             fallback={
               <div className="h-[45vh] rounded-2xl bg-neutral-100 animate-pulse" />
@@ -233,6 +291,7 @@ export default function OrderDetail() {
               height="45vh"
             />
           </Suspense>
+          )}
           {o.driver_name && (
             <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
               {driverPhoto ? (
@@ -244,31 +303,76 @@ export default function OrderDetail() {
               ) : (
                 <UserCircle className="w-5 h-5 text-neutral-300" />
               )}
-              Водитель: {o.driver_name}
+              {t("Водитель: {name}", { name: o.driver_name })}
             </div>
           )}
-          {driverPhone && (
+          {canSeePhones && driverPhone && (
             <a
               href={`tel:${driverPhone}`}
               className="flex items-center justify-center gap-2 text-sm font-bold text-white bg-green-600 rounded-lg px-3 py-2.5"
             >
               <Phone className="w-4 h-4" />
-              Позвонить миксеристу: {driverPhone}
+              {t("Позвонить миксеристу: {phone}", { phone: driverPhone })}
             </a>
           )}
         </div>
       )}
 
-      {isOrderActive && !o.driver_id && (
-        <div className="text-xs text-neutral-400 text-center px-3 py-2 bg-neutral-100 rounded-lg">
-          Номер телефона миксериста появится здесь, как только он примет заказ
+      {o.driver_id && chatRole && (
+        <ChatButton
+          kind="order"
+          id={o.id}
+          role={chatRole}
+          label={
+            chatRole === "admin"
+              ? t("Переписка миксериста и заказчика")
+              : chatRole === "driver"
+              ? t("Написать заказчику")
+              : t("Написать миксеристу")
+          }
+          className="rounded-xl"
+        />
+      )}
+
+      {o.driver_id && (
+        <DowntimeTimer o={o} role={timerRole} userId={user?.id} onChanged={load} />
+      )}
+
+      {trips.length > 1 && (
+        <div className="bg-white rounded-2xl border border-purple-200 shadow-sm p-3 space-y-1.5">
+          <div className="text-xs font-bold text-purple-700 uppercase tracking-wide">
+            {t("Машины по этой заявке")}
+          </div>
+          {trips.map((tr) => (
+            <button
+              key={tr.id}
+              onClick={() => tr.id !== o.id && navigate(`/order/${tr.id}`)}
+              className={cn(
+                "w-full flex items-center justify-between gap-2 text-left text-sm rounded-lg px-3 py-2",
+                tr.id === o.id ? "bg-purple-50 font-bold" : "bg-neutral-50"
+              )}
+            >
+              <span className="truncate">
+                {t("Машина {no}", { no: tr.trip_no || 1 })} · {tr.driver_name || "—"}
+              </span>
+              <span className="shrink-0 text-xs text-neutral-500">
+                {t("{n} куб", { n: tr.cubes })} · {t(ORDER_STATUSES[tr.status || "new"]?.label || "")}
+              </span>
+            </button>
+          ))}
         </div>
       )}
 
-      {!hasDriverMap && hasDeliveryPoint && (
+      {isOrderActive && !o.driver_id && (
+        <div className="text-xs text-neutral-400 text-center px-3 py-2 bg-neutral-100 rounded-lg">
+          {t("Чат с миксеристом появится здесь, как только он примет заказ")}
+        </div>
+      )}
+
+      {(!hasDriverMap || hideDriverMap) && hasDeliveryPoint && (
         <div className="space-y-2">
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
-            Место доставки
+            {t("Место доставки")}
           </div>
           <Suspense
             fallback={
@@ -294,7 +398,7 @@ export default function OrderDetail() {
               <p className="text-xs text-neutral-500 mt-1">
                 {o.grade}
                 {o.grade && o.cubes ? " · " : ""}
-                {o.cubes ? `${o.cubes} куб` : ""}
+                {o.cubes ? t("{n} куб", { n: o.cubes }) : ""}
               </p>
             )}
           </div>
@@ -312,10 +416,19 @@ export default function OrderDetail() {
                   rel="noopener noreferrer"
                   className="text-xs font-semibold text-blue-600 underline"
                 >
-                  Открыть точку в Google Maps
+                  {t("Открыть точку в Google Maps")}
                 </a>
               )}
             </div>
+          </div>
+        )}
+
+        <OrderExtras o={o} />
+
+        {o.plant_id && (
+          <div className="flex items-center gap-2 text-sm font-semibold text-purple-700">
+            <Factory className="w-4 h-4 shrink-0" />
+            {t("Завод: {name}", { name: o.plant_name || "—" })}
           </div>
         )}
 
@@ -329,22 +442,24 @@ export default function OrderDetail() {
         {o.needed_by && (
           <div className="flex items-center gap-2 text-xs font-semibold text-neutral-600 bg-neutral-100 rounded-lg px-3 py-2">
             <Clock className="w-3.5 h-3.5" />
-            Нужен к: {fmtDate(o.needed_by)}
+            {t("Нужен к: {date}", { date: fmtDate(o.needed_by) })}
           </div>
         )}
 
-        <a
-          href={`tel:${o.phone}`}
-          className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
-        >
-          <Phone className="w-4 h-4" />
-          {o.phone}
-        </a>
+        {canSeePhones && (
+          <a
+            href={`tel:${o.phone}`}
+            className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
+          >
+            <Phone className="w-4 h-4" />
+            {o.phone}
+          </a>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-3">
         <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
-          История действий
+          {t("История действий")}
         </div>
         <div className="space-y-3">
           <div className="flex gap-3">
@@ -356,7 +471,7 @@ export default function OrderDetail() {
             </div>
             <div className="pb-1">
               <div className="text-sm font-semibold text-neutral-800">
-                Заявка создана
+                {t("Заявка создана")}
               </div>
               <div className="text-xs text-neutral-400">
                 {fmtDate(o.created_date)}
@@ -374,7 +489,7 @@ export default function OrderDetail() {
               </div>
               <div className="pb-1">
                 <div className="text-sm font-semibold text-neutral-800">
-                  Миксерист принял заказ
+                  {t("Миксерист принял заказ")}
                   {o.driver_name ? ` — ${o.driver_name}` : ""}
                 </div>
                 <div className="text-xs text-neutral-400">
@@ -391,7 +506,7 @@ export default function OrderDetail() {
               </div>
               <div className="pb-1">
                 <div className="text-sm font-semibold text-neutral-800">
-                  Заказ выполнен
+                  {t("Заказ выполнен")}
                 </div>
                 <div className="text-xs text-neutral-400">
                   {fmtDate(o.completed_at)}
@@ -402,7 +517,7 @@ export default function OrderDetail() {
 
           {!o.accepted_at && !o.completed_at && (
             <div className="text-xs text-neutral-400 pl-5">
-              Пока заказ ещё не принят миксеристом
+              {t("Пока заказ ещё не принят миксеристом")}
             </div>
           )}
         </div>
@@ -411,7 +526,7 @@ export default function OrderDetail() {
       {canManage && (
         <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-2">
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1">
-            Управление
+            {t("Управление")}
           </div>
           <div className="grid grid-cols-3 gap-2">
             {STATUS_FLOW.map((s) => (
@@ -421,7 +536,7 @@ export default function OrderDetail() {
                 disabled={busy || o.status === s}
                 className="text-[11px] font-bold py-2.5 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-neutral-200 disabled:opacity-40"
               >
-                {ORDER_STATUSES[s].label}
+                {t(ORDER_STATUSES[s].label)}
               </button>
             ))}
           </div>
@@ -435,30 +550,13 @@ export default function OrderDetail() {
             ) : (
               <Trash2 className="w-4 h-4" />
             )}
-            Удалить заявку
+            {t("Удалить заявку")}
           </button>
         </div>
       )}
 
-      {o.driver_id && (
-        <Suspense
-          fallback={<div className="h-40 rounded-2xl bg-neutral-100 animate-pulse" />}
-        >
-          <OrderChat
-            orderId={o.id}
-            myRole={user?.role === "admin" ? "admin" : user?.id === o.driver_id ? "driver" : "client"}
-            myName={
-              user?.role === "admin"
-                ? "Диспетчер"
-                : user?.id === o.driver_id
-                ? user?.full_name || "Миксерист"
-                : user?.full_name || "Заказчик"
-            }
-          />
-        </Suspense>
-      )}
 
-      {isOrderActive && (
+      {isOrderActive && canCancel && (
         <button
           onClick={cancelOrder}
           disabled={cancelling}
@@ -469,7 +567,7 @@ export default function OrderDetail() {
           ) : (
             <Ban className="w-4 h-4" />
           )}
-          Отменить заказ
+          {t("Отменить заказ")}
         </button>
       )}
     </div>

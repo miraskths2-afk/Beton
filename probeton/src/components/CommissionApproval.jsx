@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { BadgeCheck, Loader2, Wallet } from "lucide-react";
+import { t, locale } from "@/lib/i18n";
 
 export default function CommissionApproval() {
   const [orders, setOrders] = useState([]);
@@ -43,7 +44,7 @@ export default function CommissionApproval() {
       <div className="flex items-center gap-2 px-1">
         <Wallet className="w-4 h-4 text-green-600" />
         <h2 className="text-sm font-black text-neutral-900">
-          Ожидают подтверждения оплаты сбора
+          {t("Ожидают подтверждения оплаты сбора")}
           <span className="ml-2 px-1.5 py-0.5 rounded-md bg-green-100 text-green-700 text-[10px] font-bold">
             {orders.length}
           </span>
@@ -59,14 +60,14 @@ export default function CommissionApproval() {
           >
             <div className="flex items-center justify-between">
               <div className="font-bold text-neutral-900">
-                {o.order_number || "Заказ"} · {o.grade || "—"}
+                {o.order_number || t("Заказ")} · {o.grade || "—"}
               </div>
               <div className="text-sm font-black text-green-600">
-                {commission.toLocaleString("ru-RU")} ₸
+                {commission.toLocaleString(locale())} ₸
               </div>
             </div>
             <div className="text-xs text-neutral-500">
-              {o.cubes || 0} куб × 1 000 ₸ · клиент: {o.phone}
+              {t("{cubes} куб × 1 000 ₸ · клиент: {phone}", { cubes: o.cubes || 0, phone: o.phone })}
             </div>
             <button
               onClick={() => approve(o.id)}
@@ -78,7 +79,7 @@ export default function CommissionApproval() {
               ) : (
                 <>
                   <BadgeCheck className="w-4 h-4" />
-                  Подтвердить приход в Kaspi Pay
+                  {t("Подтвердить приход в Kaspi Pay")}
                 </>
               )}
             </button>

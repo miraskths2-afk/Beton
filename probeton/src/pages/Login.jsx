@@ -8,6 +8,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import AuthLayout from "@/components/AuthLayout";
 import MixerIcon from "@/components/MixerIcon";
+import { t } from "@/lib/i18n";
 
 const ROLE_KEY = "probeton_role";
 
@@ -22,7 +23,7 @@ export default function Login() {
     e.preventDefault();
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 10) {
-      setError("Введите корректный номер телефона");
+      setError(t("Введите корректный номер телефона"));
       return;
     }
 
@@ -35,7 +36,7 @@ export default function Login() {
       navigate("/", { replace: true });
     } catch (err) {
       console.error(err);
-      setError("Не удалось войти. Попробуйте ещё раз.");
+      setError(t("Не удалось войти. Попробуйте ещё раз."));
     } finally {
       setLoading(false);
     }
@@ -44,13 +45,13 @@ export default function Login() {
   return (
     <AuthLayout
       icon={MixerIcon}
-      title="Вход"
-      subtitle="Введите номер телефона, чтобы продолжить"
+      title={t("Вход")}
+      subtitle={t("Введите номер телефона, чтобы продолжить")}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">
-            Номер телефона
+            {t("Номер телефона")}
           </label>
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -76,7 +77,7 @@ export default function Login() {
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            "Войти"
+            t("Войти")
           )}
         </button>
       </form>
