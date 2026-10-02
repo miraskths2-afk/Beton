@@ -1,23 +1,53 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Truck, Wrench, ChevronRight, Construction } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Truck, Wrench, ChevronRight, Construction, ArrowLeft, Loader2 } from "lucide-react";
 import MixerIcon from "@/components/MixerIcon";
+import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { t } from "@/lib/i18n";
+import { canChangeRole, roleChangeFields } from "@/lib/roleChange";
 
 const ROLE_KEY = "probeton_role";
 
+// Стартовый экран «Кто вы?». Открывается и повторно — по ссылке
+// /choose-role?change=1 (кнопка «Выбрать роль заново» на входе,
+// в регистрации, на экране ожидания и в профиле). Если человек уже
+// вошёл, выбранная роль сразу записывается в его аккаунт.
 export default function RoleSelect() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const changing = searchParams.get("change") === "1";
+  const { user, isAuthenticated, checkUserAuth } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (localStorage.getItem(ROLE_KEY)) {
+    if (!changing && localStorage.getItem(ROLE_KEY)) {
       navigate("/login", { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, changing]);
 
-  const choose = (role) => {
+  const choose = async (role) => {
     localStorage.setItem(ROLE_KEY, role);
-    navigate("/login", { replace: true });
+    if (!(changing && isAuthenticated && user)) {
+      navigate("/login", { replace: true });
+      return;
+    }
+    if (!canChangeRole(user) || user.account_type === role) {
+      navigate("/", { replace: true });
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await base44.auth.updateMe(roleChangeFields(role));
+      await checkUserAuth();
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error(err);
+      setError(t("Не удалось сменить роль, попробуйте ещё раз"));
+      setBusy(false);
+    }
   };
 
   return (
@@ -35,14 +65,35 @@ export default function RoleSelect() {
       </header>
 
       <div className="flex-1 flex flex-col justify-center px-5 max-w-md mx-auto w-full">
+        {changing && (
+          <button
+            onClick={() => navigate(isAuthenticated ? "/" : "/login", { replace: true })}
+            className="self-start flex items-center gap-1 text-sm text-neutral-500 font-semibold mb-6"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {t("Назад")}
+          </button>
+        )}
         <h1 className="text-2xl font-black text-neutral-900 text-center">
           {t("Кто вы?")}
         </h1>
         <p className="text-sm text-neutral-500 text-center mt-1 mb-8">
           {t("Выберите тип аккаунта, чтобы продолжить")}
         </p>
+        {changing && isAuthenticated && user?.approval_status === "approved" && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3 -mt-4 mb-6 text-center">
+            {t("Водителю и насоснику после смены роли нужно новое одобрение диспетчера")}
+          </p>
+        )}
+        {error && <p className="text-sm text-red-600 text-center -mt-4 mb-6">{error}</p>}
+        {busy && (
+          <div className="flex justify-center -mt-4 mb-6">
+            <Loader2 className="w-5 h-5 animate-spin text-neutral-500" />
+          </div>
+        )}
 
         <button
+          disabled={busy}
           onClick={() => choose("client")}
           className="w-full bg-white rounded-2xl border border-neutral-200 shadow-sm p-5 flex items-center gap-4 active:scale-[0.98] transition-transform mb-4"
         >
@@ -61,6 +112,7 @@ export default function RoleSelect() {
         </button>
 
         <button
+          disabled={busy}
           onClick={() => choose("driver")}
           className="w-full bg-white rounded-2xl border border-neutral-200 shadow-sm p-5 flex items-center gap-4 active:scale-[0.98] transition-transform"
         >
@@ -79,6 +131,7 @@ export default function RoleSelect() {
         </button>
 
         <button
+          disabled={busy}
           onClick={() => choose("pump")}
           className="w-full bg-white rounded-2xl border border-neutral-200 shadow-sm p-5 flex items-center gap-4 active:scale-[0.98] transition-transform mt-4"
         >
@@ -96,15 +149,17 @@ export default function RoleSelect() {
           <ChevronRight className="w-5 h-5 text-neutral-300" />
         </button>
 
-        <p className="text-center text-xs text-neutral-400 mt-8">
-          {t("Уже есть аккаунт?")}{" "}
-          <button
-            onClick={() => navigate("/login")}
-            className="text-neutral-700 font-semibold underline"
-          >
-            {t("Войти")}
-          </button>
-        </p>
+        {!changing && (
+          <p className="text-center text-xs text-neutral-400 mt-8">
+            {t("Уже есть аккаунт?")}{" "}
+            <button
+              onClick={() => navigate("/login")}
+              className="text-neutral-700 font-semibold underline"
+            >
+              {t("Войти")}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

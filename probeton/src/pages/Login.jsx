@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone, Loader2 } from "lucide-react";
+import { Phone, Loader2, ArrowLeft } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import AuthLayout from "@/components/AuthLayout";
@@ -81,6 +81,18 @@ export default function Login() {
           )}
         </button>
       </form>
+
+      <button
+        type="button"
+        onClick={() => {
+          localStorage.removeItem(ROLE_KEY);
+          navigate("/choose-role", { replace: true });
+        }}
+        className="w-full mt-4 flex items-center justify-center gap-1 text-sm text-slate-500 font-medium"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        {t("Выбрать роль заново")}
+      </button>
     </AuthLayout>
   );
 }
