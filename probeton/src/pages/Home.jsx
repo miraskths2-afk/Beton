@@ -9,6 +9,7 @@ import { normPhone } from "@/lib/orderStatuses";
 import { Zap, RotateCcw, Repeat } from "lucide-react";
 import RecurringOrdersManager from "@/components/RecurringOrdersManager";
 import { t } from "@/lib/i18n";
+import { WARN_LIMIT } from "@/lib/warnings";
 
 const TABS = [
   { id: "quick", label: "Быстрый заказ" },
@@ -75,6 +76,16 @@ export default function Home() {
           {t("Здравствуйте, {name}", { name: user.full_name })} 👋
         </p>
       )}
+
+      {(user?.warnings || 0) >= WARN_LIMIT ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          {t("Ваш номер в чёрном списке за {limit} отмены заказов. Чтобы снова заказывать, свяжитесь с диспетчером и оплатите штраф — сумму обговорите с ним.", { limit: WARN_LIMIT })}
+        </div>
+      ) : (user?.warnings || 0) > 0 ? (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          {t("Отмен заказов: {n} из {limit}. После {limit}-й номер попадёт в чёрный список.", { n: user.warnings, limit: WARN_LIMIT })}
+        </div>
+      ) : null}
 
       <div className="flex bg-neutral-200 rounded-xl p-1">
         {TABS.map((tb) => (

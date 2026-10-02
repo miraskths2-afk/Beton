@@ -26,6 +26,8 @@ import ChatButton from "@/components/ChatButton";
 import { getChatRole } from "@/lib/chat";
 import OrderExtras from "@/components/OrderExtras";
 import DowntimeTimer from "@/components/DowntimeTimer";
+import { cancelOrderAsClient, cancelOrderAsAdmin } from "@/lib/warnings";
+import DriverCancelRequest from "@/components/DriverCancelRequest";
 
 const OrderRouteMap = lazy(() => import("@/components/OrderRouteMap"));
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
@@ -33,7 +35,7 @@ const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, viewMode } = useAuth();
+  const { user, viewMode, checkUserAuth } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -168,14 +170,23 @@ export default function OrderDetail() {
   const canCancel = canManage || (isOrderClient && canClientCancel(o));
 
   const cancelOrder = async () => {
-    if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
     setCancelling(true);
     try {
-      await base44.entities.Order.update(o.id, { status: "cancelled" });
+      if (canManage) {
+        // Админ отменяет без предупреждения.
+        if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
+        await cancelOrderAsAdmin(o.id);
+      } else {
+        // Заказчик: каждая отмена — предупреждение (3 — чёрный список).
+        const done = await cancelOrderAsClient(o, user);
+        if (done) await checkUserAuth();
+      }
     } catch (err) {
       console.error(err);
+      alert(t("Не удалось отменить заказ. Попробуйте ещё раз."));
     } finally {
       setCancelling(false);
+      load();
     }
   };
 
@@ -555,6 +566,11 @@ export default function OrderDetail() {
         </div>
       )}
 
+
+      {/* Миксерист отменить сам не может — только попросить диспетчера. */}
+      {isOrderActive && !canManage && o.driver_id && o.driver_id === user?.id && !o.driver_paid && (
+        <DriverCancelRequest order={o} onChanged={load} />
+      )}
 
       {isOrderActive && canCancel && (
         <button

@@ -95,6 +95,7 @@ export default function AdminOrders() {
       const extra = {};
       if (status === "in_progress") extra.accepted_at = new Date().toISOString();
       if (status === "done") extra.completed_at = new Date().toISOString();
+      if (status === "cancelled") extra.cancelled_by = "admin";
       await base44.entities.Order.update(id, { status, ...extra });
       setOrders((prev) =>
         prev.map((o) => (o.id === id ? { ...o, status, ...extra } : o))
@@ -161,6 +162,7 @@ export default function AdminOrders() {
     try {
       const extra = {};
       if (status === "done") extra.completed_at = new Date().toISOString();
+      if (status === "cancelled") extra.cancelled_by = "admin";
       const { error } = await supabase
         .from("orders")
         .update({ status, ...extra })

@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isBlacklisted } from "@/lib/blacklist";
+import { useAuth } from "@/lib/AuthContext";
 import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
 import { t } from "@/lib/i18n";
 import {
@@ -41,6 +42,7 @@ const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 const GRADES = ["М150", "М200", "М300", "М400"];
 
 export default function QuickOrderForm({ prefill }) {
+  const { user } = useAuth();
   const [grade, setGrade] = useState(prefill?.grade || "М200");
   const [cubes, setCubes] = useState(prefill?.cubes ? String(prefill.cubes) : "");
   const [address, setAddress] = useState(prefill?.delivery_address || "");
@@ -104,8 +106,14 @@ export default function QuickOrderForm({ prefill }) {
     e.preventDefault();
     if (!isValid) return;
     if (timing === "scheduled" && !neededBy) return;
-    if (await isBlacklisted(phone.trim())) {
-      alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен."));
+    // Проверяем и номер в заявке, и номер аккаунта заказчика — иначе из
+    // чёрного списка можно было бы выйти, просто вписав другой номер.
+    const ownPhone = user?.role !== "admin" ? user?.phone : null;
+    if (
+      (await isBlacklisted(phone.trim())) ||
+      (ownPhone && (await isBlacklisted(ownPhone)))
+    ) {
+      alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен. Чтобы выйти из списка, свяжитесь с диспетчером и оплатите штраф."));
       return;
     }
     setLoading(true);

@@ -29,6 +29,7 @@ import InstallAppCard from "@/components/InstallAppCard";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { t, LANGS, getLang, setLang } from "@/lib/i18n";
 import { THEMES, getTheme, setTheme } from "@/lib/theme";
+import { EQUIPMENT } from "@/lib/equipment";
 
 function roleLabel(user) {
   if (user?.role === "admin") return t("Администратор");
@@ -244,7 +245,11 @@ export default function Profile() {
               {user?.equipment_type && (
                 <div className="flex items-center gap-2 text-neutral-600">
                   <Truck className="w-4 h-4 text-neutral-400 shrink-0" />
-                  {t("Техника: {type}", { type: user.equipment_type })}
+                  {t("Техника: {type}", {
+                    type: EQUIPMENT[user.equipment_type]
+                      ? t(EQUIPMENT[user.equipment_type])
+                      : user.equipment_type,
+                  })}
                 </div>
               )}
               <div className="flex items-center gap-2 text-neutral-600">
