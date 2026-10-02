@@ -38,7 +38,7 @@ function getPosition() {
 // role: "driver" — миксерист этого заказа (запускает и останавливает),
 //       "client" — заказчик (видит таймер, отмечает оплату простоя),
 //       "admin"  — диспетчер (может подтвердить оплату простоя),
-//       "view"   — остальные (завод) только смотрят.
+//       "view"   — остальные только смотрят.
 export default function DowntimeTimer({ o, role, userId, onChanged, className }) {
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);

@@ -15,14 +15,19 @@ const AuthContext = createContext();
 
 const VIEW_MODE_KEY = "admin_view_mode";
 
+const VIEW_MODES = ["admin", "client", "driver", "pump"];
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
-  const [viewMode, setViewModeState] = useState(
-    () => localStorage.getItem(VIEW_MODE_KEY) || "admin"
-  );
+  // Режим «Завод» убран в версии 2.0 — сохранённое старое значение
+  // считаем режимом «Админ».
+  const [viewMode, setViewModeState] = useState(() => {
+    const saved = localStorage.getItem(VIEW_MODE_KEY);
+    return VIEW_MODES.includes(saved) ? saved : "admin";
+  });
 
   const setViewMode = (mode) => {
     localStorage.setItem(VIEW_MODE_KEY, mode);

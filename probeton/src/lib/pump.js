@@ -179,19 +179,6 @@ export async function createPumpOrder({
   return data;
 }
 
-// Заявки АБН, привязанные к заявке бетона, переходят к тому же заводу
-// (если их ещё никто не взял).
-export async function attachPumpOrdersToPlant(orderId, plant) {
-  const { error } = await supabase
-    .from("orders")
-    .update({ plant_id: plant.id, plant_name: plant.name })
-    .eq("pump_for_order_id", orderId)
-    .eq("status", "new")
-    .is("driver_id", null)
-    .is("plant_id", null);
-  if (error) console.error(error);
-}
-
 // Таймер насоса: время идёт с момента, как насос встал на лапы.
 export async function pumpStart(driverId, orderId) {
   const { data, error } = await supabase.rpc("pump_start", {

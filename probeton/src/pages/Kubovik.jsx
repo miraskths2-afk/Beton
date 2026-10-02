@@ -721,10 +721,10 @@ function Kubovik() {
   );
 }
 
-// У завода и насосника АБН Кубовика нет — даже по прямой ссылке.
+// У насосника АБН Кубовика нет — даже по прямой ссылке.
 export default function KubovikPage() {
   const { user, viewMode } = useAuth();
   const role = getEffectiveRole(user, viewMode);
-  if (role === "plant" || role === "pump") return <Navigate to="/" replace />;
+  if (role === "pump") return <Navigate to="/" replace />;
   return <Kubovik />;
 }

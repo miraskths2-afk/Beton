@@ -73,8 +73,8 @@ function PumpPayment({ o, busy, onPrepay }) {
   const isDone = o.status === "done" || !!o.unloaded_at;
   const finalTotal = pumpFinalTotal(o);
   const extra = isDone && finalTotal != null && prepay != null ? Math.max(0, finalTotal - prepay) : 0;
-  const payee = o.plant_id ? t("заводу") : t("насоснику");
-  const someoneTook = !!o.driver_id || !!o.plant_id;
+  const payee = t("насоснику");
+  const someoneTook = !!o.driver_id;
 
   return (
     <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-2">
@@ -126,7 +126,7 @@ function PumpPayment({ o, busy, onPrepay }) {
         </>
       ) : (
         <div className="text-[11px] text-neutral-500">
-          {t("Оплата откроется, когда насосник или завод примет заявку.")}
+          {t("Оплата откроется, когда насосник примет заявку.")}
         </div>
       )}
     </div>
@@ -203,18 +203,7 @@ function OrderCard({ o, busy, onPay, onPrepay, onRate, onCancel, onReorder, rate
 
       <OrderExtras o={o} showPhoto={false} />
 
-      {o.plant_id && (
-        <ChatButton
-          kind="plant"
-          id={o.id}
-          item={o}
-          role="client"
-          label={t("Написать заводу{name}", { name: o.plant_name ? ` · ${o.plant_name}` : "" })}
-        />
-      )}
-
-      {/* Заявку ведёт завод — пишем только заводу, не миксеристу/насоснику. */}
-      {o.driver_id && !o.plant_id && (
+      {o.driver_id && (
         <ChatButton
           kind="order"
           id={o.id}
@@ -505,7 +494,7 @@ export default function OrderTracking({ onReorder }) {
   };
 
   const prepayPump = async (id) => {
-    if (!confirm(t("Подтвердите, что оплатили предоплату за АБН. Насосник или завод проверит поступление."))) return;
+    if (!confirm(t("Подтвердите, что оплатили предоплату за АБН. Насосник проверит поступление."))) return;
     setBusy(id);
     try {
       await base44.entities.Order.update(id, { pump_prepaid: true });

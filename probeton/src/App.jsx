@@ -34,8 +34,7 @@ const LeftoverDetail = lazy(() => import("@/pages/LeftoverDetail"));
 const DriverBalance = lazy(() => import("@/pages/DriverBalance"));
 const Kubovik = lazy(() => import("@/pages/Kubovik"));
 const Profile = lazy(() => import("@/pages/Profile"));
-const AdminPlants = lazy(() => import("@/pages/AdminPlants"));
-const PlantFleet = lazy(() => import("@/pages/PlantFleet"));
+const AdminPartners = lazy(() => import("@/pages/AdminPartners"));
 const ChatsPage = lazy(() => import("@/pages/ChatsPage"));
 const ChatPage = lazy(() => import("@/pages/ChatPage"));
 
@@ -108,8 +107,9 @@ const AuthenticatedApp = () => {
             <Route path="/balance" element={<DriverBalance />} />
             <Route path="/kubovik" element={<Kubovik />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/plants" element={<AdminPlants />} />
-            <Route path="/fleet" element={<PlantFleet />} />
+            <Route path="/partners" element={<AdminPartners />} />
+            {/* Старый адрес страницы «Партнёры» (до версии 2.0) */}
+            <Route path="/plants" element={<Navigate to="/partners" replace />} />
             <Route path="/chats" element={<ChatsPage />} />
           </Route>
         </Route>

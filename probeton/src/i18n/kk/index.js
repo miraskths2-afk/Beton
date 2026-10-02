@@ -9,7 +9,6 @@ import driver from "./driver";
 import order from "./order";
 import admin from "./admin";
 import balance from "./balance";
-import plant from "./plant";
 import chat from "./chat";
 import pump from "./pump";
 import warnings from "./warnings";
@@ -21,7 +20,6 @@ export default {
   ...order,
   ...admin,
   ...balance,
-  ...plant,
   ...chat,
   ...pump,
   ...warnings,

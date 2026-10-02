@@ -26,9 +26,9 @@ import MixerIcon from "@/components/MixerIcon";
 import { useTotalUnread, previewText, chatPath } from "@/lib/chat";
 import { notify } from "@/lib/notifications";
 
-// Меню снизу для каждой роли. У завода и насосника нет «Остатков»
-// (Кубовика). Миксеристы, насосники и заводы у админа — на одной
-// странице «Партнёры» с переключателем сверху.
+// Меню снизу для каждой роли. У насосника нет «Остатков» (Кубовика).
+// Миксеристы и насосники у админа — на одной странице «Партнёры»
+// с переключателем сверху.
 const ALL_ITEMS = [
   { to: "/", label: "Заказ", icon: Truck, end: true, roles: ["client"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["client"] },
@@ -39,11 +39,8 @@ const ALL_ITEMS = [
   { to: "/", label: "Главная", icon: LayoutDashboard, end: true, roles: ["admin"] },
   { to: "/orders", label: "Заявки", icon: ClipboardList, end: false, roles: ["admin"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["admin"] },
-  { to: "/plants", label: "Партнёры", icon: Users, end: false, roles: ["admin"] },
-  { to: "/", label: "Заявки", icon: ClipboardList, end: true, roles: ["plant"] },
-  { to: "/fleet", label: "Парк", icon: Users, end: false, roles: ["plant"] },
-  { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["plant"] },
-  { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "pump", "admin", "plant"] },
+  { to: "/partners", label: "Партнёры", icon: Users, end: false, roles: ["admin"] },
+  { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "pump", "admin"] },
 ];
 
 export default function Layout() {
@@ -111,8 +108,6 @@ export default function Layout() {
                 ? t("Кабинет АБН")
                 : role === "admin"
                 ? t("Диспетчер")
-                : role === "plant"
-                ? t("Кабинет завода")
                 : t("Биржа бетона")}
             </div>
           </div>

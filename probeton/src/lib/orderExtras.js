@@ -109,16 +109,6 @@ export async function uploadSitePhoto(file) {
   return supabase.storage.from(ORDER_PHOTOS_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-export async function assignOrderMixers(plantId, orderId, items) {
-  const { data, error } = await supabase.rpc("assign_order_mixers", {
-    p_plant_id: plantId,
-    p_order_id: orderId,
-    p_items: items,
-  });
-  if (error) throw error;
-  return data;
-}
-
 export async function markArrived(driverId, orderId) {
   const { data, error } = await supabase.rpc("mark_arrived", {
     p_driver_id: driverId,

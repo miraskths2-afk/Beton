@@ -18,7 +18,6 @@ import {
   Flame,
   Loader2,
   LayoutDashboard,
-  Factory,
   RefreshCcw,
   Construction,
 } from "lucide-react";
@@ -41,7 +40,6 @@ function roleLabel(user) {
   if (user?.role === "admin") return t("Администратор");
   if (user?.account_type === "driver") return t("Водитель");
   if (user?.account_type === "pump") return t("Насосник АБН");
-  if (user?.account_type === "plant") return t("Завод / БСУ");
   return t("Заказчик / Прораб");
 }
 
@@ -323,13 +321,12 @@ export default function Profile() {
           <p className="text-xs text-neutral-500 -mt-2">
             {t("Ваша роль остаётся администратором — это просто переключение, какой интерфейс сейчас показывать.")}
           </p>
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {[
               { id: "admin", label: "Админ", icon: LayoutDashboard },
               { id: "client", label: "Заказчик", icon: Truck },
               { id: "driver", label: "Водитель", icon: UserCircle },
               { id: "pump", label: "АБН", icon: Construction },
-              { id: "plant", label: "Завод", icon: Factory },
             ].map((opt) => (
               <button
                 key={opt.id}
@@ -441,8 +438,7 @@ export default function Profile() {
 
       {user?.role !== "admin" &&
         user?.account_type !== "driver" &&
-        user?.account_type !== "pump" &&
-        user?.account_type !== "plant" && (
+        user?.account_type !== "pump" && (
         <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
           <button
             onClick={() => toggle("myIntercepts")}

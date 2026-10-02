@@ -19,7 +19,7 @@ function FlyTo({ position }) {
 const ALMATY = [43.238, 76.945];
 
 // Живая карта для админа. kind: "driver" — миксеристы, "pump" — насосники
-// АБН. Видит её только админ (страница «Партнёры»): заказчик и завод
+// АБН. Видит её только админ (страница «Партнёры»): заказчик
 // чужих миксеристов на линии не видят.
 export default function AdminDriverMapSection({ showContact = true, kind = "driver" }) {
   const [drivers, setDrivers] = useState([]);

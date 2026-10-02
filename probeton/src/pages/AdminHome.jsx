@@ -6,7 +6,6 @@ import DriverApproval from "@/components/DriverApproval";
 import CommissionApproval from "@/components/CommissionApproval";
 import TopupApproval from "@/components/TopupApproval";
 import DriverPaymentApproval from "@/components/DriverPaymentApproval";
-import FleetRequestApproval from "@/components/FleetRequestApproval";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import CancelRequestsApproval from "@/components/CancelRequestsApproval";
 import ComplaintsReview from "@/components/ComplaintsReview";
@@ -139,7 +138,6 @@ export default function AdminHome() {
           <DriverApproval />
           <CancelRequestsApproval />
           <ComplaintsReview />
-          <FleetRequestApproval />
           <DriverPaymentApproval />
           <CommissionApproval />
           <TopupApproval />

@@ -24,7 +24,6 @@ import {
   XCircle,
   Trash2,
   UserCircle,
-  Factory,
   Construction,
   Link2,
 } from "lucide-react";
@@ -103,7 +102,7 @@ export default function OrderDetail() {
     };
   }, [order?.driver_id]);
 
-  // Другие машины (рейсы) этой же заявки, если завод выделил несколько миксеров.
+  // Другие машины (рейсы) этой же заявки, если на неё выделено несколько миксеров.
   const tripRoot = order?.trips_total > 1 ? order.parent_order_id || order.id : null;
   useEffect(() => {
     if (!tripRoot) {
@@ -196,24 +195,15 @@ export default function OrderDetail() {
     (((effRole === "driver" || effRole === "pump") && isMeDriver) || (effRole === "client" && isMyPhone));
   const asAdmin = user?.role === "admin" && !actsAsParticipant;
   const canManage = asAdmin;
-  // Завод видит миксериста на карте только на своей заявке; на чужой
-  // (личной заявке миксериста) — нет. Заказ клиента завод не отменяет
-  // (вместо этого он возвращает заявку в общую ленту на своей Главной).
-  const isPlant = getEffectiveRole(user, viewMode) === "plant";
-  // Номера телефонов видят только диспетчер и завод. Заказчик и
-  // миксерист общаются через чат, не видя номеров друг друга.
-  // Завод видит номера только у своих заявок.
-  const canSeePhones =
-    asAdmin || (user?.account_type === "plant" && o.plant_id === user?.id);
+  // Номера телефонов видит только диспетчер. Заказчик и миксерист
+  // общаются через чат, не видя номеров друг друга.
+  const canSeePhones = asAdmin;
   const chatRole = getChatRole(user, "order", o, viewMode);
-  const plantChatRole = getChatRole(user, "plant", o, viewMode);
-  const fleetChatRole = getChatRole(user, "fleet", o, viewMode);
-  const hideDriverMap = isPlant && o.plant_id !== user?.id;
   // Отменить заказ может админ или сам заказчик (по номеру телефона), и
   // заказчик — только пока бетон не начали готовить. Водитель отменить
   // чужой заказ не может — иначе он обходил бы оплату сервисного сбора.
   // Исполнитель этой заявки — не заказчик, даже если номер совпал.
-  const isOrderClient = !isPlant && isMyPhone && !isMeDriver;
+  const isOrderClient = isMyPhone && !isMeDriver;
   const timerRole = isMeDriver
     ? "driver"
     : isOrderClient
@@ -339,9 +329,8 @@ export default function OrderDetail() {
             </div>
           )}
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
-            {hideDriverMap ? t(worker) : t("{who} и маршрут до объекта", { who: t(worker) })}
+            {t("{who} и маршрут до объекта", { who: t(worker) })}
           </div>
-          {!hideDriverMap && (
           <Suspense
             fallback={
               <div className="h-[45vh] rounded-2xl bg-neutral-100 animate-pulse" />
@@ -357,7 +346,6 @@ export default function OrderDetail() {
               height="45vh"
             />
           </Suspense>
-          )}
           {o.driver_name && (
             <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
               {driverPhoto ? (
@@ -390,23 +378,6 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {o.plant_id && plantChatRole && (
-        <ChatButton
-          kind="plant"
-          id={o.id}
-          item={o}
-          role={plantChatRole}
-          label={
-            plantChatRole === "admin"
-              ? t("Переписка завода и заказчика")
-              : plantChatRole === "plant"
-              ? t("Написать заказчику")
-              : t("Написать заводу{name}", { name: o.plant_name ? ` · ${o.plant_name}` : "" })
-          }
-          className="rounded-xl"
-        />
-      )}
-
       {o.driver_id && chatRole && (
         <ChatButton
           kind="order"
@@ -423,27 +394,6 @@ export default function OrderDetail() {
               : isPump
               ? t("Написать насоснику")
               : t("Написать миксеристу")
-          }
-          className="rounded-xl"
-        />
-      )}
-
-      {o.plant_id && o.driver_id && fleetChatRole && (
-        <ChatButton
-          kind="fleet"
-          id={o.id}
-          item={o}
-          role={fleetChatRole}
-          label={
-            fleetChatRole === "admin"
-              ? isPump
-                ? t("Переписка завода и насосника")
-                : t("Переписка завода и миксериста")
-              : fleetChatRole === "plant"
-              ? isPump
-                ? t("Написать насоснику")
-                : t("Написать миксеристу")
-              : t("Написать заводу{name}", { name: o.plant_name ? ` · ${o.plant_name}` : "" })
           }
           className="rounded-xl"
         />
@@ -506,7 +456,7 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {isOrderActive && !o.driver_id && !o.plant_id && (
+      {isOrderActive && !o.driver_id && (
         <div className="text-xs text-neutral-400 text-center px-3 py-2 bg-neutral-100 rounded-lg">
           {isPump
             ? t("Чат с насосником появится здесь, как только он примет заказ")
@@ -514,7 +464,7 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {(!hasDriverMap || hideDriverMap) && hasDeliveryPoint && (
+      {!hasDriverMap && hasDeliveryPoint && (
         <div className="space-y-2">
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
             {t("Место доставки")}
@@ -570,12 +520,6 @@ export default function OrderDetail() {
 
         <OrderExtras o={o} />
 
-        {o.plant_id && (
-          <div className="flex items-center gap-2 text-sm font-semibold text-purple-700">
-            <Factory className="w-4 h-4 shrink-0" />
-            {t("Завод: {name}", { name: o.plant_name || "—" })}
-          </div>
-        )}
 
         {o.comment && (
           <div className="flex items-start gap-2">
