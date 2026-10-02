@@ -43,6 +43,11 @@ create index if not exists order_messages_order_channel_idx
   on order_messages (order_id, channel);
 update order_messages set channel = 'plant'
 where sender_role = 'plant' and channel is null and order_id is not null;
+-- Заявки, которые ведёт завод: вся старая общая переписка (и заказчика,
+-- и миксериста) переходит в чат с заводом, чтобы разговор не разделился.
+update order_messages m set channel = 'plant'
+from orders o
+where m.order_id = o.id and o.plant_id is not null and m.channel is null;
 
 -- 3. Удаление файлов голосовых сообщений
 drop policy if exists "chat_voice_delete" on storage.objects;

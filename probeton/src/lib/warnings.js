@@ -22,8 +22,9 @@ export async function addWarning(userId, reason) {
 }
 
 // Все строки одной заявки (рейсы миксеров и АБН к бетону), которые ещё
-// не закрыты.
+// не закрыты. Отмена одного АБН не трогает бетон, к которому он заказан.
 async function openGroupRows(order) {
+  if (order?.service_type === "pump") return [order];
   const root = orderGroupRoot(order);
   const { data, error } = await supabase
     .from("orders")
