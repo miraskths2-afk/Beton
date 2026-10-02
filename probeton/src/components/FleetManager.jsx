@@ -13,7 +13,7 @@ import {
   plantsErrorText,
 } from "@/lib/plants";
 import { setOffline } from "@/lib/driverLocation";
-import { pumpErrorText } from "@/lib/pump";
+import { pumpErrorText, pumpTitle } from "@/lib/pump";
 
 // Парк одного завода: миксеристы и насосники АБН. Используется и самим заводом
 // (страница «Парк»), и админом (страница «Заводы»).
@@ -266,7 +266,7 @@ export default function FleetManager({ plantId, isAdmin = false }) {
                     >
                       {d.account_type === "pump"
                         ? d.pump_boom
-                          ? t("АБН {m} м", { m: d.pump_boom })
+                          ? pumpTitle(d.pump_boom)
                           : t("Насосник")
                         : t("Миксерист")}
                     </span>

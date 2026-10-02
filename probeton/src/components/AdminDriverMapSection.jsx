@@ -6,6 +6,7 @@ import { vehicleIcon } from "@/lib/mapIcons";
 import { base44, supabase } from "@/api/base44Client";
 import { Phone, Eye, LogOut, Trash2, Loader2 } from "lucide-react";
 import { t, locale } from "@/lib/i18n";
+import { pumpTitle } from "@/lib/pump";
 
 function FlyTo({ position }) {
   const map = useMap();
@@ -167,7 +168,7 @@ export default function AdminDriverMapSection({ showContact = true, kind = "driv
                   </div>
                   {showContact && (d.vehicle_plate || d.pump_boom) && (
                     <div className="text-xs text-neutral-500">
-                      {[d.vehicle_plate, d.pump_boom ? t("стрела {m} м", { m: d.pump_boom }) : null]
+                      {[d.vehicle_plate, d.pump_boom ? pumpTitle(d.pump_boom) : null]
                         .filter(Boolean)
                         .join(" · ")}
                     </div>

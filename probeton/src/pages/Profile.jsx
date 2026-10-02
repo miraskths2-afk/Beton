@@ -31,7 +31,7 @@ import InstallAppCard from "@/components/InstallAppCard";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { t, LANGS, getLang, setLang } from "@/lib/i18n";
 import { THEMES, getTheme, setTheme } from "@/lib/theme";
-import { PUMP_BOOMS, pumpErrorText } from "@/lib/pump";
+import { PUMP_BOOMS, PUMP_STATIONARY, boomLabel, pumpErrorText } from "@/lib/pump";
 import { cn } from "@/lib/utils";
 
 function roleLabel(user) {
@@ -270,12 +270,13 @@ export default function Profile() {
                     disabled={savingBoom}
                     className={cn(
                       "h-9 rounded-lg text-xs font-bold border",
+                      b === PUMP_STATIONARY && "col-span-2",
                       user?.pump_boom === b
                         ? "bg-sky-600 text-white border-sky-600"
                         : "bg-white text-neutral-700 border-neutral-200"
                     )}
                   >
-                    {b} м
+                    {boomLabel(b)}
                   </button>
                 ))}
               </div>

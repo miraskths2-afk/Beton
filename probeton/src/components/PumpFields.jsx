@@ -3,7 +3,7 @@ import { Minus, Plus, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { formatTenge } from "@/lib/balance";
-import { PUMP_BOOMS, PUMP_BOOM_HINTS, PUMP_MIN_HOURS, pumpRateFor } from "@/lib/pump";
+import { PUMP_BOOMS, PUMP_BOOM_HINTS, PUMP_MIN_HOURS, PUMP_STATIONARY, boomLabel, pumpRateFor } from "@/lib/pump";
 
 // Выбор АБН: длина стрелы + сколько часов (минимум 3) + сколько платить
 // сразу. Используется в отдельной вкладке «АБН» и в заказе бетона,
@@ -16,7 +16,7 @@ export default function PumpFields({ boom, onBoom, hours, onHours, settings }) {
     <div className="space-y-3">
       <div className="space-y-2">
         <div className="text-sm font-semibold text-neutral-700">
-          {t("Длина стрелы АБН")} <span className="text-red-500">*</span>
+          {t("Длина стрелы АБН или стационарный насос")} <span className="text-red-500">*</span>
         </div>
         <div className="grid grid-cols-4 gap-1.5">
           {PUMP_BOOMS.map((b) => (
@@ -26,12 +26,13 @@ export default function PumpFields({ boom, onBoom, hours, onHours, settings }) {
               onClick={() => onBoom(b)}
               className={cn(
                 "h-11 rounded-xl text-sm font-bold border transition-colors",
+                b === PUMP_STATIONARY && "col-span-2",
                 boom === b
                   ? "bg-sky-600 text-white border-sky-600"
                   : "bg-white text-neutral-700 border-neutral-200"
               )}
             >
-              {b} м
+              {boomLabel(b)}
             </button>
           ))}
         </div>
@@ -74,14 +75,19 @@ export default function PumpFields({ boom, onBoom, hours, onHours, settings }) {
           </div>
           <div>
             {rate
-              ? t("{rate} за час · оплатить сразу: {sum}", {
+              ? t("от {rate} за час (средняя цена) · оплатить сразу: {sum}", {
                   rate: formatTenge(rate),
                   sum: formatTenge(rate * h),
                 })
-              : t("Цена за час для этой стрелы уточняется — насосник напишет в чате.")}
+              : boom
+              ? t("Цена за час для этой стрелы уточняется — насосник напишет в чате.")
+              : t("Выберите стрелу — покажем среднюю цену за час.")}
           </div>
           <div className="text-sky-700">
-            {t("Если насос работает дольше — доплата по часам после работы.")}
+            {t("Цены средние по рынку, без НДС. Точную цену насосник может уточнить в чате.")}
+          </div>
+          <div className="text-sky-700">
+            {t("Время насоса считается с момента, как он встал на лапы. Если работает дольше — доплата за каждый начатый час.")}
           </div>
         </div>
       </div>

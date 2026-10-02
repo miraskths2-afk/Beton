@@ -3,7 +3,7 @@ import { Truck, Droplets, Repeat, FileText, Camera, Layers, Construction, Clock,
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { trucksEstimate, trucksText, unloadText } from "@/lib/orderExtras";
-import { isPumpOrder, pumpPrepay, PUMP_MIN_HOURS } from "@/lib/pump";
+import { isPumpOrder, pumpTitle, pumpPrepay, PUMP_MIN_HOURS } from "@/lib/pump";
 import { formatTenge } from "@/lib/balance";
 
 // Подробности заявки одной строкой значков: способ выгрузки, лоток,
@@ -24,7 +24,7 @@ export default function OrderExtras({ o, showPhoto = true, className }) {
       <div className={cn("flex flex-wrap gap-1.5", className)}>
         <span className={cn(chip, "bg-sky-100 text-sky-700")}>
           <Construction className="w-3 h-3" />
-          {t("АБН {m} м", { m: o.pump_boom || "?" })}
+          {pumpTitle(o.pump_boom)}
         </span>
         <span className={cn(chip, "bg-neutral-100 text-neutral-700")}>
           <Clock className="w-3 h-3" />

@@ -117,8 +117,95 @@ alter table order_messages add constraint order_messages_channel_check
 alter table app_settings add column if not exists pump_rates jsonb not null
   default '{"24":0,"28":0,"32":0,"36":0,"42":0,"47":0,"52":0}'::jsonb;
 
+-- ===== 6. Средние цены АБН (из чата насосников) =====
+-- Ставим только если админ ещё не задал свои цены (всё по нулям).
+alter table app_settings alter column pump_rates set default
+  '{"24":40000,"28":40000,"32":40000,"37":40000,"42":45000,"47":50000,"52":55000,"56":60000,"62":65000,"65":70000,"1":50000}'::jsonb;
+update app_settings
+set pump_rates = '{"24":40000,"28":40000,"32":40000,"37":40000,"42":45000,"47":50000,"52":55000,"56":60000,"62":65000,"65":70000,"1":50000}'::jsonb
+where id = 1
+  and not exists (
+    select 1 from jsonb_each_text(coalesce(pump_rates, '{}'::jsonb)) e
+    where coalesce(nullif(e.value, '')::numeric, 0) > 0
+  );
+
+-- ===== 7. Сбор сайта с насосника (за час) и таймер насоса =====
+alter table app_settings add column if not exists pump_fee_per_hour numeric not null default 1000;
+alter table orders add column if not exists pump_fee_rate numeric;
+alter table orders add column if not exists pump_service_fee numeric;
+
+-- Насос встал на лапы — время пошло. Повторный вызов ничего не меняет.
+create or replace function pump_start(p_driver_id uuid, p_order_id uuid)
+returns orders
+language plpgsql security definer set search_path = public as $$
+declare
+  v_order orders;
+  v_fee numeric;
+begin
+  select * into v_order from orders where id = p_order_id for update;
+  if not found or v_order.driver_id is distinct from p_driver_id::text then
+    raise exception 'Это не ваш заказ';
+  end if;
+  if v_order.service_type is distinct from 'pump' then
+    raise exception 'Это не заявка на АБН';
+  end if;
+  if coalesce(v_order.status, 'new') in ('done', 'cancelled') then
+    raise exception 'Заказ уже закрыт';
+  end if;
+  if v_order.arrived_at is not null then
+    return v_order;
+  end if;
+
+  select pump_fee_per_hour into v_fee from app_settings where id = 1;
+
+  update orders
+  set arrived_at = now(),
+      pump_fee_rate = coalesce(v_fee, 1000)
+  where id = p_order_id
+  returning * into v_order;
+  return v_order;
+end;
+$$;
+
+-- Подача закончена: каждый начатый час, но не меньше 3 и не меньше
+-- заказанных часов. Сбор сайта = оплаченные часы × сбор за час.
+create or replace function pump_finish(p_driver_id uuid, p_order_id uuid)
+returns orders
+language plpgsql security definer set search_path = public as $$
+declare
+  v_order orders;
+  v_worked int;
+  v_billed int;
+begin
+  select * into v_order from orders where id = p_order_id for update;
+  if not found or v_order.driver_id is distinct from p_driver_id::text then
+    raise exception 'Это не ваш заказ';
+  end if;
+  if v_order.arrived_at is null then
+    raise exception 'Сначала нажмите «Насос встал на лапы»';
+  end if;
+  if v_order.unloaded_at is not null then
+    return v_order;
+  end if;
+
+  v_worked := ceil(extract(epoch from (now() - v_order.arrived_at)) / 3600)::int;
+  v_billed := greatest(3, coalesce(v_order.pump_hours, 0), v_worked);
+
+  update orders
+  set unloaded_at = now(),
+      pump_hours_actual = v_billed,
+      pump_service_fee = v_billed * coalesce(pump_fee_rate, 1000)
+  where id = p_order_id
+  returning * into v_order;
+  return v_order;
+end;
+$$;
+
+grant execute on function pump_start(uuid, uuid) to anon, authenticated;
+grant execute on function pump_finish(uuid, uuid) to anon, authenticated;
+
 -- Обновить кэш схемы, чтобы сайт сразу увидел новые колонки.
 notify pgrst, 'reload schema';
 
--- Проверка: должна показать 1 строку с ценами АБН.
-select pump_rates from app_settings where id = 1;
+-- Проверка: должна показать 1 строку с ценами АБН и сбором за час.
+select pump_rates, pump_fee_per_hour from app_settings where id = 1;

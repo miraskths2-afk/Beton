@@ -19,7 +19,7 @@ import {
   trucksEstimate,
   trucksText,
 } from "@/lib/orderExtras";
-import { isPumpOrder } from "@/lib/pump";
+import { isPumpOrder, pumpTitle } from "@/lib/pump";
 
 // Делим кубы поровну между машинами (шаг 0.5 м³), остаток — последней.
 function splitCubes(total, n) {
@@ -209,7 +209,7 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
                     </div>
                     <div className="text-xs text-neutral-500">
                       {d.vehicle_plate ? `${d.vehicle_plate} · ` : ""}
-                      {d.pump_boom ? `${t("стрела {m} м", { m: d.pump_boom })} · ` : ""}
+                      {d.pump_boom ? `${pumpTitle(d.pump_boom)} · ` : ""}
                       {d.isBusy
                         ? t("Занят другим заказом")
                         : d.online

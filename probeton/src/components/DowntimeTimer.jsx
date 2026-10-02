@@ -129,7 +129,7 @@ export default function DowntimeTimer({ o, role, userId, onChanged, className })
       {!o.arrived_at ? (
         <>
           <div className="text-[11px] text-neutral-500">
-            {t("Нажмите, когда подъедете к объекту. Первые {free} мин бесплатно, дальше клиент платит за каждый начатый час.", { free })}
+            {t("Нажмите, когда подъедете к объекту. Если забудете — таймер запустится сам, когда вы будете на объекте. Первые {free} мин бесплатно, дальше клиент платит за каждый начатый час.", { free })}
           </div>
           <button
             onClick={arrive}

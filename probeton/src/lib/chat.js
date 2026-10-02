@@ -27,7 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
 import { t } from "@/lib/i18n";
-import { isPumpOrder, workerLabel } from "@/lib/pump";
+import { isPumpOrder, pumpTitle, workerLabel } from "@/lib/pump";
 
 export const CHAT_TABLE = "order_messages";
 
@@ -286,7 +286,7 @@ function itemSubtitle(kind, item, role) {
       return `${item.driver_name || t("Миксерист")} ↔ ${t("Прораб")} · ${cubes}`;
     return [t("Кубовик"), gc].filter(Boolean).join(" · ");
   }
-  const what = isPumpOrder(item) ? t("АБН {m} м", { m: item.pump_boom || "?" }) : gc;
+  const what = isPumpOrder(item) ? pumpTitle(item.pump_boom) : gc;
   if (role === "admin") {
     if (kind === "fleet")
       return `${item.plant_name || t("Завод")} ↔ ${item.driver_name || t(workerLabel(item))}${what ? " · " + what : ""}`;

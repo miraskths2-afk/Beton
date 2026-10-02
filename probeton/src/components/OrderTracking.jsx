@@ -40,6 +40,7 @@ import { t, locale } from "@/lib/i18n";
 import ChatButton from "@/components/ChatButton";
 import OrderExtras from "@/components/OrderExtras";
 import DowntimeTimer from "@/components/DowntimeTimer";
+import PumpWorkTimer from "@/components/PumpWorkTimer";
 const LiveDriverMap = lazy(() => import("@/components/LiveDriverMap"));
 
 function Stars({ value, onChange }) {
@@ -68,7 +69,7 @@ function Stars({ value, onChange }) {
 function PumpPayment({ o, busy, onPrepay }) {
   const prepay = pumpPrepay(o);
   const hours = Math.max(PUMP_MIN_HOURS, Number(o.pump_hours || 0));
-  const isDone = o.status === "done";
+  const isDone = o.status === "done" || !!o.unloaded_at;
   const finalTotal = pumpFinalTotal(o);
   const extra = isDone && finalTotal != null && prepay != null ? Math.max(0, finalTotal - prepay) : 0;
   const payee = o.plant_id ? t("заводу") : t("насоснику");
@@ -84,7 +85,11 @@ function PumpPayment({ o, busy, onPrepay }) {
       </div>
       <div className="text-[11px] text-neutral-600">
         {prepay != null
-          ? t("Предоплата сразу за {n} ч · {rate}/ч", { n: hours, rate: formatTenge(o.pump_rate) })
+          ? t("Предоплата сразу за {n} ч · {rate}/ч (средняя цена, точную {payee} может уточнить в чате)", {
+              n: hours,
+              rate: formatTenge(o.pump_rate),
+              payee,
+            })
           : t("Предоплата сразу за {n} ч — цену за час {payee} напишет в чате", { n: hours, payee })}
       </div>
       {isDone && o.pump_hours_actual > hours && (
@@ -219,6 +224,7 @@ function OrderCard({ o, busy, onPay, onPrepay, onRate, onCancel, onReorder, rate
       )}
 
       {o.arrived_at && !isPump && <DowntimeTimer o={o} role="client" />}
+      {o.arrived_at && isPump && <PumpWorkTimer o={o} role="client" />}
 
       {isPump && !isCancelled && <PumpPayment o={o} busy={busy} onPrepay={onPrepay} />}
 

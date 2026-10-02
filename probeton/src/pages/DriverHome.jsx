@@ -25,7 +25,18 @@ import { PLANT_ACTIVE_STATUSES, plantName } from "@/lib/plants";
 import OrderExtras from "@/components/OrderExtras";
 import DowntimeTimer from "@/components/DowntimeTimer";
 import { getEffectiveRole } from "@/lib/effectiveRole";
-import { isPumpOrder, pumpErrorText, pumpFinalTotal, PUMP_MIN_HOURS } from "@/lib/pump";
+import {
+  isPumpOrder,
+  pumpErrorText,
+  pumpFinalTotal,
+  pumpBilledHours,
+  pumpServiceFee,
+  pumpTitle,
+  PUMP_MIN_HOURS,
+  PUMP_STATIONARY,
+  PUMP_DEFAULT_FEE,
+} from "@/lib/pump";
+import PumpWorkTimer from "@/components/PumpWorkTimer";
 import { formatTenge } from "@/lib/balance";
 
 function Stars({ value, onChange }) {
@@ -56,7 +67,6 @@ export default function DriverHome() {
   // Насосник АБН работает в той же ленте, но видит только заявки на АБН.
   const isPump = getEffectiveRole(user, viewMode) === "pump";
   const [orders, setOrders] = useState([]);
-  const [hoursDraft, setHoursDraft] = useState({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [ratePick, setRatePick] = useState({});
@@ -142,7 +152,12 @@ export default function DriverHome() {
   });
   // Стрела насосника короче, чем нужно по заявке, — взять нельзя.
   const boomTooShort = (o) =>
-    isPump && !!user?.pump_boom && !!o.pump_boom && Number(user.pump_boom) < Number(o.pump_boom);
+    isPump &&
+    !!user?.pump_boom &&
+    !!o.pump_boom &&
+    // Стационарный насос и АБН со стрелой — разные машины.
+    ((Number(user.pump_boom) === PUMP_STATIONARY) !== (Number(o.pump_boom) === PUMP_STATIONARY) ||
+      Number(user.pump_boom) < Number(o.pump_boom));
   // Мои заказы в работе — любой статус между «принят» и «готов».
   // Раньше здесь был только in_progress, и заказ пропадал у водителя,
   // как только админ переводил его в «Назначен миксер» / «В пути».
@@ -198,28 +213,15 @@ export default function DriverHome() {
   };
 
   const payCommission = async (id) => {
-    const o = orders.find((x) => x.id === id);
-    const pump = isPumpOrder(o);
     if (
       !confirm(
-        pump
-          ? t("Подтвердите, что работа выполнена. Менеджер проверит и завершит заказ.")
-          : t("Подтвердите, что оплатили сервисный сбор PROBETON. После этого менеджер проверит оплату и завершит заказ.")
+        t("Подтвердите, что оплатили сервисный сбор PROBETON. После этого менеджер проверит оплату и завершит заказ.")
       )
     )
       return;
     setBusy(id);
     try {
-      const fields = { driver_paid: true };
-      // Насосник указывает, сколько часов фактически отработал.
-      if (pump) {
-        fields.pump_hours_actual = Math.max(
-          PUMP_MIN_HOURS,
-          Number(o.pump_hours || 0),
-          Number(hoursDraft[id] || o.pump_hours || 0)
-        );
-      }
-      await base44.entities.Order.update(id, fields);
+      await base44.entities.Order.update(id, { driver_paid: true });
     } catch (e) {
       console.error(e);
     } finally {
@@ -423,31 +425,17 @@ export default function DriverHome() {
                       {t("Предоплата получена")}
                     </button>
                   )}
-                  {!o.driver_paid && (
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-neutral-700">{t("Отработано часов")}</span>
-                      <input
-                        type="number"
-                        min={PUMP_MIN_HOURS}
-                        step="0.5"
-                        value={hoursDraft[o.id] ?? String(o.pump_hours || PUMP_MIN_HOURS)}
-                        onChange={(e) => setHoursDraft((p) => ({ ...p, [o.id]: e.target.value }))}
-                        className="w-20 h-9 rounded-lg border border-neutral-200 px-2 text-sm text-right"
-                      />
-                    </div>
-                  )}
                   {o.pump_rate ? (
                     <div className="text-[11px] text-neutral-600">
-                      {t("Итого за работу: {sum}", {
-                        sum: formatTenge(
-                          pumpFinalTotal({ ...o, pump_hours_actual: o.pump_hours_actual ?? hoursDraft[o.id] })
-                        ),
-                      })}
+                      {t("Клиент платит за работу: {sum}", { sum: formatTenge(pumpFinalTotal(o)) })}
                     </div>
                   ) : null}
                 </div>
               ) : (
                 <DowntimeTimer o={o} role="driver" userId={user?.id} onChanged={load} />
+              )}
+              {isPumpOrder(o) && (
+                <PumpWorkTimer o={o} role="driver" userId={user?.id} onChanged={load} />
               )}
               {o.driver_payment_confirmed ? (
                 <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-100 text-green-700 inline-flex items-center justify-center gap-1">
@@ -457,27 +445,53 @@ export default function DriverHome() {
               ) : o.driver_paid ? (
                 <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-amber-100 text-amber-700 inline-flex items-center justify-center gap-1">
                   <Hourglass className="w-4 h-4 animate-pulse" />
-                  {t("Ожидает подтверждения менеджером")}
+                  {o.plant_id ? t("Завод закрыл заявку — ждёт подтверждения админом") : t("Ожидает подтверждения менеджером")}
                 </div>
               ) : o.arrived_at && !o.unloaded_at ? (
                 <div className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-neutral-100 text-neutral-600 text-center">
-                  {t("Когда закончите выгрузку, нажмите «Выгрузка закончена» — потом откроется оплата сбора.")}
+                  {isPumpOrder(o)
+                    ? t("Когда закончите подачу, нажмите «Подачу закончил» — потом откроется оплата сбора.")
+                    : t("Когда закончите выгрузку, нажмите «Выгрузка закончена» — потом откроется оплата сбора.")}
+                </div>
+              ) : o.plant_id ? (
+                // Заявку ведёт завод: сбор оплачивает завод за всю заявку
+                // (бетон + насос), админ подтверждает — тогда заказ закроется.
+                <div className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-purple-50 text-purple-700 text-center">
+                  {t("Заявку ведёт завод — когда всё выполнено, завод закроет её и оплатит сбор. Вам платить сайту не нужно.")}
+                </div>
+              ) : isPumpOrder(o) && !o.arrived_at ? (
+                <div className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-neutral-100 text-neutral-600 text-center">
+                  {t("Запустите таймер, когда насос встанет на лапы. После подачи откроется оплата сбора.")}
                 </div>
               ) : isPumpOrder(o) ? (
-                <button
-                  onClick={() => payCommission(o.id)}
-                  disabled={busy === o.id}
-                  className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 inline-flex items-center justify-center gap-1"
-                >
-                  {busy === o.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      {t("Работа выполнена — завершить заказ")}
-                    </>
-                  )}
-                </button>
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-center">
+                    <div className="text-xs font-bold text-amber-700 uppercase tracking-wide">
+                      {t("Сервисный сбор PROBETON")}
+                    </div>
+                    <div className="text-lg font-black text-neutral-900">{formatTenge(pumpServiceFee(o))}</div>
+                    <div className="text-[10px] text-neutral-500">
+                      {t("{n} ч × {rate} · оплата на Kaspi PROBETON", {
+                        n: pumpBilledHours(o),
+                        rate: formatTenge(o.pump_fee_rate ?? PUMP_DEFAULT_FEE),
+                      })}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => payCommission(o.id)}
+                    disabled={busy === o.id}
+                    className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                  >
+                    {busy === o.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        {t("Я оплатил — завершить заказ")}
+                      </>
+                    )}
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-2">
                   <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-center">
@@ -660,9 +674,9 @@ export default function DriverHome() {
               )}
               {boomTooShort(o) && (
                 <div className="text-xs font-semibold text-red-600 bg-red-50 rounded-lg px-3 py-2">
-                  {t("Нужна стрела {need} м, у вас {mine} м — эта заявка вам не подходит", {
-                    need: o.pump_boom,
-                    mine: user.pump_boom,
+                  {t("Нужен насос: {need}, у вас: {mine} — эта заявка вам не подходит", {
+                    need: pumpTitle(o.pump_boom),
+                    mine: pumpTitle(user.pump_boom),
                   })}
                 </div>
               )}

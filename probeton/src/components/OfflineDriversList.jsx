@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { base44, supabase } from "@/api/base44Client";
 import { Phone, Trash2, Loader2, UserX } from "lucide-react";
 import { t } from "@/lib/i18n";
+import { pumpTitle } from "@/lib/pump";
 
 // kind: "driver" — миксеристы, "pump" — насосники АБН.
 export default function OfflineDriversList({ kind = "driver" }) {
@@ -96,7 +97,7 @@ export default function OfflineDriversList({ kind = "driver" }) {
             </div>
             <div className="text-xs text-neutral-500">
               {d.vehicle_plate || "—"} ·{" "}
-              {d.pump_boom ? `${t("стрела {m} м", { m: d.pump_boom })} · ` : ""}
+              {d.pump_boom ? `${pumpTitle(d.pump_boom)} · ` : ""}
               {d.approval_status === "approved" ? t("Одобрен") : t("На одобрении")}
             </div>
           </div>

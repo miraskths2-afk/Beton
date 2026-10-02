@@ -9,7 +9,7 @@ import {
   statusLabel,
   statusFlowFor,
 } from "@/lib/orderStatuses";
-import { isPumpOrder, workerLabel } from "@/lib/pump";
+import { isPumpOrder, pumpTitle, workerLabel } from "@/lib/pump";
 import { getEffectiveRole } from "@/lib/effectiveRole";
 import {
   ArrowLeft,
@@ -35,6 +35,7 @@ import ChatButton from "@/components/ChatButton";
 import { getChatRole } from "@/lib/chat";
 import OrderExtras from "@/components/OrderExtras";
 import DowntimeTimer from "@/components/DowntimeTimer";
+import PumpWorkTimer from "@/components/PumpWorkTimer";
 
 const OrderRouteMap = lazy(() => import("@/components/OrderRouteMap"));
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
@@ -424,6 +425,9 @@ export default function OrderDetail() {
       {o.driver_id && !isPump && (
         <DowntimeTimer o={o} role={timerRole} userId={user?.id} onChanged={load} />
       )}
+      {o.driver_id && isPump && (
+        <PumpWorkTimer o={o} role={timerRole} userId={user?.id} onChanged={load} />
+      )}
 
       {linked.length > 0 && (
         <div className="bg-white rounded-2xl border border-sky-200 shadow-sm p-3 space-y-1.5">
@@ -440,7 +444,7 @@ export default function OrderDetail() {
               <span className="truncate">
                 {l.order_number || t("Заказ")} ·{" "}
                 {isPumpOrder(l)
-                  ? t("АБН {m} м", { m: l.pump_boom || "?" })
+                  ? pumpTitle(l.pump_boom)
                   : [l.grade, l.cubes ? t("{n} куб", { n: l.cubes }) : null].filter(Boolean).join(" · ")}
                 {l.driver_name ? ` · ${l.driver_name}` : ""}
               </span>

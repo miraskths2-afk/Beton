@@ -30,7 +30,9 @@ import { plantName, plantsErrorText } from "@/lib/plants";
 import AssignFleetDriverDialog from "@/components/AssignFleetDriverDialog";
 import OrderExtras from "@/components/OrderExtras";
 import ChatButton from "@/components/ChatButton";
-import { isPumpOrder, attachPumpOrdersToPlant, pumpErrorText, workerLabel } from "@/lib/pump";
+import { isPumpOrder, attachPumpOrdersToPlant, pumpErrorText, pumpServiceFee, workerLabel } from "@/lib/pump";
+import { fetchSettings, formatTenge } from "@/lib/balance";
+import PumpWorkTimer from "@/components/PumpWorkTimer";
 
 // Кабинет завода / БСУ.
 // - Принимает свободные заявки клиентов из общей ленты.
@@ -49,6 +51,7 @@ export default function PlantHome() {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState("");
   const [assignOrder, setAssignOrder] = useState(null);
+  const [settings, setSettings] = useState(null);
   const myIdsRef = useRef(null);
 
   const load = async () => {
@@ -70,6 +73,10 @@ export default function PlantHome() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchSettings().then(setSettings).catch(console.error);
+  }, []);
 
   useEffect(() => {
     load();
@@ -96,6 +103,61 @@ export default function PlantHome() {
     (o) => o.driver_id && o.status !== "done" && o.status !== "cancelled"
   );
   const done = mine.filter((o) => o.status === "done").slice(0, 10);
+
+  // Одна заявка клиента = бетон (и его рейсы) + АБН к нему. Завод закрывает
+  // её целиком, сбор считается вместе: куб × 1 000 ₸ за бетон и
+  // часы × сбор за час за насос. Потом админ подтверждает оплату.
+  const groupKey = (o) => o.pump_for_order_id || o.parent_order_id || o.id;
+  const groupOf = (key) =>
+    mine.filter(
+      (o) =>
+        (o.id === key || o.parent_order_id === key || o.pump_for_order_id === key) &&
+        o.status !== "done" &&
+        o.status !== "cancelled"
+    );
+  const groupFee = (rows) =>
+    rows.reduce(
+      (sum, o) => sum + (isPumpOrder(o) ? pumpServiceFee(o, settings) : (o.cubes || 0) * 1000),
+      0
+    );
+  // Кнопку «Заявка выполнена» показываем один раз на группу.
+  const isGroupHead = (o) => {
+    const key = groupKey(o);
+    if (o.id === key) return true;
+    const head = working.find((w) => w.id === key);
+    if (head) return false;
+    return working.filter((w) => groupKey(w) === key)[0]?.id === o.id;
+  };
+
+  const closeGroup = (o) => {
+    const rows = groupOf(groupKey(o));
+    if (rows.some((r) => !r.driver_id)) {
+      setError(t("Сначала выделите исполнителя на все машины и насос этой заявки."));
+      return;
+    }
+    const pumpRunning = rows.some((r) => isPumpOrder(r) && r.arrived_at && !r.unloaded_at);
+    const fee = groupFee(rows);
+    if (
+      !confirm(
+        (pumpRunning ? t("Насос ещё не остановил таймер — сбор посчитаем по текущим часам.") + "\n\n" : "") +
+          t("Заявка выполнена? Оплатите сервисный сбор PROBETON {fee} на Kaspi. Админ проверит оплату и закроет заявку.", {
+            fee: formatTenge(fee),
+          })
+      )
+    )
+      return;
+    run(o.id, async () => {
+      const { error: upErr } = await supabase
+        .from("orders")
+        .update({ driver_paid: true })
+        .in(
+          "id",
+          rows.map((r) => r.id)
+        )
+        .eq("plant_id", user.id);
+      if (upErr) throw upErr;
+    });
+  };
 
   const run = async (id, fn) => {
     setBusy(id);
@@ -474,18 +536,43 @@ export default function PlantHome() {
                       {isPumpOrder(o) ? t("Насос выехал") : t("Миксер выехал")}
                     </button>
                   </div>
+                  {isPumpOrder(o) && o.arrived_at && (
+                    <PumpWorkTimer o={o} role="plant" onChanged={load} />
+                  )}
                   {o.driver_paid ? (
                     <div className="text-xs font-bold py-2 rounded-lg bg-amber-100 text-amber-700 inline-flex w-full items-center justify-center gap-1">
                       <Hourglass className="w-3.5 h-3.5" />
-                      {isPumpOrder(o)
-                        ? t("Насосник закончил работу — ждёт подтверждения админом")
-                        : t("Миксерист оплатил сбор — ждёт подтверждения админом")}
+                      {t("Сбор оплачен — ждёт подтверждения админом")}
+                    </div>
+                  ) : isGroupHead(o) ? (
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => closeGroup(o)}
+                        disabled={busy === o.id}
+                        className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                      >
+                        {busy === o.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            {t("Заявка выполнена — оплатить сбор {fee}", {
+                              fee: formatTenge(groupFee(groupOf(groupKey(o)))),
+                            })}
+                          </>
+                        )}
+                      </button>
+                      <div className="text-[11px] text-neutral-400 text-center">
+                        {groupOf(groupKey(o)).length > 1
+                          ? t("Закрывает всю заявку сразу — бетон и насос вместе ({n} шт.). Потом админ подтвердит оплату.", {
+                              n: groupOf(groupKey(o)).length,
+                            })
+                          : t("Нажмите, когда заявка выполнена. Потом админ подтвердит оплату.")}
+                      </div>
                     </div>
                   ) : (
                     <div className="text-[11px] text-neutral-400 text-center">
-                      {isPumpOrder(o)
-                        ? t("Заказ закроется, когда насосник отметит работу выполненной и админ подтвердит")
-                        : t("Заказ закроется, когда миксерист оплатит сбор и админ подтвердит оплату")}
+                      {t("Закрывается вместе с основной заявкой")}
                     </div>
                   )}
                   <button
