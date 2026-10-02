@@ -40,6 +40,7 @@ export const orderGroupRoot = (o) => o?.parent_order_id || o?.pump_for_order_id 
 // «насос». Используйте её вместо ORDER_STATUSES[...].label в карточках.
 const PUMP_STATUS_LABELS = {
   new: "Поиск насоса",
+  in_progress: "Насос назначен",
   sent_to_plant: "Назначен насос",
   en_route: "Насос в пути",
 };
@@ -49,9 +50,9 @@ export function statusLabel(o) {
   return ORDER_STATUSES[s]?.label || s;
 }
 
-// Шаги для полоски статусов: у АБН нет «Бетон изготавливается».
+// Шаги для полоски статусов. У АБН: поиск → насос назначен → (в пути,
+// если заявку ведёт завод) → готов; «изготовления» и «назначен миксер» нет.
 export function statusFlowFor(o) {
-  return o?.service_type === "pump"
-    ? STATUS_FLOW.filter((s) => s !== "manufacturing")
-    : STATUS_FLOW;
+  if (o?.service_type !== "pump") return STATUS_FLOW;
+  return o?.plant_id ? ["new", "in_progress", "en_route", "done"] : ["new", "in_progress", "done"];
 }

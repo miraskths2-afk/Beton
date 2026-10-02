@@ -126,7 +126,7 @@ export default function ChatPage() {
   const { kind: rawKind, id } = useParams();
   const kind = CHAT_KINDS.includes(rawKind) ? rawKind : "order";
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, viewMode } = useAuth();
 
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -146,7 +146,7 @@ export default function ChatPage() {
   const recorder = useVoiceRecorder();
   const [voiceSupported] = useState(() => canRecordVoice());
 
-  const role = getChatRole(user, kind, item);
+  const role = getChatRole(user, kind, item, viewMode);
   const isAdmin = role === "admin";
   const col = chatColumn(kind);
 
