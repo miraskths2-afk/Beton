@@ -17,6 +17,7 @@ import {
   Flame,
   Loader2,
   LayoutDashboard,
+  Factory,
   RefreshCcw,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
@@ -265,11 +266,12 @@ export default function Profile() {
           <p className="text-xs text-neutral-500 -mt-2">
             {t("Ваша роль остаётся администратором — это просто переключение, какой интерфейс сейчас показывать.")}
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             {[
               { id: "admin", label: "Админ", icon: LayoutDashboard },
               { id: "client", label: "Заказчик", icon: Truck },
               { id: "driver", label: "Водитель", icon: UserCircle },
+              { id: "plant", label: "Завод", icon: Factory },
             ].map((opt) => (
               <button
                 key={opt.id}

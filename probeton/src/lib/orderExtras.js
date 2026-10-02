@@ -7,9 +7,28 @@ import { t } from "@/lib/i18n";
 // Средняя вместимость миксера для расчёта «примерно N машин».
 export const MIXER_CAPACITY = 8;
 
+// Способы выгрузки бетона. Ключ хранится в orders.unload_method
+// (список разрешённых ключей — в supabase_unload_methods.sql).
+// Порядок — как в выпадающем списке формы заявки.
 export const UNLOAD_METHODS = {
-  slide: "Слив на землю",
-  pump: "В автобетононасос",
+  slide: "Прямой слив из миксера",
+  pump: "Автобетононасос",
+  crane: "Кран с бадьёй",
+  conveyor: "Бетоноконвейер (лента)",
+  mixer_pump: "Миксер с насосом",
+  line_pump: "Стационарный бетононасос",
+  wheelbarrow: "Вручную (тачки, вёдра)",
+};
+
+// Короткая подсказка под выбранным способом.
+export const UNLOAD_HINTS = {
+  slide: "Миксер подъезжает к месту и сливает бетон по своему лотку.",
+  pump: "Насос заказываете вы — миксер выгружает в него.",
+  crane: "Бетон принимают в бадью и подают краном.",
+  conveyor: "Бетон подают лентой — удобно на 10–20 м от миксера.",
+  mixer_pump: "Миксер со встроенным насосом, подача на 15–20 м.",
+  line_pump: "Насос и трубы уже стоят на объекте.",
+  wheelbarrow: "Выгрузка частями, миксер ждёт дольше — может быть простой.",
 };
 
 export const ORDER_PHOTOS_BUCKET = "order-photos";
@@ -43,6 +62,9 @@ export function unloadText(o) {
 // Понятная ошибка, если supabase_order_details.sql ещё не выполнен.
 export function orderDetailsErrorText(err) {
   const msg = String(err?.message || err || "");
+  if (/orders_unload_method_check/.test(msg)) {
+    return t("База пока не знает этот способ выгрузки. Выполните файл supabase_unload_methods.sql в Supabase → SQL Editor.");
+  }
   if (
     /(unload_method|chute_|may_reorder|reorder_of|with_documents|site_photo_url|access_confirmed|arrived_at|downtime_|trip_no|trips_total|parent_order_id)/.test(msg) ||
     /(assign_order_mixers|mark_arrived|finish_unloading)/.test(msg) ||

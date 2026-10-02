@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
-import { MessageCircle, Flame, Truck, Search, Check, CheckCheck } from "lucide-react";
+import { MessageCircle, Flame, Truck, Search, Check, CheckCheck, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ListSkeleton } from "@/components/Skeleton";
-import { loadMyChats, subscribeChatChanges, chatPath, previewText } from "@/lib/chat";
+import {
+  loadMyChats,
+  subscribeChatChanges,
+  chatPath,
+  previewText,
+  deleteChatThread,
+} from "@/lib/chat";
 import { t, locale } from "@/lib/i18n";
 
 function fmtWhen(ts) {
@@ -50,6 +56,17 @@ export default function ChatsPage() {
       unsub();
     };
   }, [user]);
+
+  // Админ чистит старые переписки, чтобы список не забивался.
+  const removeChat = async (c) => {
+    if (!confirm(t("Удалить всю переписку «{title}»? Сам заказ останется, удалятся только сообщения.", { title: c.title }))) return;
+    try {
+      await deleteChatThread(c.kind, c.id);
+      setChats((prev) => prev.filter((x) => x.key !== c.key));
+    } catch (e) {
+      alert(e?.message || t("Не удалось удалить"));
+    }
+  };
 
   const q = query.trim().toLowerCase();
   const visible = chats.filter((c) => {
@@ -130,10 +147,10 @@ export default function ChatsPage() {
             const Icon = c.kind === "leftover" ? Flame : Truck;
             const lastMine = c.last && c.last.sender_role === c.role;
             return (
+              <div key={c.key} className="flex items-stretch">
               <button
-                key={c.key}
                 onClick={() => navigate(chatPath(c.kind, c.id))}
-                className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-neutral-50"
+                className="flex-1 min-w-0 flex items-center gap-3 px-3 py-3 text-left hover:bg-neutral-50"
               >
                 <div
                   className={cn(
@@ -181,6 +198,17 @@ export default function ChatsPage() {
                   </div>
                 </div>
               </button>
+              {isAdmin && c.last && (
+                <button
+                  onClick={() => removeChat(c)}
+                  className="shrink-0 w-11 flex items-center justify-center text-neutral-300 hover:text-red-600 hover:bg-red-50"
+                  aria-label={t("Удалить переписку")}
+                  title={t("Удалить переписку")}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              </div>
             );
           })}
         </div>

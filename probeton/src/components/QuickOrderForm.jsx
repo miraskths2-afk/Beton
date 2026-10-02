@@ -30,6 +30,7 @@ import { t } from "@/lib/i18n";
 import {
   MIXER_CAPACITY,
   UNLOAD_METHODS,
+  UNLOAD_HINTS,
   trucksEstimate,
   trucksText,
   uploadSitePhoto,
@@ -86,9 +87,9 @@ export default function QuickOrderForm({ prefill }) {
 
   const trucks = trucksEstimate(cubes);
   const unloadValid =
-    unloadMethod === "pump" ||
-    (unloadMethod === "slide" &&
-      (chute === "no" || (chute === "yes" && Number(chuteMeters) > 0)));
+    unloadMethod === "slide"
+      ? chute === "no" || (chute === "yes" && Number(chuteMeters) > 0)
+      : !!UNLOAD_METHODS[unloadMethod];
   const accessValid = !!photoFile || accessConfirmed;
 
   const isValid =
@@ -287,18 +288,22 @@ export default function QuickOrderForm({ prefill }) {
           <Droplets className="w-3.5 h-3.5" />
           {t("Как будет выгружаться бетон")} <span className="text-red-500">*</span>
         </Label>
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(UNLOAD_METHODS).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setUnloadMethod(id)}
-              className={choiceCls(unloadMethod === id)}
-            >
-              {t(label)}
-            </button>
-          ))}
-        </div>
+        {/* Выпадающий список вместо кнопок — форма не раздувается. */}
+        <Select value={unloadMethod} onValueChange={setUnloadMethod}>
+          <SelectTrigger className="h-12 rounded-xl">
+            <SelectValue placeholder={t("Выберите способ")} />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(UNLOAD_METHODS).map(([id, label]) => (
+              <SelectItem key={id} value={id}>
+                {t(label)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {unloadMethod && UNLOAD_HINTS[unloadMethod] && (
+          <p className="text-xs text-neutral-500 px-1">{t(UNLOAD_HINTS[unloadMethod])}</p>
+        )}
         {unloadMethod === "slide" && (
           <div className="space-y-2 rounded-xl bg-neutral-50 border border-neutral-200 p-3">
             <div className="text-xs font-semibold text-neutral-700">

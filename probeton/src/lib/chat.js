@@ -106,6 +106,40 @@ export async function sendChatMessage({ kind, id, user, role, name, message, aud
   return data;
 }
 
+// Путь файла голосового в Storage по его публичной ссылке.
+function voicePath(url) {
+  const marker = `/${VOICE_BUCKET}/`;
+  const i = (url || "").indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(url.slice(i + marker.length).split("?")[0]);
+}
+
+// Убираем записи голосовых из Storage, чтобы не копились. Если в базе
+// ещё нет правила на удаление файлов (supabase_chat_cleanup.sql) —
+// просто пропускаем: сами сообщения всё равно удаляются.
+async function removeVoiceFiles(list) {
+  const paths = list.map((m) => voicePath(m.audio_url)).filter(Boolean);
+  if (!paths.length) return;
+  const { error } = await supabase.storage.from(VOICE_BUCKET).remove(paths);
+  if (error) console.error(error);
+}
+
+// Удаление одного сообщения (только для админа).
+export async function deleteChatMessage(m) {
+  const { error } = await supabase.from(CHAT_TABLE).delete().eq("id", m.id);
+  if (error) throw error;
+  await removeVoiceFiles([m]);
+}
+
+// Удаление всей переписки по заказу или остатку (только для админа).
+// Сам заказ/остаток не трогаем — только сообщения.
+export async function deleteChatThread(kind, id) {
+  const col = chatColumn(kind);
+  const { data } = await supabase.from(CHAT_TABLE).select("id, audio_url").eq(col, id);
+  const { error } = await supabase.from(CHAT_TABLE).delete().eq(col, id);
+  if (error) throw error;
+  await removeVoiceFiles(data || []);
+}
+
 // Отмечает входящие сообщения прочитанными. Админ, читающий чужую
 // переписку, галочки не ставит.
 export async function markChatRead(kind, id, role) {

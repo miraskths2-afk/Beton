@@ -107,6 +107,11 @@ export default function PlantHome() {
   // (или заводу и миксеристу) забрать одну заявку одновременно.
   const take = (o) =>
     run(o.id, async () => {
+      // Админ в «режиме просмотра: Завод» только смотрит — сам заводом
+      // он не является, и заявка не должна уйти на его аккаунт.
+      if (user?.role === "admin") {
+        throw new Error(t("Это режим просмотра админа — принимать заявки может только настоящий завод."));
+      }
       const { data, error: upErr } = await supabase
         .from("orders")
         .update({ plant_id: user.id, plant_name: plantName(user) })
@@ -223,6 +228,12 @@ export default function PlantHome() {
           <p className="text-sm text-neutral-500">{t("Заявки клиентов и ваш парк миксеров")}</p>
         </div>
       </div>
+
+      {user?.role === "admin" && (
+        <div className="text-xs font-semibold text-sky-800 bg-sky-50 border border-sky-200 rounded-xl px-3 py-2.5">
+          {t("Режим просмотра: так видит сайт завод. У вашего админ-аккаунта нет своего парка и заявок, поэтому списки пустые. Заводом аккаунт делается на странице «Заводы».")}
+        </div>
+      )}
 
       {user?.plant_active === false && (
         <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">

@@ -35,6 +35,8 @@ import {
   markChatRead,
   uploadVoice,
   VOICE_LABEL,
+  deleteChatMessage,
+  deleteChatThread,
 } from "@/lib/chat";
 import { t, locale } from "@/lib/i18n";
 
@@ -420,6 +422,29 @@ export default function ChatPage() {
 
   const detailsPath = kind === "leftover" ? `/leftover/${id}` : `/order/${id}`;
 
+  // Админ может удалять сообщения и всю переписку, чтобы история не
+  // забивалась. Собеседники ничего не удаляют.
+  const removeMessage = async (m) => {
+    if (!confirm(t("Удалить это сообщение? Его не увидит никто."))) return;
+    try {
+      await deleteChatMessage(m);
+      setMessages((prev) => prev.filter((x) => x.id !== m.id));
+    } catch (e) {
+      alert(e?.message || t("Не удалось удалить"));
+    }
+  };
+
+  const removeThread = async () => {
+    if (!confirm(t("Удалить всю переписку в этом чате? Сам заказ останется, удалятся только сообщения."))) return;
+    try {
+      await deleteChatThread(kind, id);
+      setMessages([]);
+      navigate("/chats");
+    } catch (e) {
+      alert(e?.message || t("Не удалось удалить"));
+    }
+  };
+
   // ===== Экраны загрузки / нет доступа =====
   if (loading) {
     return (
@@ -499,6 +524,16 @@ export default function ChatPage() {
             )}
           </div>
         </button>
+        {isAdmin && messages.length > 0 && (
+          <button
+            onClick={removeThread}
+            className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center text-red-300"
+            aria-label={t("Удалить переписку")}
+            title={t("Удалить переписку")}
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        )}
         <button
           onClick={() => navigate(detailsPath)}
           className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center"
@@ -585,6 +620,16 @@ export default function ChatPage() {
                         <Check className="w-3.5 h-3.5" />
                       ))}
                   </span>
+                  {isAdmin && !m.pending && !m.failed && (
+                    <button
+                      onClick={() => removeMessage(m)}
+                      className="float-right ml-1.5 mt-1 text-neutral-400 hover:text-red-600"
+                      aria-label={t("Удалить сообщение")}
+                      title={t("Удалить сообщение")}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   {m.failed && (
                     <button
                       onClick={() => deliver(m)}
