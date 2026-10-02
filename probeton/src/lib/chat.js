@@ -89,9 +89,18 @@ export function chatPath(kind, id) {
 }
 
 // Кем пользователь является в этом чате. null — посторонний (чат не открываем).
-export function getChatRole(user, kind, item) {
+// viewMode — режим просмотра админа. Если админ смотрит сайт глазами
+// насосника/миксериста/заказчика и сам участвует в этой сделке (например,
+// взял заявку как насосник), он видит чат как участник, а не как админ.
+export function getChatRole(user, kind, item, viewMode) {
   if (!user || !item) return null;
-  if (user.role === "admin") return "admin";
+  if (user.role === "admin") {
+    if (viewMode && viewMode !== "admin") {
+      const asUser = getChatRole({ ...user, role: "user" }, kind, item);
+      if (asUser) return asUser;
+    }
+    return "admin";
+  }
   const myPhone = normPhone(user.phone);
   if (kind === "plant") {
     if (!item.plant_id) return null;

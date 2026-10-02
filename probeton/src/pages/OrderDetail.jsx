@@ -184,7 +184,18 @@ export default function OrderDetail() {
   // Прямая смена статуса и удаление — только у настоящего админа.
   // Сам водитель завершает заказ через оплату (см. кнопку ниже),
   // а не напрямую — иначе можно было бы обойти проверку оплаты.
-  const canManage = user?.role === "admin";
+  // Админ в режиме просмотра (насосник, миксерист, заказчик), который сам
+  // участвует в этой заявке, видит её как участник, без админских кнопок
+  // и номеров — так же, как увидит настоящий насосник или заказчик.
+  const effRole = getEffectiveRole(user, viewMode);
+  const isMeDriver = !!o.driver_id && o.driver_id === user?.id;
+  const isMyPhone = !!user?.phone && normPhone(user.phone) === normPhone(o.phone);
+  const actsAsParticipant =
+    user?.role === "admin" &&
+    effRole !== "admin" &&
+    (((effRole === "driver" || effRole === "pump") && isMeDriver) || (effRole === "client" && isMyPhone));
+  const asAdmin = user?.role === "admin" && !actsAsParticipant;
+  const canManage = asAdmin;
   // Завод видит миксериста на карте только на своей заявке; на чужой
   // (личной заявке миксериста) — нет. Заказ клиента завод не отменяет
   // (вместо этого он возвращает заявку в общую ленту на своей Главной).
@@ -193,24 +204,23 @@ export default function OrderDetail() {
   // миксерист общаются через чат, не видя номеров друг друга.
   // Завод видит номера только у своих заявок.
   const canSeePhones =
-    user?.role === "admin" || (user?.account_type === "plant" && o.plant_id === user?.id);
-  const chatRole = getChatRole(user, "order", o);
-  const plantChatRole = getChatRole(user, "plant", o);
-  const fleetChatRole = getChatRole(user, "fleet", o);
+    asAdmin || (user?.account_type === "plant" && o.plant_id === user?.id);
+  const chatRole = getChatRole(user, "order", o, viewMode);
+  const plantChatRole = getChatRole(user, "plant", o, viewMode);
+  const fleetChatRole = getChatRole(user, "fleet", o, viewMode);
   const hideDriverMap = isPlant && o.plant_id !== user?.id;
   // Отменить заказ может админ или сам заказчик (по номеру телефона), и
   // заказчик — только пока бетон не начали готовить. Водитель отменить
   // чужой заказ не может — иначе он обходил бы оплату сервисного сбора.
-  const isOrderClient =
-    !isPlant && !!user?.phone && normPhone(user.phone) === normPhone(o.phone);
-  const timerRole =
-    o.driver_id && o.driver_id === user?.id
-      ? "driver"
-      : isOrderClient
-      ? "client"
-      : user?.role === "admin"
-      ? "admin"
-      : "view";
+  // Исполнитель этой заявки — не заказчик, даже если номер совпал.
+  const isOrderClient = !isPlant && isMyPhone && !isMeDriver;
+  const timerRole = isMeDriver
+    ? "driver"
+    : isOrderClient
+    ? "client"
+    : asAdmin
+    ? "admin"
+    : "view";
   const canCancel = canManage || (isOrderClient && canClientCancel(o));
 
   const cancelOrder = async () => {
@@ -359,7 +369,11 @@ export default function OrderDetail() {
               ) : (
                 <UserCircle className="w-5 h-5 text-neutral-300" />
               )}
-              {t("Водитель: {name}", { name: o.driver_name })}
+              {isMeDriver
+                ? t("Исполнитель — вы")
+                : isPump
+                ? t("Насосник: {name}", { name: o.driver_name })
+                : t("Миксерист: {name}", { name: o.driver_name })}
             </div>
           )}
           {canSeePhones && driverPhone && (
