@@ -2,14 +2,9 @@ import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Check, X, UserCheck, Loader2, Phone, Car } from "lucide-react";
 import { t } from "@/lib/i18n";
+import { EQUIPMENT } from "@/lib/equipment";
+import { pumpTitle } from "@/lib/pump";
 
-const EQUIPMENT = {
-  mixer: "Миксер (АБС)",
-  pump_16: "АБН 16м",
-  pump_24: "АБН 24м",
-  pump_36: "АБН 36м",
-  pump_52: "АБН 52м",
-};
 
 export default function DriverApproval() {
   const [drivers, setDrivers] = useState([]);
@@ -88,6 +83,8 @@ export default function DriverApproval() {
           <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
             {d.account_type === "driver"
               ? t("Водитель")
+              : d.account_type === "pump"
+              ? t("Насосник АБН")
               : d.account_type === "plant"
               ? t("Завод / БСУ")
               : t("Заказчик")}
@@ -99,16 +96,22 @@ export default function DriverApproval() {
                 {d.phone}
               </span>
             )}
-            {d.account_type === "driver" && d.vehicle_plate && (
+            {(d.account_type === "driver" || d.account_type === "pump") && d.vehicle_plate && (
               <span className="inline-flex items-center gap-1">
                 <Car className="w-3 h-3" />
                 {d.vehicle_plate}
               </span>
             )}
-            {d.account_type === "driver" && d.equipment_type && (
+            {d.account_type === "driver" && (
               <span className="inline-flex items-center gap-1">
                 <UserCheck className="w-3 h-3" />
-                {EQUIPMENT[d.equipment_type] ? t(EQUIPMENT[d.equipment_type]) : d.equipment_type}
+                {t(EQUIPMENT.mixer)}
+              </span>
+            )}
+            {d.account_type === "pump" && d.pump_boom && (
+              <span className="inline-flex items-center gap-1">
+                <UserCheck className="w-3 h-3" />
+                {pumpTitle(d.pump_boom)}
               </span>
             )}
           </div>
@@ -150,6 +153,8 @@ export default function DriverApproval() {
                 <span className="text-xs text-neutral-500">
                   {d.account_type === "driver"
                     ? d.vehicle_plate
+                    : d.account_type === "pump"
+                    ? t("Насосник АБН")
                     : d.account_type === "plant"
                     ? t("Завод / БСУ")
                     : t("Заказчик")}

@@ -1,8 +1,10 @@
 import React from "react";
-import { Truck, Droplets, Repeat, FileText, Camera, Layers } from "lucide-react";
+import { Truck, Droplets, Repeat, FileText, Camera, Layers, Construction, Clock, Wallet, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { trucksEstimate, trucksText, unloadText } from "@/lib/orderExtras";
+import { isPumpOrder, pumpTitle, pumpPrepay, PUMP_MIN_HOURS } from "@/lib/pump";
+import { formatTenge } from "@/lib/balance";
 
 // Подробности заявки одной строкой значков: способ выгрузки, лоток,
 // примерное число машин, дозаказ, «с документами», рейс, фото заезда.
@@ -14,6 +16,45 @@ export default function OrderExtras({ o, showPhoto = true, className }) {
   const unload = unloadText(o);
 
   const chip = "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold";
+
+  // Заявка на АБН: длина стрелы, часы, цена, предоплата.
+  if (isPumpOrder(o)) {
+    const prepay = pumpPrepay(o);
+    return (
+      <div className={cn("flex flex-wrap gap-1.5", className)}>
+        <span className={cn(chip, "bg-sky-100 text-sky-700")}>
+          <Construction className="w-3 h-3" />
+          {pumpTitle(o.pump_boom)}
+        </span>
+        <span className={cn(chip, "bg-neutral-100 text-neutral-700")}>
+          <Clock className="w-3 h-3" />
+          {t("{n} ч (минимум {min})", { n: o.pump_hours || PUMP_MIN_HOURS, min: PUMP_MIN_HOURS })}
+        </span>
+        <span className={cn(chip, "bg-neutral-100 text-neutral-700")}>
+          <Wallet className="w-3 h-3" />
+          {o.pump_rate
+            ? t("{rate}/ч · сразу {sum}", { rate: formatTenge(o.pump_rate), sum: formatTenge(prepay) })
+            : t("Цена за час уточняется")}
+        </span>
+        {o.pump_prepaid_confirmed ? (
+          <span className={cn(chip, "bg-green-100 text-green-700")}>{t("Предоплата получена")}</span>
+        ) : o.pump_prepaid ? (
+          <span className={cn(chip, "bg-amber-100 text-amber-700")}>{t("Клиент оплатил — ждёт подтверждения")}</span>
+        ) : (
+          <span className={cn(chip, "bg-red-50 text-red-600")}>{t("Предоплата не внесена")}</span>
+        )}
+        {o.pump_for_order_id && (
+          <span className={cn(chip, "bg-amber-50 text-amber-700")}>
+            <Link2 className="w-3 h-3" />
+            {t("К заявке на бетон")}
+          </span>
+        )}
+        {o.pump_hire_open && (
+          <span className={cn(chip, "bg-purple-100 text-purple-700")}>{t("Завод нанимает насос")}</span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("space-y-2", className)}>

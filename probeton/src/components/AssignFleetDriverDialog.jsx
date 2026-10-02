@@ -19,6 +19,7 @@ import {
   trucksEstimate,
   trucksText,
 } from "@/lib/orderExtras";
+import { isPumpOrder, pumpTitle } from "@/lib/pump";
 
 // Делим кубы поровну между машинами (шаг 0.5 м³), остаток — последней.
 function splitCubes(total, n) {
@@ -35,7 +36,10 @@ function splitCubes(total, n) {
 // (функция assign_order_mixers в supabase_order_details.sql).
 // Карты с водителями здесь нет намеренно: завод не видит миксеристов
 // на карте — только список: на линии / занят.
+// На заявку АБН завод выделяет насосника из парка (одного), на бетон —
+// миксеристов.
 export default function AssignFleetDriverDialog({ plantId, order, open, onOpenChange, onAssigned }) {
+  const pump = isPumpOrder(order);
   const [drivers, setDrivers] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
@@ -55,7 +59,9 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
     (async () => {
       try {
         const fleet = (await fetchFleet(plantId)).filter(
-          (d) => d.approval_status === "approved"
+          (d) =>
+            d.approval_status === "approved" &&
+            (pump ? d.account_type === "pump" : d.account_type !== "pump")
         );
         const st = await fetchDriverState(fleet.map((d) => d.id));
         const list = fleet
@@ -82,7 +88,7 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
 
   const totalCubes = Number(order?.cubes) || 0;
   const multi =
-    !!order && (order.status || "new") === "new" && !order.driver_id && totalCubes > 0;
+    !pump && !!order && (order.status || "new") === "new" && !order.driver_id && totalCubes > 0;
   const estimate = trucksEstimate(totalCubes);
   const sumCubes = selectedIds.reduce((acc, id) => acc + (Number(cubesBy[id]) || 0), 0);
   const sumOk = selectedIds.length > 0 && Math.abs(sumCubes - totalCubes) < 0.01 &&
@@ -130,6 +136,15 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
         driver_id: d.id,
         driver_name: driverName(d),
       };
+      // Свой насос нашёлся — найм на сайте больше не нужен.
+      if (pump) fields.pump_hire_open = false;
+      // Сменили исполнителя до конца работы — его таймер начнётся заново,
+      // а не от времени приезда прежнего.
+      if (order.driver_id && order.driver_id !== d.id && !order.unloaded_at) {
+        fields.arrived_at = null;
+        fields.downtime_hours = 0;
+        fields.downtime_fee = 0;
+      }
       if ((order.status || "new") === "new") {
         fields.status = "in_progress";
         fields.accepted_at = new Date().toISOString();
@@ -154,7 +169,7 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{t("Выделить миксериста из парка")}</DialogTitle>
+          <DialogTitle>{pump ? t("Выделить насосника из парка") : t("Выделить миксериста из парка")}</DialogTitle>
         </DialogHeader>
         <div className="py-2">
           {multi && totalCubes > 0 && (
@@ -172,7 +187,9 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
           ) : drivers.length === 0 ? (
             <div className="text-center py-8 text-neutral-400 text-sm">
               <Truck className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              {t("В парке нет одобренных миксеристов. Добавьте их на вкладке «Парк».")}
+              {pump
+                ? t("В парке нет одобренных насосников. Добавьте их на вкладке «Парк» или наймите насосника на сайте.")
+                : t("В парке нет одобренных миксеристов. Добавьте их на вкладке «Парк».")}
             </div>
           ) : (
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
@@ -199,6 +216,7 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
                     </div>
                     <div className="text-xs text-neutral-500">
                       {d.vehicle_plate ? `${d.vehicle_plate} · ` : ""}
+                      {d.pump_boom ? `${pumpTitle(d.pump_boom)} · ` : ""}
                       {d.isBusy
                         ? t("Занят другим заказом")
                         : d.online
@@ -276,6 +294,8 @@ export default function AssignFleetDriverDialog({ plantId, order, open, onOpenCh
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             {multi && selectedIds.length > 1
               ? t("Назначить миксеров: {n}", { n: selectedIds.length })
+              : pump
+              ? t("Назначить насос")
               : t("Назначить миксер")}
           </Button>
         </DialogFooter>

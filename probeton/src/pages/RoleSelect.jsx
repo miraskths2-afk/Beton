@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Truck, Wrench, ChevronRight } from "lucide-react";
+import { Truck, Wrench, ChevronRight, Construction } from "lucide-react";
 import MixerIcon from "@/components/MixerIcon";
 import { t } from "@/lib/i18n";
 
@@ -73,6 +73,24 @@ export default function RoleSelect() {
             </div>
             <div className="text-xs text-neutral-500 mt-0.5">
               {t("Доставляю бетон на своей технике")}
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-neutral-300" />
+        </button>
+
+        <button
+          onClick={() => choose("pump")}
+          className="w-full bg-white rounded-2xl border border-neutral-200 shadow-sm p-5 flex items-center gap-4 active:scale-[0.98] transition-transform mt-4"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-sky-100 flex items-center justify-center shrink-0">
+            <Construction className="w-7 h-7 text-sky-600" />
+          </div>
+          <div className="text-left flex-1">
+            <div className="text-lg font-black text-neutral-900">
+              {t("Я Насосник (АБН)")}
+            </div>
+            <div className="text-xs text-neutral-500 mt-0.5">
+              {t("Подаю бетон автобетононасосом")}
             </div>
           </div>
           <ChevronRight className="w-5 h-5 text-neutral-300" />

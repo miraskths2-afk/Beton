@@ -24,6 +24,23 @@ import ChatButton from "@/components/ChatButton";
 import { PLANT_ACTIVE_STATUSES, plantName } from "@/lib/plants";
 import OrderExtras from "@/components/OrderExtras";
 import DowntimeTimer from "@/components/DowntimeTimer";
+import { getEffectiveRole } from "@/lib/effectiveRole";
+import {
+  isPumpOrder,
+  pumpErrorText,
+  pumpFinalTotal,
+  pumpBilledHours,
+  pumpServiceFee,
+  pumpTitle,
+  PUMP_MIN_HOURS,
+  PUMP_STATIONARY,
+  PUMP_DEFAULT_FEE,
+} from "@/lib/pump";
+import PumpWorkTimer from "@/components/PumpWorkTimer";
+import { formatTenge } from "@/lib/balance";
+import DriverCancelRequest from "@/components/DriverCancelRequest";
+import { isBlacklisted } from "@/lib/blacklist";
+import { WARN_LIMIT } from "@/lib/warnings";
 
 function Stars({ value, onChange }) {
   return (
@@ -49,13 +66,19 @@ function Stars({ value, onChange }) {
 
 export default function DriverHome() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, viewMode } = useAuth();
+  // Насосник АБН работает в той же ленте, но видит только заявки на АБН.
+  const isPump = getEffectiveRole(user, viewMode) === "pump";
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [ratePick, setRatePick] = useState({});
   const [myPlant, setMyPlant] = useState(null);
   const myOrderIdsRef = useRef(null);
+  // Мои открытые заказы — чтобы сообщить, если клиент отменил один из них.
+  const myOpenIdsRef = useRef(null);
+  const [complainedIds, setComplainedIds] = useState(() => new Set());
+  const [blacklisted, setBlacklisted] = useState(false);
 
   const load = async () => {
     try {
@@ -71,6 +94,31 @@ export default function DriverHome() {
         }
       }
       myOrderIdsRef.current = new Set(mine);
+      // Клиент отменил мой заказ — сообщаем, что можно брать новые.
+      const prevOpen = myOpenIdsRef.current;
+      if (prevOpen && user?.notifications_enabled !== false) {
+        const cancelledNow = all.find(
+          (o) => prevOpen.has(o.id) && o.status === "cancelled"
+        );
+        if (cancelledNow) {
+          notify(
+            t("Заказ отменён"),
+            t("Заказ {num} отменён. Вы свободны и можете брать новые заявки.", {
+              num: cancelledNow.order_number || "",
+            })
+          );
+        }
+      }
+      myOpenIdsRef.current = new Set(
+        all
+          .filter(
+            (o) =>
+              o.driver_id === user?.id &&
+              o.status !== "done" &&
+              o.status !== "cancelled"
+          )
+          .map((o) => o.id)
+      );
     } catch (err) {
       console.error(err);
     } finally {
@@ -86,17 +134,38 @@ export default function DriverHome() {
         user?.notifications_enabled !== false &&
         payload?.eventType === "INSERT" &&
         (payload.new?.status || "new") === "new" &&
-        !payload.new?.plant_id
+        !payload.new?.plant_id &&
+        isPumpOrder(payload.new) === isPump
       ) {
         notify(
           t("Новая заявка!"),
-          payload.new?.what_needed || t("Появился новый заказ на бетон")
+          payload.new?.what_needed ||
+            (isPump ? t("Появилась заявка на АБН") : t("Появился новый заказ на бетон"))
         );
       }
     });
     return unsub;
      
-  }, [user?.notifications_enabled]);
+  }, [user?.notifications_enabled, isPump]);
+
+  // Мои жалобы (чтобы не отправлять повторно) и не в чёрном ли я списке.
+  useEffect(() => {
+    if (!user?.id) return;
+    let mounted = true;
+    supabase
+      .from("complaints")
+      .select("order_id")
+      .eq("from_user_id", user.id)
+      .then(({ data }) => {
+        if (mounted && data) setComplainedIds(new Set(data.map((c) => c.order_id)));
+      });
+    isBlacklisted(user.phone).then((v) => {
+      if (mounted) setBlacklisted(v);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id, user?.phone]);
 
   // Миксерист в парке завода: завод выдаёт ему свои заказы, но личные
   // заявки из общей ленты и Кубовик остаются его — завод их не видит.
@@ -125,10 +194,21 @@ export default function DriverHome() {
   // Заявки, переданные заводу, в общей ленте не показываются.
   // Заявки «с документами» выполняют только заводы — миксеристам их
   // тоже не показываем.
-  const free = orders.filter(
-    (o) =>
-      (o.status || "new") === "new" && !o.driver_id && !o.plant_id && !o.with_documents
-  );
+  // Насоснику — только заявки на АБН (в том числе те, где завод
+  // нанимает насос на сайте), миксеристу — только бетон.
+  const free = orders.filter((o) => {
+    if ((o.status || "new") !== "new" || o.driver_id) return false;
+    if (isPump) return isPumpOrder(o) && (!o.plant_id || o.pump_hire_open);
+    return !isPumpOrder(o) && !o.plant_id && !o.with_documents;
+  });
+  // Стрела насосника короче, чем нужно по заявке, — взять нельзя.
+  const boomTooShort = (o) =>
+    isPump &&
+    !!user?.pump_boom &&
+    !!o.pump_boom &&
+    // Стационарный насос и АБН со стрелой — разные машины.
+    ((Number(user.pump_boom) === PUMP_STATIONARY) !== (Number(o.pump_boom) === PUMP_STATIONARY) ||
+      Number(user.pump_boom) < Number(o.pump_boom));
   // Мои заказы в работе — любой статус между «принят» и «готов».
   // Раньше здесь был только in_progress, и заказ пропадал у водителя,
   // как только админ переводил его в «Назначен миксер» / «В пути».
@@ -147,6 +227,11 @@ export default function DriverHome() {
   const hasUnfinishedOrder = orders.some(isMyOpenOrder);
 
   const accept = async (o) => {
+    if (blacklisted) {
+      alert(t("Ваш номер в чёрном списке. Чтобы снова брать заказы, свяжитесь с диспетчером и оплатите штраф."));
+      return;
+    }
+    if (boomTooShort(o)) return;
     if (hasUnfinishedOrder) {
       alert(t("Сначала завершите и оплатите текущий заказ — новые заявки пока недоступны."));
       return;
@@ -183,12 +268,32 @@ export default function DriverHome() {
   };
 
   const payCommission = async (id) => {
-    if (!confirm(t("Подтвердите, что оплатили сервисный сбор PROBETON. После этого менеджер проверит оплату и завершит заказ."))) return;
+    if (
+      !confirm(
+        t("Подтвердите, что оплатили сервисный сбор PROBETON. После этого менеджер проверит оплату и завершит заказ.")
+      )
+    )
+      return;
     setBusy(id);
     try {
       await base44.entities.Order.update(id, { driver_paid: true });
     } catch (e) {
       console.error(e);
+    } finally {
+      setBusy(null);
+      load();
+    }
+  };
+
+  // Насосник отмечает, что клиент внёс предоплату (если заявку ведёт
+  // завод — это делает завод).
+  const confirmPrepay = async (id) => {
+    setBusy(id);
+    try {
+      await base44.entities.Order.update(id, { pump_prepaid_confirmed: true });
+    } catch (e) {
+      console.error(e);
+      alert(pumpErrorText(e));
     } finally {
       setBusy(null);
       load();
@@ -206,17 +311,25 @@ export default function DriverHome() {
     }
   };
 
+  // Жалоба не заносит клиента в чёрный список сразу — она уходит
+  // диспетчеру, и он решает, что делать.
   const complain = async (o) => {
-    if (!confirm(t("Подать жалобу на прораба и внести номер в чёрный список?"))) return;
+    if (!confirm(t("Отправить диспетчеру жалобу, что клиент не оплатил? Диспетчер разберётся и при необходимости внесёт клиента в чёрный список."))) return;
     setBusy(o.id);
     try {
-      await base44.entities.Blacklist.create({
-        phone: o.phone,
-        reason: "Неоплата от прораба",
+      const { error } = await supabase.from("complaints").insert({
+        order_id: o.id,
+        from_user_id: user.id,
+        from_name: user.full_name || user.phone,
+        against_phone: o.phone,
+        reason: "Клиент не оплатил",
       });
+      if (error) throw error;
+      setComplainedIds((prev) => new Set(prev).add(o.id));
       alert(t("Жалоба отправлена. Диспетчер рассмотрит обращение."));
     } catch (e) {
       console.error(e);
+      alert(t("Не удалось отправить жалобу. Попробуйте ещё раз."));
     } finally {
       setBusy(null);
     }
@@ -237,17 +350,41 @@ export default function DriverHome() {
           {t("Здравствуйте, {name}", { name: user?.full_name || t("партнёр") })}
         </h1>
         <p className="text-sm text-neutral-500">
-          {t("Биржа бетона — первый взявший заказ забирает его")}
+          {isPump
+            ? t("Заявки на АБН — первый взявший заказ забирает его")
+            : t("Биржа бетона — первый взявший заказ забирает его")}
         </p>
+        {isPump && !user?.pump_boom && user?.role !== "admin" && (
+          <button
+            onClick={() => navigate("/profile")}
+            className="mt-2 w-full text-left text-xs font-semibold text-sky-800 bg-sky-50 border border-sky-200 rounded-xl px-3 py-2.5"
+          >
+            {t("Укажите длину стрелы вашего АБН в Профиле — тогда лента подскажет, какие заявки вам подходят.")}
+          </button>
+        )}
       </div>
+
+      {blacklisted ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          {t("Ваш номер в чёрном списке: брать заказы нельзя. Чтобы выйти из списка, свяжитесь с диспетчером и оплатите штраф — сумму обговорите с ним.")}
+        </div>
+      ) : (user?.warnings || 0) > 0 ? (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          {t("Предупреждений: {n} из {limit}. После {limit}-го номер попадёт в чёрный список.", { n: user.warnings, limit: WARN_LIMIT })}
+        </div>
+      ) : null}
 
       {inFleet && (
         <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 text-purple-800 rounded-xl px-3 py-2.5 text-xs font-semibold">
           <Truck className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            {t("Вы в парке завода «{name}». Заказы от завода появятся здесь. Личные заявки из ленты и Кубовик — ваши, завод их не видит.", {
-              name: myPlant ? plantName(myPlant) : "…",
-            })}
+            {isPump
+              ? t("Вы в парке завода «{name}». Заказы от завода появятся здесь. Личные заявки из ленты — ваши, завод их не видит.", {
+                  name: myPlant ? plantName(myPlant) : "…",
+                })
+              : t("Вы в парке завода «{name}». Заказы от завода появятся здесь. Личные заявки из ленты и Кубовик — ваши, завод их не видит.", {
+                  name: myPlant ? plantName(myPlant) : "…",
+                })}
           </span>
         </div>
       )}
@@ -325,13 +462,56 @@ export default function DriverHome() {
                   </a>
                 </div>
               )}
-              <ChatButton
-                kind="order"
-                id={o.id}
-                role="driver"
-                label={t("Написать заказчику")}
-              />
-              <DowntimeTimer o={o} role="driver" userId={user?.id} onChanged={load} />
+              {o.plant_id ? (
+                // Заявку ведёт завод — исполнитель пишет заводу, не заказчику.
+                <ChatButton
+                  kind="fleet"
+                  id={o.id}
+                  item={o}
+                  role="driver"
+                  label={t("Написать заводу{name}", { name: o.plant_name ? ` · ${o.plant_name}` : "" })}
+                />
+              ) : (
+                <ChatButton
+                  kind="order"
+                  id={o.id}
+                  item={o}
+                  role="driver"
+                  label={t("Написать заказчику")}
+                />
+              )}
+              {isPumpOrder(o) ? (
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 space-y-2">
+                  <div className="text-xs font-bold text-sky-800">
+                    {o.pump_prepaid_confirmed
+                      ? t("Предоплата получена — можно работать")
+                      : o.pump_prepaid
+                      ? t("Клиент отметил, что оплатил {n} ч — проверьте поступление", { n: Math.max(PUMP_MIN_HOURS, Number(o.pump_hours || 0)) })
+                      : t("Клиент ещё не внёс предоплату за {n} ч — до оплаты лучше не начинать", { n: Math.max(PUMP_MIN_HOURS, Number(o.pump_hours || 0)) })}
+                  </div>
+                  {!o.pump_prepaid_confirmed && !o.plant_id && (
+                    <button
+                      onClick={() => confirmPrepay(o.id)}
+                      disabled={busy === o.id}
+                      className="w-full text-xs font-bold py-2 rounded-lg bg-sky-600 text-white disabled:opacity-50"
+                    >
+                      {t("Предоплата получена")}
+                    </button>
+                  )}
+                  {o.pump_rate ? (
+                    <div className="text-[11px] text-neutral-600">
+                      {t("Клиент платит за работу: {sum}", { sum: formatTenge(pumpFinalTotal(o)) })}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <DowntimeTimer o={o} role="driver" userId={user?.id} onChanged={load} />
+              )}
+              {isPumpOrder(o) && (
+                <PumpWorkTimer o={o} role="driver" userId={user?.id} onChanged={load} />
+              )}
+              {/* Сам отменить заказ миксерист не может — только через диспетчера. */}
+              {!o.driver_paid && <DriverCancelRequest order={o} onChanged={load} />}
               {o.driver_payment_confirmed ? (
                 <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-100 text-green-700 inline-flex items-center justify-center gap-1">
                   <CheckCircle2 className="w-4 h-4" />
@@ -340,11 +520,52 @@ export default function DriverHome() {
               ) : o.driver_paid ? (
                 <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-amber-100 text-amber-700 inline-flex items-center justify-center gap-1">
                   <Hourglass className="w-4 h-4 animate-pulse" />
-                  {t("Ожидает подтверждения менеджером")}
+                  {o.plant_id ? t("Завод закрыл заявку — ждёт подтверждения админом") : t("Ожидает подтверждения менеджером")}
                 </div>
               ) : o.arrived_at && !o.unloaded_at ? (
                 <div className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-neutral-100 text-neutral-600 text-center">
-                  {t("Когда закончите выгрузку, нажмите «Выгрузка закончена» — потом откроется оплата сбора.")}
+                  {isPumpOrder(o)
+                    ? t("Когда закончите подачу, нажмите «Подачу закончил» — потом откроется оплата сбора.")
+                    : t("Когда закончите выгрузку, нажмите «Выгрузка закончена» — потом откроется оплата сбора.")}
+                </div>
+              ) : o.plant_id ? (
+                // Заявку ведёт завод: сбор оплачивает завод за всю заявку
+                // (бетон + насос), админ подтверждает — тогда заказ закроется.
+                <div className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-purple-50 text-purple-700 text-center">
+                  {t("Заявку ведёт завод — когда всё выполнено, завод закроет её и оплатит сбор. Вам платить сайту не нужно.")}
+                </div>
+              ) : isPumpOrder(o) && !o.arrived_at ? (
+                <div className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-neutral-100 text-neutral-600 text-center">
+                  {t("Запустите таймер, когда насос встанет на лапы. После подачи откроется оплата сбора.")}
+                </div>
+              ) : isPumpOrder(o) ? (
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-center">
+                    <div className="text-xs font-bold text-amber-700 uppercase tracking-wide">
+                      {t("Сервисный сбор PROBETON")}
+                    </div>
+                    <div className="text-lg font-black text-neutral-900">{formatTenge(pumpServiceFee(o))}</div>
+                    <div className="text-[10px] text-neutral-500">
+                      {t("{n} ч × {rate} · оплата на Kaspi PROBETON", {
+                        n: pumpBilledHours(o),
+                        rate: formatTenge(o.pump_fee_rate ?? PUMP_DEFAULT_FEE),
+                      })}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => payCommission(o.id)}
+                    disabled={busy === o.id}
+                    className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+                  >
+                    {busy === o.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        {t("Я оплатил — завершить заказ")}
+                      </>
+                    )}
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -392,7 +613,7 @@ export default function DriverHome() {
             >
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-neutral-100 text-neutral-600">
-                  <CheckCircle2 className="w-3 h-3" /> {t("Доставлено")}
+                  <CheckCircle2 className="w-3 h-3" /> {isPumpOrder(o) ? t("Выполнено") : t("Доставлено")}
                 </span>
                 {o.commission_paid ? (
                   <span className="text-xs font-bold text-green-600">{t("Оплачено")}</span>
@@ -409,7 +630,7 @@ export default function DriverHome() {
               <div className="text-sm text-neutral-700 font-medium">
                 {o.what_needed}
               </div>
-              {o.arrived_at && (
+              {o.arrived_at && !isPumpOrder(o) && (
                 <DowntimeTimer o={o} role="driver" userId={user?.id} onChanged={load} />
               )}
               {o.driver_rating ? (
@@ -432,7 +653,11 @@ export default function DriverHome() {
                 </div>
               )}
               {/* Если клиент уже оплатил — жаловаться на неоплату незачем. */}
-              {!o.client_paid && !o.commission_paid && (
+              {complainedIds.has(o.id) ? (
+                <div className="w-full text-xs font-semibold py-2 rounded-lg bg-neutral-100 text-neutral-500 text-center">
+                  {t("Жалоба у диспетчера")}
+                </div>
+              ) : !o.client_paid && !o.commission_paid && (
                 <button
                   onClick={() => complain(o)}
                   disabled={busy === o.id}
@@ -454,7 +679,7 @@ export default function DriverHome() {
       {hasUnfinishedOrder && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
           <Ban className="w-4 h-4 shrink-0" />
-          {t("У вас есть незавершённый заказ — заверьте оплату и дождитесь подтверждения менеджера, чтобы принимать новые заявки.")}
+          {t("У вас есть незавершённый заказ — оплатите сервисный сбор и дождитесь подтверждения менеджера, чтобы принимать новые заявки.")}
         </div>
       )}
 
@@ -478,7 +703,7 @@ export default function DriverHome() {
             >
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-blue-100 text-blue-700">
-                  <Inbox className="w-3 h-3" /> {t("Поиск машины")}
+                  <Inbox className="w-3 h-3" /> {isPumpOrder(o) ? t("Поиск насоса") : t("Поиск машины")}
                 </span>
                 <span className="text-xs text-neutral-400 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
@@ -521,9 +746,22 @@ export default function DriverHome() {
                 <Headphones className="w-3.5 h-3.5 text-neutral-400" />
                 {t("Номер скрыт — после принятия откроется чат с заказчиком")}
               </div>
+              {o.pump_hire_open && (
+                <div className="text-xs font-semibold text-purple-700 bg-purple-50 rounded-lg px-3 py-2">
+                  {t("Насос нанимает завод «{name}» — общаться будете с заводом", { name: o.plant_name || "" })}
+                </div>
+              )}
+              {boomTooShort(o) && (
+                <div className="text-xs font-semibold text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                  {t("Нужен насос: {need}, у вас: {mine} — эта заявка вам не подходит", {
+                    need: pumpTitle(o.pump_boom),
+                    mine: pumpTitle(user.pump_boom),
+                  })}
+                </div>
+              )}
               <button
                 onClick={() => accept(o)}
-                disabled={busy === o.id || hasUnfinishedOrder}
+                disabled={busy === o.id || hasUnfinishedOrder || boomTooShort(o)}
                 className="w-full text-sm font-bold py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
               >
                 {busy === o.id ? (

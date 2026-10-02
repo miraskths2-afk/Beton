@@ -4,7 +4,7 @@ import { Check, X, Factory, Phone } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { driverName, plantName, plantsErrorText } from "@/lib/plants";
 
-// Запросы заводов на добавление миксеристов в парк — их одобряет админ.
+// Запросы заводов на добавление миксеристов и насосников в парк — их одобряет админ.
 export default function FleetRequestApproval() {
   const [items, setItems] = useState([]);
   const [plants, setPlants] = useState({});
@@ -73,7 +73,12 @@ export default function FleetRequestApproval() {
       )}
       {items.map((d) => (
         <div key={d.id} className="bg-white rounded-2xl p-4 border border-purple-200 shadow-sm space-y-2">
-          <div className="font-bold text-neutral-900">{driverName(d)}</div>
+          <div className="font-bold text-neutral-900">
+            {driverName(d)}
+            <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-neutral-400">
+              {d.account_type === "pump" ? t("Насосник АБН") : t("Миксерист")}
+            </span>
+          </div>
           <div className="text-xs text-neutral-600 flex flex-wrap gap-x-4 gap-y-1">
             <span className="inline-flex items-center gap-1">
               <Factory className="w-3 h-3" />

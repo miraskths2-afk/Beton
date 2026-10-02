@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { upsertMyLocation, setOffline, subscribeToLocations } from "@/lib/driverLocation";
 import { Navigation, NavigationOff } from "lucide-react";
 import { t } from "@/lib/i18n";
+import { onDriverPosition } from "@/lib/autoArrival";
 
 // Показывается только водителям. Даёт им переключатель "На линии" —
 // пока он включён, браузер каждые несколько секунд отправляет координаты
@@ -37,6 +38,8 @@ export default function DriverLocationBroadcaster() {
           pos.coords.latitude,
           pos.coords.longitude
         );
+        // Забыл нажать «Я на объекте» / «Насос встал на лапы» — запустим сами.
+        onDriverPosition(user.id, pos.coords.latitude, pos.coords.longitude);
       },
       (err) => {
         console.error(err);

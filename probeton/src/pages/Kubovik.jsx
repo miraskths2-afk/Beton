@@ -1,7 +1,8 @@
 import React, { useEffect, useState, lazy, Suspense } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import { base44, supabase } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import { getEffectiveRole } from "@/lib/effectiveRole";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ function formatRemaining(ms) {
   return t("{s}с", { s });
 }
 
-export default function Kubovik() {
+function Kubovik() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isDriver = user?.account_type === "driver";
@@ -718,4 +719,12 @@ export default function Kubovik() {
       )}
     </div>
   );
+}
+
+// У завода и насосника АБН Кубовика нет — даже по прямой ссылке.
+export default function KubovikPage() {
+  const { user, viewMode } = useAuth();
+  const role = getEffectiveRole(user, viewMode);
+  if (role === "plant" || role === "pump") return <Navigate to="/" replace />;
+  return <Kubovik />;
 }

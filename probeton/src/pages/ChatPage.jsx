@@ -27,7 +27,6 @@ import {
 } from "@/components/ChatVoice";
 import {
   CHAT_TABLE,
-  ROLE_LABEL,
   chatColumn,
   getChatRole,
   displayText,
@@ -35,7 +34,16 @@ import {
   markChatRead,
   uploadVoice,
   VOICE_LABEL,
+  deleteChatMessage,
+  deleteChatThread,
+  filterChat,
+  messageInChat,
+  isChatClosed,
+  chatDetailsPath,
+  CHAT_KINDS,
+  roleLabelFor,
 } from "@/lib/chat";
+import { isPumpOrder, workerLabel, pumpSummary } from "@/lib/pump";
 import { t, locale } from "@/lib/i18n";
 
 // Быстрые команды — как в Яндекс Такси: одно нажатие, и собеседник
@@ -63,6 +71,21 @@ const QUICK_COMMANDS = {
     { emoji: "⏱", label: "Задерживаемся", delay: true },
     { emoji: "❓", label: "Уточните адрес, пожалуйста" },
   ],
+  // Насосник АБН
+  pump: [
+    { emoji: "🚚", label: "Еду" },
+    { emoji: "⏱", label: "Задерживаюсь", delay: true },
+    { emoji: "📍", label: "Приехал" },
+    { emoji: "🏗", label: "Насос установлен, готов к подаче" },
+    { emoji: "✅", label: "Подачу закончил" },
+    { emoji: "❓", label: "Куда подъехать?" },
+  ],
+  // Завод пишет своему миксеристу / насоснику
+  fleetPlant: [
+    { emoji: "🏭", label: "Подъезжайте на загрузку" },
+    { emoji: "📍", label: "Клиент ждёт на объекте" },
+    { emoji: "❓", label: "Где вы сейчас?" },
+  ],
 };
 
 function commandText(cmd, minutes) {
@@ -71,7 +94,7 @@ function commandText(cmd, minutes) {
 }
 
 // Сообщение, отправленное быстрой командой, выделяем жирным.
-const COMMAND_EMOJIS = ["🚚", "⏱", "📍", "🏭", "🔄", "✅", "❓", "👍", "🚧", "🙏"];
+const COMMAND_EMOJIS = ["🚚", "⏱", "📍", "🏭", "🔄", "✅", "❓", "👍", "🚧", "🙏", "🏗"];
 const isCommandMessage = (m) =>
   !m.audio_url && COMMAND_EMOJIS.some((e) => (m.message || "").startsWith(e + " "));
 
@@ -101,7 +124,7 @@ const fmtTime = (d) =>
 
 export default function ChatPage() {
   const { kind: rawKind, id } = useParams();
-  const kind = rawKind === "leftover" ? "leftover" : "order";
+  const kind = CHAT_KINDS.includes(rawKind) ? rawKind : "order";
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -150,7 +173,37 @@ export default function ChatPage() {
     }
     let mounted = true;
     const load = async () => {
-      if (role === "client") {
+      if (role === "client" && kind === "plant") {
+        if (!item.plant_id) return;
+        const { data } = await supabase
+          .from("app_users")
+          .select("plant_name, full_name, photo_url")
+          .eq("id", item.plant_id)
+          .maybeSingle();
+        if (mounted)
+          setPeer({
+            name: data?.plant_name || item.plant_name || data?.full_name || t("Завод"),
+            photo: data?.photo_url || null,
+            role: "plant",
+          });
+        return;
+      }
+      // Чат завода со своим исполнителем: исполнитель видит завод.
+      if (role === "driver" && kind === "fleet") {
+        const { data } = await supabase
+          .from("app_users")
+          .select("full_name, photo_url")
+          .eq("id", item.plant_id)
+          .maybeSingle();
+        if (mounted)
+          setPeer({
+            name: item.plant_name || data?.full_name || t("Завод"),
+            photo: data?.photo_url || null,
+            role: "plant",
+          });
+        return;
+      }
+      if (role === "client" || (role === "plant" && kind === "fleet")) {
         if (!item.driver_id) return;
         const { data } = await supabase
           .from("app_users")
@@ -159,7 +212,7 @@ export default function ChatPage() {
           .maybeSingle();
         if (mounted)
           setPeer({
-            name: data?.full_name || data?.driver_name || item.driver_name || t("Миксерист"),
+            name: data?.full_name || data?.driver_name || item.driver_name || t(workerLabel(item)),
             photo: data?.photo_url || null,
             role: "driver",
           });
@@ -192,10 +245,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!role) return undefined;
     let mounted = true;
-    supabase
-      .from(CHAT_TABLE)
-      .select("*")
-      .eq(col, id)
+    filterChat(supabase.from(CHAT_TABLE).select("*"), kind, id)
       .order("created_at", { ascending: true })
       .limit(1000)
       .then(({ data, error }) => {
@@ -215,7 +265,8 @@ export default function ChatPage() {
             return;
           }
           const m = payload.new;
-          if (!m?.id) return;
+          // У заявки два чата (с миксеристом и с заводом) — берём только свой.
+          if (!m?.id || !messageInChat(m, kind)) return;
           setMessages((prev) => {
             const idx = prev.findIndex((x) => x.id === m.id);
             if (idx === -1) return [...prev, m];
@@ -300,7 +351,7 @@ export default function ChatPage() {
   const myName =
     role === "admin"
       ? "Диспетчер"
-      : user?.full_name || t(ROLE_LABEL[role] || "Пользователь");
+      : user?.full_name || t(roleLabelFor(role, item) || "Пользователь");
 
   const deliver = useCallback(
     async (temp) => {
@@ -418,13 +469,51 @@ export default function ChatPage() {
     else navigate("/chats");
   };
 
-  const detailsPath = kind === "leftover" ? `/leftover/${id}` : `/order/${id}`;
+  const detailsPath = chatDetailsPath(kind, id);
+
+  // Админ может удалять сообщения и всю переписку, чтобы история не
+  // забивалась. Собеседники ничего не удаляют.
+  const removeMessage = async (m) => {
+    if (!confirm(t("Удалить это сообщение? Его не увидит никто."))) return;
+    try {
+      await deleteChatMessage(m);
+      setMessages((prev) => prev.filter((x) => x.id !== m.id));
+    } catch (e) {
+      alert(e?.message || t("Не удалось удалить"));
+    }
+  };
+
+  const removeThread = async () => {
+    if (!confirm(t("Удалить всю переписку в этом чате? Сам заказ останется, удалятся только сообщения."))) return;
+    try {
+      await deleteChatThread(kind, id);
+      setMessages([]);
+      navigate("/chats");
+    } catch (e) {
+      alert(e?.message || t("Не удалось удалить"));
+    }
+  };
 
   // ===== Экраны загрузки / нет доступа =====
   if (loading) {
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-neutral-50">
         <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
+      </div>
+    );
+  }
+
+  // Сделка завершена — у участников чат закрыт, история остаётся у диспетчера.
+  if (item && role && role !== "admin" && isChatClosed(kind, item)) {
+    return (
+      <div className="h-[100dvh] flex flex-col items-center justify-center gap-3 bg-neutral-50 p-6 text-center">
+        <MessageCircle className="w-10 h-10 text-neutral-300" />
+        <p className="text-sm text-neutral-500">
+          {t("Сделка завершена — чат закрыт. Если нужна помощь, напишите диспетчеру.")}
+        </p>
+        <button onClick={() => navigate("/chats")} className="text-sm font-bold underline">
+          {t("К списку чатов")}
+        </button>
       </div>
     );
   }
@@ -451,12 +540,17 @@ export default function ChatPage() {
           item.order_number ? `${t("Заказ")} №${item.order_number}` : t("Заказ"),
           item.grade,
           cubes,
+          isPumpOrder(item) ? pumpSummary(item) : null,
         ]
           .filter(Boolean)
           .join(" · ");
 
   const title = isAdmin
-    ? `${item.driver_name || t("Миксерист")} ↔ ${kind === "leftover" ? t("Прораб") : t("Заказчик")}`
+    ? kind === "fleet"
+      ? `${item.plant_name || t("Завод")} ↔ ${item.driver_name || t(workerLabel(item))}`
+      : `${
+          kind === "plant" ? item.plant_name || t("Завод") : item.driver_name || t(workerLabel(item))
+        } ↔ ${kind === "leftover" ? t("Прораб") : t("Заказчик")}`
     : peer?.name || "…";
 
   const isClosed =
@@ -464,7 +558,13 @@ export default function ChatPage() {
       ? item.status === "gone"
       : item.status === "done" || item.status === "cancelled";
 
-  const quick = !isAdmin && !text && !recorder.recording ? QUICK_COMMANDS[role] || [] : [];
+  const quickKey =
+    role === "driver" && isPumpOrder(item)
+      ? "pump"
+      : role === "plant" && kind === "fleet"
+      ? "fleetPlant"
+      : role;
+  const quick = !isAdmin && !text && !recorder.recording ? QUICK_COMMANDS[quickKey] || [] : [];
 
   let lastDay = null;
 
@@ -499,6 +599,16 @@ export default function ChatPage() {
             )}
           </div>
         </button>
+        {isAdmin && messages.length > 0 && (
+          <button
+            onClick={removeThread}
+            className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center text-red-300"
+            aria-label={t("Удалить переписку")}
+            title={t("Удалить переписку")}
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        )}
         <button
           onClick={() => navigate(detailsPath)}
           className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center"
@@ -536,7 +646,8 @@ export default function ChatPage() {
           const showDay = day !== lastDay;
           lastDay = day;
           const mine = m.sender_role === role;
-          const showName = !mine && (isAdmin || m.sender_role === "admin" || m.sender_role === "plant");
+          const showName =
+            !mine && (isAdmin || m.sender_role === "admin" || (m.sender_role === "plant" && kind !== "fleet"));
           return (
             <React.Fragment key={m.id}>
               {showDay && (
@@ -557,7 +668,7 @@ export default function ChatPage() {
                     <div className={cn("text-xs font-bold mb-0.5", ROLE_COLOR[m.sender_role])}>
                       {m.sender_role === "admin"
                         ? t("Диспетчер")
-                        : `${m.sender_name || t(ROLE_LABEL[m.sender_role] || "")} · ${t(ROLE_LABEL[m.sender_role] || "")}`}
+                        : `${m.sender_name || t(roleLabelFor(m.sender_role, item))} · ${t(roleLabelFor(m.sender_role, item))}`}
                     </div>
                   )}
                   {m.audio_url ? (
@@ -585,6 +696,16 @@ export default function ChatPage() {
                         <Check className="w-3.5 h-3.5" />
                       ))}
                   </span>
+                  {isAdmin && !m.pending && !m.failed && (
+                    <button
+                      onClick={() => removeMessage(m)}
+                      className="float-right ml-1.5 mt-1 text-neutral-400 hover:text-red-600"
+                      aria-label={t("Удалить сообщение")}
+                      title={t("Удалить сообщение")}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   {m.failed && (
                     <button
                       onClick={() => deliver(m)}

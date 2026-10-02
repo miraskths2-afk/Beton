@@ -20,8 +20,38 @@ export const STATUS_FLOW = [
 export const normPhone = (p) => (p || "").replace(/\D/g, "").slice(-10);
 
 // Заказчик может сам отменить заказ, только пока бетон ещё не начали
-// готовить. Дальше отмена — только через диспетчера, иначе можно было
-// бы отменить уже привезённый заказ и не платить.
+// готовить и никто не приехал и не платил. Дальше отмена — только через
+// диспетчера, иначе можно было бы отменить уже привезённый заказ и не платить.
 export const CLIENT_CANCELLABLE = ["new", "in_progress"];
 export const canClientCancel = (o) =>
-  CLIENT_CANCELLABLE.includes(o?.status || "new");
+  CLIENT_CANCELLABLE.includes(o?.status || "new") &&
+  !o?.arrived_at &&
+  !o?.unloaded_at &&
+  !o?.driver_paid &&
+  !o?.client_paid &&
+  !o?.commission_paid &&
+  !o?.pump_prepaid;
+
+// Корень заявки: рейсы нескольких миксеров и АБН к бетону — это отдельные
+// строки orders, но для заказчика это один заказ.
+export const orderGroupRoot = (o) => o?.parent_order_id || o?.pump_for_order_id || o?.id;
+
+// Подпись статуса с учётом типа заявки: у заявки АБН вместо «миксера» —
+// «насос». Используйте её вместо ORDER_STATUSES[...].label в карточках.
+const PUMP_STATUS_LABELS = {
+  new: "Поиск насоса",
+  sent_to_plant: "Назначен насос",
+  en_route: "Насос в пути",
+};
+export function statusLabel(o) {
+  const s = o?.status || "new";
+  if (o?.service_type === "pump" && PUMP_STATUS_LABELS[s]) return PUMP_STATUS_LABELS[s];
+  return ORDER_STATUSES[s]?.label || s;
+}
+
+// Шаги для полоски статусов: у АБН нет «Бетон изготавливается».
+export function statusFlowFor(o) {
+  return o?.service_type === "pump"
+    ? STATUS_FLOW.filter((s) => s !== "manufacturing")
+    : STATUS_FLOW;
+}

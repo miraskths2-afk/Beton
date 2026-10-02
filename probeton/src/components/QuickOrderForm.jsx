@@ -25,22 +25,29 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isBlacklisted } from "@/lib/blacklist";
+import { useAuth } from "@/lib/AuthContext";
 import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
 import { t } from "@/lib/i18n";
 import {
   MIXER_CAPACITY,
   UNLOAD_METHODS,
+  UNLOAD_HINTS,
   trucksEstimate,
   trucksText,
   uploadSitePhoto,
   orderDetailsErrorText,
 } from "@/lib/orderExtras";
 
+import PumpFields from "@/components/PumpFields";
+import { fetchSettings } from "@/lib/balance";
+import { createPumpOrder, pumpErrorText, pumpRateFor, PUMP_MIN_HOURS } from "@/lib/pump";
+
 const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
 const GRADES = ["М150", "М200", "М300", "М400"];
 
 export default function QuickOrderForm({ prefill }) {
+  const { user } = useAuth();
   const [grade, setGrade] = useState(prefill?.grade || "М200");
   const [cubes, setCubes] = useState(prefill?.cubes ? String(prefill.cubes) : "");
   const [address, setAddress] = useState(prefill?.delivery_address || "");
@@ -68,11 +75,21 @@ export default function QuickOrderForm({ prefill }) {
   const photoInputRef = useRef(null);
   // Дозаказ к уже выполненной заявке (кнопка «Дозаказать»).
   const reorderOf = prefill?.reorderOf || null;
+  // АБН вместе с бетоном (если выгрузка — автобетононасосом).
+  const [withPump, setWithPump] = useState(true);
+  const [pumpBoom, setPumpBoom] = useState(null);
+  const [pumpHours, setPumpHours] = useState(String(PUMP_MIN_HOURS));
+  const [settings, setSettings] = useState(null);
   const [timing, setTiming] = useState("asap"); // "asap" | "scheduled"
   const [neededBy, setNeededBy] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (unloadMethod !== "pump" || settings) return;
+    fetchSettings().then(setSettings).catch((e) => console.error(e));
+  }, [unloadMethod, settings]);
 
   useEffect(() => {
     if (!photoFile) {
@@ -86,10 +103,12 @@ export default function QuickOrderForm({ prefill }) {
 
   const trucks = trucksEstimate(cubes);
   const unloadValid =
-    unloadMethod === "pump" ||
-    (unloadMethod === "slide" &&
-      (chute === "no" || (chute === "yes" && Number(chuteMeters) > 0)));
+    unloadMethod === "slide"
+      ? chute === "no" || (chute === "yes" && Number(chuteMeters) > 0)
+      : !!UNLOAD_METHODS[unloadMethod];
   const accessValid = !!photoFile || accessConfirmed;
+  const orderPump = unloadMethod === "pump" && withPump;
+  const pumpValid = !orderPump || !!pumpBoom;
 
   const isValid =
     cubes &&
@@ -98,14 +117,21 @@ export default function QuickOrderForm({ prefill }) {
     phone.trim() &&
     !!location &&
     unloadValid &&
-    accessValid;
+    accessValid &&
+    pumpValid;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isValid) return;
     if (timing === "scheduled" && !neededBy) return;
-    if (await isBlacklisted(phone.trim())) {
-      alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен."));
+    // Проверяем и номер в заявке, и номер аккаунта заказчика — иначе из
+    // чёрного списка можно было бы выйти, просто вписав другой номер.
+    const ownPhone = user?.role !== "admin" ? user?.phone : null;
+    if (
+      (await isBlacklisted(phone.trim())) ||
+      (ownPhone && (await isBlacklisted(ownPhone)))
+    ) {
+      alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен. Чтобы выйти из списка, свяжитесь с диспетчером и оплатите штраф."));
       return;
     }
     setLoading(true);
@@ -114,7 +140,7 @@ export default function QuickOrderForm({ prefill }) {
       const sitePhotoUrl = photoFile ? await uploadSitePhoto(photoFile) : null;
       const cubesNum = parseFloat(cubes);
       const pricePerCube = prefill?.price_per_cube ?? null;
-      await base44.entities.Order.create({
+      const created = await base44.entities.Order.create({
         order_number: "PB-" + Date.now().toString().slice(-6),
         what_needed: `${cubes} м³ бетона ${grade}, адрес: ${address.trim()}`,
         grade,
@@ -140,7 +166,34 @@ export default function QuickOrderForm({ prefill }) {
         needed_by:
           timing === "scheduled" ? new Date(neededBy).toISOString() : null,
       });
+      // АБН к этой заявке — отдельная заявка для насосников.
+      if (orderPump) {
+        try {
+          await createPumpOrder({
+            boom: pumpBoom,
+            hours: pumpHours,
+            rate: pumpRateFor(settings, pumpBoom),
+            address: address.trim(),
+            lat: location?.lat,
+            lng: location?.lng,
+            phone: phone.trim(),
+            comment: comment.trim(),
+            neededBy: timing === "scheduled" ? new Date(neededBy).toISOString() : null,
+            linkedOrder: created,
+          });
+        } catch (pumpErr) {
+          console.error(pumpErr);
+          alert(
+            t("Заявка на бетон принята, но АБН заказать не получилось: {error}", {
+              error: pumpErrorText(pumpErr),
+            })
+          );
+        }
+      }
       setSuccess(true);
+      setPumpBoom(null);
+      setPumpHours(String(PUMP_MIN_HOURS));
+      setWithPump(true);
       setGrade("М200");
       setCubes("");
       setAddress("");
@@ -287,18 +340,49 @@ export default function QuickOrderForm({ prefill }) {
           <Droplets className="w-3.5 h-3.5" />
           {t("Как будет выгружаться бетон")} <span className="text-red-500">*</span>
         </Label>
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(UNLOAD_METHODS).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setUnloadMethod(id)}
-              className={choiceCls(unloadMethod === id)}
-            >
-              {t(label)}
-            </button>
-          ))}
-        </div>
+        {/* Выпадающий список вместо кнопок — форма не раздувается. */}
+        <Select value={unloadMethod} onValueChange={setUnloadMethod}>
+          <SelectTrigger className="h-12 rounded-xl">
+            <SelectValue placeholder={t("Выберите способ")} />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(UNLOAD_METHODS).map(([id, label]) => (
+              <SelectItem key={id} value={id}>
+                {t(label)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {unloadMethod && UNLOAD_HINTS[unloadMethod] && (
+          <p className="text-xs text-neutral-500 px-1">{t(UNLOAD_HINTS[unloadMethod])}</p>
+        )}
+        {unloadMethod === "pump" && (
+          <div className="space-y-3 rounded-xl bg-sky-50/50 border border-sky-200 p-3">
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={withPump}
+                onChange={(e) => setWithPump(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-sky-600"
+              />
+              <span className="text-sm text-neutral-800">
+                <span className="font-semibold">{t("Заказать АБН здесь же")}</span>
+                <span className="block text-xs text-neutral-500">
+                  {t("Насосник получит отдельную заявку. Вы будете видеть и миксериста, и насосника, и сможете писать обоим. Если заявку возьмёт завод — общаетесь только с заводом.")}
+                </span>
+              </span>
+            </label>
+            {withPump && (
+              <PumpFields
+                boom={pumpBoom}
+                onBoom={setPumpBoom}
+                hours={pumpHours}
+                onHours={setPumpHours}
+                settings={settings}
+              />
+            )}
+          </div>
+        )}
         {unloadMethod === "slide" && (
           <div className="space-y-2 rounded-xl bg-neutral-50 border border-neutral-200 p-3">
             <div className="text-xs font-semibold text-neutral-700">
@@ -532,9 +616,10 @@ export default function QuickOrderForm({ prefill }) {
         )}
       </div>
 
-      {Number(cubes) > 0 && (!unloadValid || !accessValid) && (
+      {Number(cubes) > 0 && (!unloadValid || !accessValid || !pumpValid) && (
         <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-0.5">
           {!unloadValid && <div>• {t("Укажите, как будет выгружаться бетон (и нужен ли лоток)")}</div>}
+          {!pumpValid && <div>• {t("Выберите длину стрелы АБН")}</div>}
           {!accessValid && <div>• {t("Добавьте фото заезда или отметьте, что заезд свободный")}</div>}
         </div>
       )}

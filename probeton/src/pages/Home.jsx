@@ -8,11 +8,16 @@ import { base44 } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
 import { Zap, RotateCcw, Repeat } from "lucide-react";
 import RecurringOrdersManager from "@/components/RecurringOrdersManager";
+import PumpOrderForm from "@/components/PumpOrderForm";
+import { isPumpOrder } from "@/lib/pump";
 import { t } from "@/lib/i18n";
+import { WARN_LIMIT } from "@/lib/warnings";
 
+// «АБН» — отдельный заказ автобетононасоса.
 const TABS = [
-  { id: "quick", label: "Быстрый заказ" },
+  { id: "quick", label: "Бетон" },
   { id: "calc", label: "Калькулятор" },
+  { id: "pump", label: "АБН" },
   { id: "track", label: "Мой заказ" },
 ];
 
@@ -29,7 +34,10 @@ export default function Home() {
     (async () => {
       try {
         const all = await base44.entities.Order.list("-created_date", 50);
-        const mine = all.filter((o) => normPhone(o.phone) === normPhone(user.phone));
+        // «Заказать снова» — только для бетона, не для АБН.
+        const mine = all.filter(
+          (o) => normPhone(o.phone) === normPhone(user.phone) && !isPumpOrder(o)
+        );
         if (mine.length > 0) setLastOrder(mine[0]);
       } catch (e) {
         console.error(e);
@@ -76,13 +84,23 @@ export default function Home() {
         </p>
       )}
 
+      {(user?.warnings || 0) >= WARN_LIMIT ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          {t("Ваш номер в чёрном списке за {limit} отмены заказов. Чтобы снова заказывать, свяжитесь с диспетчером и оплатите штраф — сумму обговорите с ним.", { limit: WARN_LIMIT })}
+        </div>
+      ) : (user?.warnings || 0) > 0 ? (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          {t("Отмен заказов: {n} из {limit}. После {limit}-й номер попадёт в чёрный список.", { n: user.warnings, limit: WARN_LIMIT })}
+        </div>
+      ) : null}
+
       <div className="flex bg-neutral-200 rounded-xl p-1">
         {TABS.map((tb) => (
           <button
             key={tb.id}
             onClick={() => setTab(tb.id)}
             className={cn(
-              "flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all",
+              "flex-1 py-2.5 px-1 rounded-lg text-xs font-semibold transition-all",
               tab === tb.id
                 ? "bg-white text-neutral-900 shadow-sm"
                 : "text-neutral-500"
@@ -137,6 +155,8 @@ export default function Home() {
         )
       ) : tab === "calc" ? (
         <ConcreteCalculator onOrder={orderFromCalc} />
+      ) : tab === "pump" ? (
+        <PumpOrderForm phone={user?.phone || ""} />
       ) : (
         <OrderTracking onReorder={reorder} />
       )}

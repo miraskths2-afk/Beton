@@ -29,6 +29,8 @@ import TransferToPlantDialog from "@/components/TransferToPlantDialog";
 import AssignToPlantDialog from "@/components/AssignToPlantDialog";
 import OrderExtras from "@/components/OrderExtras";
 import MixerIcon from "@/components/MixerIcon";
+import { statusLabel } from "@/lib/orderStatuses";
+import { isPumpOrder } from "@/lib/pump";
 
 const STATUS = {
   new: { label: "Поиск машины", icon: Inbox, cls: "bg-blue-100 text-blue-700" },
@@ -95,6 +97,7 @@ export default function AdminOrders() {
       const extra = {};
       if (status === "in_progress") extra.accepted_at = new Date().toISOString();
       if (status === "done") extra.completed_at = new Date().toISOString();
+      if (status === "cancelled") extra.cancelled_by = "admin";
       await base44.entities.Order.update(id, { status, ...extra });
       setOrders((prev) =>
         prev.map((o) => (o.id === id ? { ...o, status, ...extra } : o))
@@ -161,6 +164,7 @@ export default function AdminOrders() {
     try {
       const extra = {};
       if (status === "done") extra.completed_at = new Date().toISOString();
+      if (status === "cancelled") extra.cancelled_by = "admin";
       const { error } = await supabase
         .from("orders")
         .update({ status, ...extra })
@@ -389,8 +393,13 @@ export default function AdminOrders() {
                       )}
                     >
                       <StIcon className="w-3 h-3" />
-                      {t(st.label)}
+                      {t(statusLabel(o))}
                     </span>
+                    {isPumpOrder(o) && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold bg-sky-100 text-sky-700">
+                        {t("АБН")}
+                      </span>
+                    )}
                   </div>
                   <span className="text-xs text-neutral-400 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -494,7 +503,7 @@ export default function AdminOrders() {
                       className="flex-1 text-xs font-semibold py-2 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 inline-flex items-center justify-center gap-1"
                     >
                       <Send className="w-3.5 h-3.5" />
-                      {t("Назначить миксер")}
+                      {isPumpOrder(o) ? t("Назначить насос") : t("Назначить миксер")}
                     </button>
                   )}
                   {(o.status === "new" || o.status === "in_progress") && (

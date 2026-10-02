@@ -2,14 +2,18 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { chatPath, previewText, useChatUnread } from "@/lib/chat";
+import { chatPath, previewText, useChatUnread, isChatClosed } from "@/lib/chat";
 import { t } from "@/lib/i18n";
 
 // Кнопка «Написать …» вместо номера телефона. Показывает число
 // непрочитанных и последнее сообщение, по нажатию открывает чат.
-export default function ChatButton({ kind, id, role, label, compact = false, className }) {
+// Если передан item (заказ/остаток) и сделка завершена — кнопку видит
+// только админ: у участников чат пропадает.
+export default function ChatButton({ kind, id, role, label, item, compact = false, className }) {
   const navigate = useNavigate();
   const { count, last } = useChatUnread(kind, id, role);
+
+  if (item && role !== "admin" && isChatClosed(kind, item)) return null;
 
   const open = (e) => {
     e.stopPropagation();

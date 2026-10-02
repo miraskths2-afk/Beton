@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { distanceKm, formatKm } from "@/lib/geo";
 import { t } from "@/lib/i18n";
 import { plantName } from "@/lib/plants";
+import { isPumpOrder } from "@/lib/pump";
 
 export default function TransferToPlantDialog({
   order,
@@ -24,10 +25,12 @@ export default function TransferToPlantDialog({
   const [loadingDrivers, setLoadingDrivers] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setSelectedId(null);
+    setError("");
     setLoadingDrivers(true);
     (async () => {
       try {
@@ -59,8 +62,13 @@ export default function TransferToPlantDialog({
           all.filter((u) => u.account_type === "plant").map((u) => [u.id, u])
         );
         const hasTarget = order?.delivery_lat != null && order?.delivery_lng != null;
+        // На заявку АБН — только насосники, на бетон — только миксеристы.
+        const wantPump = isPumpOrder(order);
         const list = all
           .filter((u) => ids.includes(u.id))
+          .filter((u) => (wantPump ? u.account_type === "pump" : u.account_type !== "pump"))
+          // Бетон с документами везёт только миксер из парка завода.
+          .filter((u) => !order?.with_documents || u.plant_id)
           .map((u) => {
             const loc = locById[u.id];
             const km = hasTarget && loc
@@ -115,6 +123,7 @@ export default function TransferToPlantDialog({
       onOpenChange(false);
     } catch (err) {
       console.error(err);
+      setError(err?.message || t("Не удалось назначить. Попробуйте ещё раз."));
     } finally {
       setLoading(false);
     }
@@ -124,7 +133,9 @@ export default function TransferToPlantDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{t("Назначить миксер на заказ")}</DialogTitle>
+          <DialogTitle>
+            {isPumpOrder(order) ? t("Назначить насос на заказ") : t("Назначить миксер на заказ")}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="py-2">
@@ -192,6 +203,7 @@ export default function TransferToPlantDialog({
           )}
         </div>
 
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("Отмена")}
@@ -206,7 +218,7 @@ export default function TransferToPlantDialog({
             ) : (
               <Send className="w-4 h-4 mr-2" />
             )}
-            {t("Назначить миксер")}
+            {isPumpOrder(order) ? t("Назначить насос") : t("Назначить миксер")}
           </Button>
         </DialogFooter>
       </DialogContent>

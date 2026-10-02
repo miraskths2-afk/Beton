@@ -3,7 +3,22 @@ import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ORDER_STATUSES, STATUS_FLOW, normPhone, canClientCancel } from "@/lib/orderStatuses";
+import {
+  ORDER_STATUSES,
+  normPhone,
+  canClientCancel,
+  statusLabel,
+  statusFlowFor,
+} from "@/lib/orderStatuses";
+import {
+  isPumpOrder,
+  workerLabel,
+  pumpPrepay,
+  pumpFinalTotal,
+  pumpErrorText,
+  PUMP_MIN_HOURS,
+} from "@/lib/pump";
+import { formatTenge } from "@/lib/balance";
 import {
   Package,
   Truck,
@@ -17,13 +32,16 @@ import {
   XCircle,
   Ban,
   Repeat,
+  Construction,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
+import { cancelOrderAsClient } from "@/lib/warnings";
 import { t, locale } from "@/lib/i18n";
 import ChatButton from "@/components/ChatButton";
 import OrderExtras from "@/components/OrderExtras";
 import DowntimeTimer from "@/components/DowntimeTimer";
+import PumpWorkTimer from "@/components/PumpWorkTimer";
 const LiveDriverMap = lazy(() => import("@/components/LiveDriverMap"));
 
 function Stars({ value, onChange }) {
@@ -48,10 +66,79 @@ function Stars({ value, onChange }) {
   );
 }
 
-function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setRatePick }) {
+// Предоплата АБН: клиент платит сразу за заказанные часы (минимум 3).
+function PumpPayment({ o, busy, onPrepay }) {
+  const prepay = pumpPrepay(o);
+  const hours = Math.max(PUMP_MIN_HOURS, Number(o.pump_hours || 0));
+  const isDone = o.status === "done" || !!o.unloaded_at;
+  const finalTotal = pumpFinalTotal(o);
+  const extra = isDone && finalTotal != null && prepay != null ? Math.max(0, finalTotal - prepay) : 0;
+  const payee = o.plant_id ? t("заводу") : t("насоснику");
+  const someoneTook = !!o.driver_id || !!o.plant_id;
+
+  return (
+    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-2">
+      <div className="text-xs font-bold text-sky-800 uppercase tracking-wide">
+        {t("Оплата АБН · почасовая")}
+      </div>
+      <div className="text-lg font-black text-neutral-900">
+        {prepay != null ? formatTenge(prepay) : t("Цена уточняется")}
+      </div>
+      <div className="text-[11px] text-neutral-600">
+        {prepay != null
+          ? t("Предоплата сразу за {n} ч · {rate}/ч (средняя цена, точную {payee} может уточнить в чате)", {
+              n: hours,
+              rate: formatTenge(o.pump_rate),
+              payee,
+            })
+          : t("Предоплата сразу за {n} ч — цену за час {payee} напишет в чате", { n: hours, payee })}
+      </div>
+      {isDone && o.pump_hours_actual > hours && (
+        <div className="text-xs font-semibold text-neutral-800">
+          {t("Насос работал {n} ч — доплата {sum}", {
+            n: o.pump_hours_actual,
+            sum: extra ? formatTenge(extra) : t("по договорённости"),
+          })}
+        </div>
+      )}
+      {o.pump_prepaid_confirmed ? (
+        <div className="flex items-center justify-center gap-2 text-sm font-bold text-green-600 bg-green-100 rounded-lg py-2">
+          <CheckCircle2 className="w-4 h-4" />
+          {t("Предоплата получена")}
+        </div>
+      ) : o.pump_prepaid ? (
+        <div className="flex items-center justify-center gap-2 text-sm font-bold text-amber-600 bg-amber-100 rounded-lg py-2">
+          <Hourglass className="w-4 h-4 animate-pulse" />
+          {t("Ждём подтверждения оплаты")}
+        </div>
+      ) : someoneTook ? (
+        <>
+          <div className="text-[11px] text-neutral-500">
+            {t("Оплатите {payee} — реквизиты он пришлёт в чате. Без предоплаты насос не начинает работу.", { payee })}
+          </div>
+          <Button
+            onClick={() => onPrepay(o.id)}
+            disabled={busy === o.id}
+            className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold h-11"
+          >
+            {busy === o.id ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Я оплатил {n} ч", { n: hours })}
+          </Button>
+        </>
+      ) : (
+        <div className="text-[11px] text-neutral-500">
+          {t("Оплата откроется, когда насосник или завод примет заявку.")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrderCard({ o, busy, onPay, onPrepay, onRate, onCancel, onReorder, ratePick, setRatePick }) {
   const navigate = useNavigate();
-  const st = ORDER_STATUSES[o.status || "new"];
-  const currentIdx = STATUS_FLOW.indexOf(o.status || "new");
+  const isPump = isPumpOrder(o);
+  const st = ORDER_STATUSES[o.status || "new"] || ORDER_STATUSES.new;
+  const flow = statusFlowFor(o);
+  const currentIdx = flow.indexOf(o.status || "new");
   const isEnRoute = o.status === "en_route";
   const isDone = o.status === "done";
   const isCancelled = o.status === "cancelled";
@@ -81,11 +168,12 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setR
       )}
     >
       <div className="flex items-center justify-between">
-        <span className="font-bold text-neutral-900">
+        <span className="font-bold text-neutral-900 inline-flex items-center gap-1.5">
+          {isPump && <Construction className="w-4 h-4 text-sky-600" />}
           {o.order_number || t("Заказ")}
         </span>
         <span className={cn("px-2 py-1 rounded-lg text-xs font-bold", st.cls)}>
-          {t(st.label)}
+          {t(statusLabel(o))}
         </span>
       </div>
 
@@ -115,23 +203,38 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setR
 
       <OrderExtras o={o} showPhoto={false} />
 
-      {o.driver_id && (
+      {o.plant_id && (
         <ChatButton
-          kind="order"
+          kind="plant"
           id={o.id}
+          item={o}
           role="client"
-          label={t("Написать миксеристу")}
+          label={t("Написать заводу{name}", { name: o.plant_name ? ` · ${o.plant_name}` : "" })}
         />
       )}
 
-      {o.arrived_at && <DowntimeTimer o={o} role="client" />}
+      {/* Заявку ведёт завод — пишем только заводу, не миксеристу/насоснику. */}
+      {o.driver_id && !o.plant_id && (
+        <ChatButton
+          kind="order"
+          id={o.id}
+          item={o}
+          role="client"
+          label={isPump ? t("Написать насоснику") : t("Написать миксеристу")}
+        />
+      )}
+
+      {o.arrived_at && !isPump && <DowntimeTimer o={o} role="client" />}
+      {o.arrived_at && isPump && <PumpWorkTimer o={o} role="client" />}
+
+      {isPump && !isCancelled && <PumpPayment o={o} busy={busy} onPrepay={onPrepay} />}
 
       {isEnRoute && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 bg-green-600 text-white rounded-lg px-3 py-2.5">
             <Truck className="w-5 h-5" />
             <span className="font-bold text-sm">
-              {t("Миксер выехал — ожидайте подачи!")}
+              {isPump ? t("Насос выехал — скоро будет на объекте!") : t("Миксер выехал — ожидайте подачи!")}
             </span>
           </div>
           {o.driver_id && (
@@ -140,7 +243,11 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setR
                 <div className="h-[35vh] rounded-2xl bg-neutral-100 animate-pulse" />
               }
             >
-              <LiveDriverMap driverIds={[o.driver_id]} height="35vh" />
+              <LiveDriverMap
+                driverIds={[o.driver_id]}
+                pumpIds={isPump ? [o.driver_id] : []}
+                height="35vh"
+              />
             </Suspense>
           )}
         </div>
@@ -167,7 +274,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setR
         </div>
       ) : (
         <div className="flex flex-wrap gap-1.5">
-          {STATUS_FLOW.map((s, i) => (
+          {flow.map((s, i) => (
             <span
               key={s}
               className={cn(
@@ -177,7 +284,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setR
                   : "bg-neutral-200 text-neutral-400"
               )}
             >
-              {t(ORDER_STATUSES[s].label)}
+              {t(statusLabel({ ...o, status: s }))}
             </span>
           ))}
         </div>
@@ -193,7 +300,31 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setR
         </button>
       )}
 
-      {isDone && (
+      {isDone && isPump && (
+        <div className="rounded-xl border border-neutral-200 p-3 space-y-2">
+          <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
+            {t("Оцените насосника")}
+          </div>
+          {o.client_rating ? (
+            <div className="flex items-center gap-1">
+              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+              <span className="text-xs text-neutral-500">
+                {t("Ваша оценка: {n}", { n: o.client_rating })}★
+              </span>
+            </div>
+          ) : (
+            <Stars
+              value={ratePick[o.id] || 0}
+              onChange={(n) => {
+                setRatePick((p) => ({ ...p, [o.id]: n }));
+                onRate(o.id, n);
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {isDone && !isPump && (
         <div className="space-y-3 pt-1">
           <div className="rounded-xl border border-neutral-200 p-3 space-y-1">
             <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
@@ -293,7 +424,7 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setR
 }
 
 export default function OrderTracking({ onReorder }) {
-  const { user } = useAuth();
+  const { user, checkUserAuth } = useAuth();
   const activePhone = normPhone(user?.phone);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -352,7 +483,8 @@ export default function OrderTracking({ onReorder }) {
         notifiedAccepted.current.add(orderId);
         notify(
           t("Заказ принят!"),
-          t("Миксерист {name} принял ваш заказ", {
+          t("{who} {name} принял ваш заказ", {
+            who: t(workerLabel(payload.new)),
             name: payload.new.driver_name || "",
           }).replace(/\s+/g, " ").trim()
         );
@@ -372,6 +504,19 @@ export default function OrderTracking({ onReorder }) {
     }
   };
 
+  const prepayPump = async (id) => {
+    if (!confirm(t("Подтвердите, что оплатили предоплату за АБН. Насосник или завод проверит поступление."))) return;
+    setBusy(id);
+    try {
+      await base44.entities.Order.update(id, { pump_prepaid: true });
+    } catch (e) {
+      console.error(e);
+      alert(pumpErrorText(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const rateDriver = async (id, stars) => {
     setBusy(id);
     try {
@@ -384,12 +529,19 @@ export default function OrderTracking({ onReorder }) {
   };
 
   const cancelOrder = async (id) => {
-    if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
+    const order = orders.find((o) => o.id === id);
+    if (!order) return;
     setBusy(id);
     try {
-      await base44.entities.Order.update(id, { status: "cancelled" });
+      // Отмена заказчиком = предупреждение (3 — чёрный список).
+      const done = await cancelOrderAsClient(order, user);
+      if (done) {
+        await checkUserAuth();
+        fetchMine(activePhone);
+      }
     } catch (e) {
       console.error(e);
+      alert(t("Не удалось отменить заказ. Попробуйте ещё раз."));
     } finally {
       setBusy(null);
     }
@@ -439,6 +591,7 @@ export default function OrderTracking({ onReorder }) {
                 o={o}
                 busy={busy}
                 onPay={payDone}
+                onPrepay={prepayPump}
                 onRate={rateDriver}
                 onCancel={cancelOrder}
                 onReorder={onReorder}
@@ -462,6 +615,7 @@ export default function OrderTracking({ onReorder }) {
                 o={o}
                 busy={busy}
                 onPay={payDone}
+                onPrepay={prepayPump}
                 onRate={rateDriver}
                 onCancel={cancelOrder}
                 onReorder={onReorder}
