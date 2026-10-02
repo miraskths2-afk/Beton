@@ -9,6 +9,7 @@ import MixerIcon from "@/components/MixerIcon";
 import { t } from "@/lib/i18n";
 import { EQUIPMENT, equipmentFor, needsVehicleInfo } from "@/lib/equipment";
 import { PUMP_BOOMS, boomLabel, pumpErrorText } from "@/lib/pump";
+import { CHANGE_ROLE_PATH, canChangeRole } from "@/lib/roleChange";
 
 // Показывается один раз новому пользователю (или когда меняется версия
 // соглашения). Сначала просим имя, если его ещё нет, затем — согласие
@@ -259,6 +260,16 @@ export default function Onboarding() {
               )}
             </button>
           </div>
+        )}
+
+        {canChangeRole(user) && (
+          <button
+            type="button"
+            onClick={() => navigate(CHANGE_ROLE_PATH)}
+            className="w-full text-sm text-neutral-500 font-semibold underline"
+          >
+            {t("Выбрать роль заново")}
+          </button>
         )}
       </div>
     </div>

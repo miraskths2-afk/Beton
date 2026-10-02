@@ -1,9 +1,14 @@
 import React from "react";
-import { Hourglass, XCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Hourglass, XCircle, LogOut, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import { useAuth } from "@/lib/AuthContext";
+import { CHANGE_ROLE_PATH, canChangeRole } from "@/lib/roleChange";
 
 export default function PendingScreen({ status, reapproval = false }) {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const rejected = status === "rejected";
   return (
     <div className="p-5 flex flex-col items-center justify-center text-center min-h-[70vh]">
@@ -29,6 +34,24 @@ export default function PendingScreen({ status, reapproval = false }) {
           ? t("При повторном входе требуется подтверждение диспетчера. Как только вас одобрят, сайт снова станет доступен.")
           : t("Диспетчер рассматривает вашу заявку. Как только вас одобрят, здесь появится лента свободных заказов.")}
       </p>
+      <div className="mt-8 w-full max-w-xs space-y-3">
+        {canChangeRole(user) && (
+          <button
+            onClick={() => navigate(CHANGE_ROLE_PATH)}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-neutral-200 bg-white text-neutral-800 font-bold"
+          >
+            <RefreshCw className="w-4 h-4" />
+            {t("Выбрать роль заново")}
+          </button>
+        )}
+        <button
+          onClick={logout}
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-neutral-500 font-semibold"
+        >
+          <LogOut className="w-4 h-4" />
+          {t("Выйти")}
+        </button>
+      </div>
     </div>
   );
 }

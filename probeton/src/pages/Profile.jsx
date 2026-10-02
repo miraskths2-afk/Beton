@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   UserCircle,
   Phone,
@@ -34,6 +35,7 @@ import { THEMES, getTheme, setTheme } from "@/lib/theme";
 import { PUMP_BOOMS, PUMP_STATIONARY, boomLabel, pumpErrorText } from "@/lib/pump";
 import { cn } from "@/lib/utils";
 import { EQUIPMENT } from "@/lib/equipment";
+import { CHANGE_ROLE_PATH, canChangeRole } from "@/lib/roleChange";
 
 function roleLabel(user) {
   if (user?.role === "admin") return t("Администратор");
@@ -51,6 +53,7 @@ function approvalLabel(status) {
 
 export default function Profile() {
   const { user, logout, checkUserAuth, viewMode, setViewMode } = useAuth();
+  const navigate = useNavigate();
   const [openSection, setOpenSection] = useState(null);
   const [notif, setNotif] = useState(user?.notifications_enabled !== false);
   const [savingNotif, setSavingNotif] = useState(false);
@@ -532,6 +535,26 @@ export default function Profile() {
           </div>
         )}
       </section>
+
+      {canChangeRole(user) && (
+        <button
+          onClick={() => {
+            if (
+              isWorker &&
+              !window.confirm(
+                t("После смены роли водителю и насоснику нужно новое одобрение диспетчера. Продолжить?")
+              )
+            ) {
+              return;
+            }
+            navigate(CHANGE_ROLE_PATH);
+          }}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-neutral-200 text-neutral-800 font-bold bg-white"
+        >
+          <RefreshCcw className="w-4 h-4" />
+          {t("Сменить роль")}
+        </button>
+      )}
 
       <button
         onClick={logout}
