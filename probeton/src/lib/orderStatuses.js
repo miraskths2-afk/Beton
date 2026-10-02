@@ -17,6 +17,9 @@ export const STATUS_FLOW = [
   "done",
 ];
 
+// Заказ уже у исполнителя и ещё не закрыт.
+export const ACTIVE_ORDER_STATUSES = ["in_progress", "sent_to_plant", "manufacturing", "en_route"];
+
 export const normPhone = (p) => (p || "").replace(/\D/g, "").slice(-10);
 
 // Заказчик может сам отменить заказ, только пока бетон ещё не начали
@@ -50,9 +53,9 @@ export function statusLabel(o) {
   return ORDER_STATUSES[s]?.label || s;
 }
 
-// Шаги для полоски статусов. У АБН: поиск → насос назначен → (в пути,
-// если заявку ведёт завод) → готов; «изготовления» и «назначен миксер» нет.
+// Шаги для полоски статусов. У АБН: поиск → насос назначен → готов;
+// «изготовления» и «назначен миксер» нет.
 export function statusFlowFor(o) {
   if (o?.service_type !== "pump") return STATUS_FLOW;
-  return o?.plant_id ? ["new", "in_progress", "en_route", "done"] : ["new", "in_progress", "done"];
+  return ["new", "in_progress", "done"];
 }

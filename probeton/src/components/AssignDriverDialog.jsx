@@ -12,10 +12,10 @@ import { Loader2, Send, Truck, MapPin, Navigation } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { distanceKm, formatKm } from "@/lib/geo";
 import { t } from "@/lib/i18n";
-import { plantName } from "@/lib/plants";
 import { isPumpOrder } from "@/lib/pump";
 
-export default function TransferToPlantDialog({
+// Диспетчер назначает заявку свободному миксеристу или насоснику на линии.
+export default function AssignDriverDialog({
   order,
   open,
   onOpenChange,
@@ -58,23 +58,18 @@ export default function TransferToPlantDialog({
         // ставим ближайших свободных наверх (как подбор курьера в
         // Bolt/Wolt). Занятые — всегда в конце списка.
         const locById = Object.fromEntries((online || []).map((r) => [r.driver_id, r]));
-        const plantById = Object.fromEntries(
-          all.filter((u) => u.account_type === "plant").map((u) => [u.id, u])
-        );
         const hasTarget = order?.delivery_lat != null && order?.delivery_lng != null;
         // На заявку АБН — только насосники, на бетон — только миксеристы.
         const wantPump = isPumpOrder(order);
         const list = all
           .filter((u) => ids.includes(u.id))
           .filter((u) => (wantPump ? u.account_type === "pump" : u.account_type !== "pump"))
-          // Бетон с документами везёт только миксер из парка завода.
-          .filter((u) => !order?.with_documents || u.plant_id)
           .map((u) => {
             const loc = locById[u.id];
             const km = hasTarget && loc
               ? distanceKm(loc.lat, loc.lng, order.delivery_lat, order.delivery_lng)
               : null;
-            return { ...u, isBusy: busyIds.has(u.id), distanceKm: km, plant: plantById[u.plant_id] || null };
+            return { ...u, isBusy: busyIds.has(u.id), distanceKm: km };
           })
           .sort((a, b) => {
             if (a.isBusy !== b.isBusy) return a.isBusy ? 1 : -1;
@@ -103,19 +98,9 @@ export default function TransferToPlantDialog({
     if (!driver || driver.isBusy) return;
     setLoading(true);
     try {
-      // Миксерист из парка завода — заявка переходит и к его заводу,
-      // чтобы завод видел и вёл её. Независимый — заявка без завода.
       await base44.entities.Order.update(order.id, {
         driver_id: driver.id,
         driver_name: driver.full_name || driver.driver_name || "Водитель",
-        // Если supabase_plants.sql ещё не выполнен, колонок plant_* нет —
-        // тогда их не трогаем, чтобы назначение работало как раньше.
-        ...("plant_id" in order
-          ? {
-              plant_id: driver.plant ? driver.plant.id : null,
-              plant_name: driver.plant ? plantName(driver.plant) : null,
-            }
-          : {}),
         status: "in_progress",
         accepted_at: new Date().toISOString(),
       });
@@ -183,7 +168,6 @@ export default function TransferToPlantDialog({
                     <div className="text-xs text-neutral-500 flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
                       {d.isBusy ? t("Занят другим заказом") : d.vehicle_plate || t("На линии")}
-                      {d.plant && ` · ${t("Парк: {name}", { name: plantName(d.plant) })}`}
                     </div>
                   </div>
                   {d.distanceKm != null && (

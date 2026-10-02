@@ -15,7 +15,7 @@ import PumpFields from "@/components/PumpFields";
 const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
 // Отдельный заказ автобетононасоса (вкладка «АБН» у заказчика).
-// Заявку видят все насосники на линии и заводы с насосами.
+// Заявку видят все насосники на линии.
 export default function PumpOrderForm({ phone: initialPhone }) {
   const [settings, setSettings] = useState(null);
   const [boom, setBoom] = useState(null);

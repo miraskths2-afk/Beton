@@ -368,7 +368,7 @@ export default function QuickOrderForm({ prefill }) {
               <span className="text-sm text-neutral-800">
                 <span className="font-semibold">{t("Заказать АБН здесь же")}</span>
                 <span className="block text-xs text-neutral-500">
-                  {t("Насосник получит отдельную заявку. Вы будете видеть и миксериста, и насосника, и сможете писать обоим. Если заявку возьмёт завод — общаетесь только с заводом.")}
+                  {t("Насосник получит отдельную заявку. Вы будете видеть и миксериста, и насосника, и сможете писать обоим.")}
                 </span>
               </span>
             </label>
@@ -438,7 +438,7 @@ export default function QuickOrderForm({ prefill }) {
             {t("Бетон с документами")}
           </span>
           <span className="block text-xs text-neutral-500">
-            {t("Официальный договор и документы на бетон. Выполняют только заводы: цена выше, качество надёжное.")}
+            {t("Нужны накладная и паспорт качества на бетон. Миксерист увидит это до того, как возьмёт заявку.")}
           </span>
         </span>
       </label>

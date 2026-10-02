@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { base44, supabase } from "@/api/base44Client";
-import { BadgeCheck, Loader2, Truck, Factory } from "lucide-react";
+import { BadgeCheck, Loader2, Truck } from "lucide-react";
 import { t, locale } from "@/lib/i18n";
 import { fetchSettings } from "@/lib/balance";
 import { isPumpOrder, pumpBilledHours, pumpServiceFee, pumpTitle } from "@/lib/pump";
@@ -9,9 +9,8 @@ import { isPumpOrder, pumpBilledHours, pumpServiceFee, pumpTitle } from "@/lib/p
 const rowFee = (o, settings) =>
   isPumpOrder(o) ? pumpServiceFee(o, settings) : (o.cubes || 0) * 1000;
 
-// Заявки завода закрываются целиком: бетон, его рейсы и АБН к нему.
-const groupKey = (o) =>
-  o.plant_id ? `plant:${o.pump_for_order_id || o.parent_order_id || o.id}` : o.id;
+// Каждый заказ подтверждается отдельно.
+const groupKey = (o) => o.id;
 
 export default function DriverPaymentApproval() {
   const [orders, setOrders] = useState([]);
@@ -45,8 +44,8 @@ export default function DriverPaymentApproval() {
     return unsub;
   }, []);
 
-  // Подтверждаем оплату сбора и одновременно завершаем заказ (для завода —
-  // все строки заявки сразу): оплата — условие закрытия заказа.
+  // Подтверждаем оплату сбора и одновременно завершаем заказ:
+  // оплата — условие закрытия заказа.
   const approve = async (key, rows) => {
     setBusy(key);
     try {
@@ -99,7 +98,6 @@ export default function DriverPaymentApproval() {
       {groups.map((key) => {
         const rows = byKey.get(key);
         const head = rows[0];
-        const fromPlant = !!head.plant_id;
         const total = rows.reduce((s, o) => s + rowFee(o, settings), 0);
         return (
           <div
@@ -108,16 +106,7 @@ export default function DriverPaymentApproval() {
           >
             <div className="flex items-center justify-between gap-2">
               <div className="font-bold text-neutral-900 min-w-0">
-                {fromPlant ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Factory className="w-4 h-4 text-purple-600 shrink-0" />
-                    {t("Завод «{name}»", { name: head.plant_name || "" })}
-                  </span>
-                ) : (
-                  <>
-                    {head.order_number || t("Заказ")} · {head.driver_name || t("Водитель")}
-                  </>
-                )}
+                {head.order_number || t("Заказ")} · {head.driver_name || t("Водитель")}
               </div>
               <div className="text-sm font-black text-green-600 shrink-0">
                 {total.toLocaleString(locale())} ₸
@@ -126,7 +115,6 @@ export default function DriverPaymentApproval() {
             <div className="space-y-0.5">
               {rows.map((o) => (
                 <div key={o.id} className="text-xs text-neutral-500">
-                  {fromPlant && `${o.order_number || t("Заказ")} · ${o.driver_name || ""} · `}
                   {isPumpOrder(o)
                     ? t("{title}: {n} ч × {rate} ₸ = {fee} ₸", {
                         title: pumpTitle(o.pump_boom),
@@ -149,9 +137,7 @@ export default function DriverPaymentApproval() {
               ) : (
                 <>
                   <BadgeCheck className="w-4 h-4" />
-                  {fromPlant && rows.length > 1
-                    ? t("Подтвердить оплату и завершить всю заявку")
-                    : t("Подтвердить оплату и завершить заказ")}
+                  {t("Подтвердить оплату и завершить заказ")}
                 </>
               )}
             </button>

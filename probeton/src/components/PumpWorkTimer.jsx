@@ -40,7 +40,7 @@ function getPosition() {
 // (насосник нажимает сам, или таймер запускается сам, когда насосник
 // стоит на объекте — см. lib/autoArrival.js).
 // role: "driver" — насосник этой заявки (запускает и останавливает),
-//       "client" — заказчик, "admin", "plant" — только смотрят.
+//       "client" — заказчик, "admin" — только смотрят.
 export default function PumpWorkTimer({ o, role, userId, onChanged, className }) {
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
@@ -103,7 +103,7 @@ export default function PumpWorkTimer({ o, role, userId, onChanged, className })
   const billed = pumpBilledHours(o, now);
   const total = pumpFinalTotal({ ...o, pump_hours_actual: o.pump_hours_actual || billed });
   const fee = pumpServiceFee({ ...o, pump_hours_actual: o.pump_hours_actual || billed });
-  const showFee = role === "driver" || role === "admin" || role === "plant";
+  const showFee = role === "driver" || role === "admin";
 
   return (
     <div className={cn("rounded-xl border border-sky-200 bg-white p-3 space-y-2", className)}>

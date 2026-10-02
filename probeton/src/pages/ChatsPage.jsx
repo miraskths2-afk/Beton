@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
-import { MessageCircle, Flame, Truck, Search, Check, CheckCheck, Trash2, Factory } from "lucide-react";
+import { MessageCircle, Flame, Truck, Search, Check, CheckCheck, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ListSkeleton } from "@/components/Skeleton";
 import {
@@ -144,7 +144,7 @@ export default function ChatsPage() {
       ) : (
         <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm divide-y divide-neutral-100 overflow-hidden">
           {visible.map((c) => {
-            const Icon = c.kind === "leftover" ? Flame : c.kind === "plant" || c.kind === "fleet" ? Factory : Truck;
+            const Icon = c.kind === "leftover" ? Flame : Truck;
             const lastMine = c.last && c.last.sender_role === c.role;
             return (
               <div key={c.key} className="flex items-stretch">
@@ -157,8 +157,6 @@ export default function ChatsPage() {
                     "w-12 h-12 rounded-full flex items-center justify-center shrink-0",
                     c.kind === "leftover"
                       ? "bg-orange-100 text-orange-600"
-                      : c.kind === "plant" || c.kind === "fleet"
-                      ? "bg-purple-100 text-purple-700"
                       : "bg-green-100 text-green-700"
                   )}
                 >

@@ -66,11 +66,6 @@ const QUICK_COMMANDS = {
     { emoji: "⏱", label: "Задержусь", delay: true },
     { emoji: "🙏", label: "Спасибо!" },
   ],
-  plant: [
-    { emoji: "🚚", label: "Миксер выехал" },
-    { emoji: "⏱", label: "Задерживаемся", delay: true },
-    { emoji: "❓", label: "Уточните адрес, пожалуйста" },
-  ],
   // Насосник АБН
   pump: [
     { emoji: "🚚", label: "Еду" },
@@ -79,12 +74,6 @@ const QUICK_COMMANDS = {
     { emoji: "🏗", label: "Насос установлен, готов к подаче" },
     { emoji: "✅", label: "Подачу закончил" },
     { emoji: "❓", label: "Куда подъехать?" },
-  ],
-  // Завод пишет своему миксеристу / насоснику
-  fleetPlant: [
-    { emoji: "🏭", label: "Подъезжайте на загрузку" },
-    { emoji: "📍", label: "Клиент ждёт на объекте" },
-    { emoji: "❓", label: "Где вы сейчас?" },
   ],
 };
 
@@ -102,7 +91,6 @@ const ROLE_COLOR = {
   client: "text-blue-600",
   driver: "text-green-700",
   admin: "text-purple-600",
-  plant: "text-orange-600",
 };
 
 function dayLabel(d) {
@@ -173,37 +161,7 @@ export default function ChatPage() {
     }
     let mounted = true;
     const load = async () => {
-      if (role === "client" && kind === "plant") {
-        if (!item.plant_id) return;
-        const { data } = await supabase
-          .from("app_users")
-          .select("plant_name, full_name, photo_url")
-          .eq("id", item.plant_id)
-          .maybeSingle();
-        if (mounted)
-          setPeer({
-            name: data?.plant_name || item.plant_name || data?.full_name || t("Завод"),
-            photo: data?.photo_url || null,
-            role: "plant",
-          });
-        return;
-      }
-      // Чат завода со своим исполнителем: исполнитель видит завод.
-      if (role === "driver" && kind === "fleet") {
-        const { data } = await supabase
-          .from("app_users")
-          .select("full_name, photo_url")
-          .eq("id", item.plant_id)
-          .maybeSingle();
-        if (mounted)
-          setPeer({
-            name: item.plant_name || data?.full_name || t("Завод"),
-            photo: data?.photo_url || null,
-            role: "plant",
-          });
-        return;
-      }
-      if (role === "client" || (role === "plant" && kind === "fleet")) {
+      if (role === "client") {
         if (!item.driver_id) return;
         const { data } = await supabase
           .from("app_users")
@@ -265,7 +223,7 @@ export default function ChatPage() {
             return;
           }
           const m = payload.new;
-          // У заявки два чата (с миксеристом и с заводом) — берём только свой.
+          // Сообщения старых чатов с заводом (channel) сюда не попадают.
           if (!m?.id || !messageInChat(m, kind)) return;
           setMessages((prev) => {
             const idx = prev.findIndex((x) => x.id === m.id);
@@ -546,11 +504,7 @@ export default function ChatPage() {
           .join(" · ");
 
   const title = isAdmin
-    ? kind === "fleet"
-      ? `${item.plant_name || t("Завод")} ↔ ${item.driver_name || t(workerLabel(item))}`
-      : `${
-          kind === "plant" ? item.plant_name || t("Завод") : item.driver_name || t(workerLabel(item))
-        } ↔ ${kind === "leftover" ? t("Прораб") : t("Заказчик")}`
+    ? `${item.driver_name || t(workerLabel(item))} ↔ ${kind === "leftover" ? t("Прораб") : t("Заказчик")}`
     : peer?.name || "…";
 
   const isClosed =
@@ -558,12 +512,7 @@ export default function ChatPage() {
       ? item.status === "gone"
       : item.status === "done" || item.status === "cancelled";
 
-  const quickKey =
-    role === "driver" && isPumpOrder(item)
-      ? "pump"
-      : role === "plant" && kind === "fleet"
-      ? "fleetPlant"
-      : role;
+  const quickKey = role === "driver" && isPumpOrder(item) ? "pump" : role;
   const quick = !isAdmin && !text && !recorder.recording ? QUICK_COMMANDS[quickKey] || [] : [];
 
   let lastDay = null;
@@ -647,7 +596,7 @@ export default function ChatPage() {
           lastDay = day;
           const mine = m.sender_role === role;
           const showName =
-            !mine && (isAdmin || m.sender_role === "admin" || (m.sender_role === "plant" && kind !== "fleet"));
+            !mine && (isAdmin || m.sender_role === "admin");
           return (
             <React.Fragment key={m.id}>
               {showDay && (
