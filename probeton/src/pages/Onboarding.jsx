@@ -8,7 +8,7 @@ import TermsContent from "@/components/TermsContent";
 import MixerIcon from "@/components/MixerIcon";
 import { t } from "@/lib/i18n";
 import { EQUIPMENT, equipmentFor, needsVehicleInfo } from "@/lib/equipment";
-import { PUMP_BOOMS, boomLabel } from "@/lib/pump";
+import { PUMP_BOOMS, boomLabel, pumpErrorText } from "@/lib/pump";
 
 // Показывается один раз новому пользователю (или когда меняется версия
 // соглашения). Сначала просим имя, если его ещё нет, затем — согласие
@@ -90,7 +90,12 @@ export default function Onboarding() {
       }
     } catch (err) {
       console.error(err);
-      setError(t("Не удалось сохранить данные, попробуйте ещё раз"));
+      // Нет колонки pump_boom — значит, в базе ещё не выполнен SQL для АБН.
+      setError(
+        /pump_boom/.test(String(err?.message || ""))
+          ? pumpErrorText(err)
+          : t("Не удалось сохранить данные, попробуйте ещё раз")
+      );
     } finally {
       setBusy(false);
     }
