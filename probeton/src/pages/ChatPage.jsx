@@ -107,7 +107,7 @@ const fmtTime = (d) =>
 
 export default function ChatPage() {
   const { kind: rawKind, id } = useParams();
-  const kind = rawKind === "leftover" ? "leftover" : "order";
+  const kind = ["order", "plant", "leftover"].includes(rawKind) ? rawKind : "order";
   const navigate = useNavigate();
   const { user } = useAuth();
 
