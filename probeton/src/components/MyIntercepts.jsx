@@ -95,6 +95,7 @@ export default function MyIntercepts({ phone }) {
             <ChatButton
               kind="leftover"
               id={l.id}
+              item={l}
               role="client"
               compact
               label={t("Написать миксеристу{name}", {

@@ -1,8 +1,17 @@
-// Чат «миксерист ↔ клиент» по заказу или по остатку из Кубовика.
+// Чаты между участниками одной сделки. Каждый чат — только на двоих
+// (плюс диспетчер):
+//   kind "order"    — заказчик ↔ миксерист по заявке;
+//   kind "plant"    — заказчик ↔ завод, который ведёт его заявку;
+//   kind "leftover" — прораб ↔ миксерист по остатку из Кубовика.
+// Когда сделка завершена (заказ выполнен/отменён, остаток забран), чат у
+// участников пропадает, а у админа остаётся в истории — админ может
+// удалить его сам.
 //
 // Все сообщения лежат в одной таблице order_messages (см. supabase_chat.sql):
-// у сообщения заполнено либо order_id (обычная заявка), либо leftover_id
-// (Кубовик). Админ видит все чаты и может написать как «Диспетчер».
+// у сообщения заполнено либо order_id (заявка), либо leftover_id
+// (Кубовик). Чат с заводом помечен channel = 'plant'
+// (supabase_unload_methods.sql). Админ видит все чаты и может написать
+// как «Диспетчер».
 //
 // Номера телефонов собеседникам не показываем: ни в чате, ни в карточках.
 // Если кто-то пишет номер в сообщении — у собеседника он скрывается
@@ -27,6 +36,37 @@ export function chatColumn(kind) {
   return kind === "leftover" ? "leftover_id" : "order_id";
 }
 
+// Отбор сообщений одного чата: у заявки два отдельных чата —
+// с миксеристом (channel пустой) и с заводом (channel = 'plant').
+export function filterChat(query, kind, id) {
+  const q = query.eq(chatColumn(kind), id);
+  if (kind === "plant") return q.eq("channel", "plant");
+  if (kind === "order") return q.is("channel", null);
+  return q;
+}
+
+// К какому чату относится сообщение.
+export function messageChatKey(m) {
+  if (m.leftover_id) return `leftover:${m.leftover_id}`;
+  return `${m.channel === "plant" ? "plant" : "order"}:${m.order_id}`;
+}
+
+export function messageInChat(m, kind) {
+  if (kind === "leftover") return !!m.leftover_id;
+  return (m.channel === "plant") === (kind === "plant");
+}
+
+// Сделка завершена — участникам чат больше не показываем.
+export function isChatClosed(kind, item) {
+  if (!item) return false;
+  if (kind === "leftover") return item.status === "gone";
+  return item.status === "done" || item.status === "cancelled";
+}
+
+export function chatDetailsPath(kind, id) {
+  return kind === "leftover" ? `/leftover/${id}` : `/order/${id}`;
+}
+
 export function chatPath(kind, id) {
   return `/chat/${kind}/${id}`;
 }
@@ -35,10 +75,15 @@ export function chatPath(kind, id) {
 export function getChatRole(user, kind, item) {
   if (!user || !item) return null;
   if (user.role === "admin") return "admin";
-  if (item.driver_id && user.id === item.driver_id) return "driver";
   const myPhone = normPhone(user.phone);
-  if (kind === "order") {
+  if (kind === "plant") {
+    if (!item.plant_id) return null;
     if (user.account_type === "plant" && item.plant_id === user.id) return "plant";
+    if (myPhone && normPhone(item.phone) === myPhone) return "client";
+    return null;
+  }
+  if (item.driver_id && user.id === item.driver_id) return "driver";
+  if (kind === "order") {
     if (myPhone && normPhone(item.phone) === myPhone) return "client";
     return null;
   }
@@ -50,6 +95,7 @@ export function getChatRole(user, kind, item) {
 // кто его перехватил.
 export function chatAvailable(kind, item) {
   if (!item) return false;
+  if (kind === "plant") return !!item.plant_id;
   return kind === "leftover" ? !!item.intercepted_by_phone : !!item.driver_id;
 }
 
@@ -98,6 +144,7 @@ export async function sendChatMessage({ kind, id, user, role, name, message, aud
       sender_role: role,
       sender_name: name,
       message,
+      ...(kind === "plant" ? { channel: "plant" } : {}),
       ...(audioUrl ? { audio_url: audioUrl, audio_duration: audioDuration ?? null } : {}),
     })
     .select()
@@ -133,9 +180,8 @@ export async function deleteChatMessage(m) {
 // Удаление всей переписки по заказу или остатку (только для админа).
 // Сам заказ/остаток не трогаем — только сообщения.
 export async function deleteChatThread(kind, id) {
-  const col = chatColumn(kind);
-  const { data } = await supabase.from(CHAT_TABLE).select("id, audio_url").eq(col, id);
-  const { error } = await supabase.from(CHAT_TABLE).delete().eq(col, id);
+  const { data } = await filterChat(supabase.from(CHAT_TABLE).select("id, audio_url"), kind, id);
+  const { error } = await filterChat(supabase.from(CHAT_TABLE).delete(), kind, id);
   if (error) throw error;
   await removeVoiceFiles(data || []);
 }
@@ -144,17 +190,18 @@ export async function deleteChatThread(kind, id) {
 // переписку, галочки не ставит.
 export async function markChatRead(kind, id, role) {
   if (!role || role === "admin") return;
-  const { error } = await supabase
-    .from(CHAT_TABLE)
-    .update({ read_at: new Date().toISOString() })
-    .eq(chatColumn(kind), id)
+  const { error } = await filterChat(
+    supabase.from(CHAT_TABLE).update({ read_at: new Date().toISOString() }),
+    kind,
+    id
+  )
     .neq("sender_role", role)
     .is("read_at", null);
   if (error) console.error(error);
 }
 
 const ORDER_FIELDS =
-  "id, order_number, phone, driver_id, driver_name, status, grade, cubes, what_needed, delivery_address, created_date";
+  "id, order_number, phone, driver_id, driver_name, plant_id, plant_name, status, grade, cubes, what_needed, delivery_address, created_date";
 const LEFTOVER_FIELDS =
   "id, grade, cubes, direction, price, phone, driver_id, driver_name, intercepted_by_phone, status, created_date";
 
@@ -174,6 +221,13 @@ function orderTitle(o, role) {
   return `${t("Заказчик")} · ${num}`;
 }
 
+function plantChatTitle(o, role) {
+  const num = o.order_number ? `№${o.order_number}` : "";
+  if (role === "client") return o.plant_name || t("Завод");
+  if (role === "admin") return `${t("Заказ")} ${num} · ${t("завод")}`;
+  return `${t("Заказчик")} · ${num}`;
+}
+
 function leftoverTitle(l, role) {
   if (role === "client") return l.driver_name || t("Миксерист");
   if (role === "admin") return `${t("Кубовик")} · ${l.grade || ""}`;
@@ -188,16 +242,22 @@ function itemSubtitle(kind, item, role) {
       return `${item.driver_name || t("Миксерист")} ↔ ${t("Прораб")} · ${cubes}`;
     return [t("Кубовик"), gc].filter(Boolean).join(" · ");
   }
-  if (role === "admin")
-    return `${item.driver_name || t("Миксерист")} ↔ ${t("Заказчик")}${gc ? " · " + gc : ""}`;
+  if (role === "admin") {
+    const who = kind === "plant" ? item.plant_name || t("Завод") : item.driver_name || t("Миксерист");
+    return `${who} ↔ ${t("Заказчик")}${gc ? " · " + gc : ""}`;
+  }
   const num = role === "client" && item.order_number ? `№${item.order_number}` : "";
   return [num, gc].filter(Boolean).join(" · ") || item.what_needed || "";
 }
 
 function isActive(kind, item) {
   if (kind === "leftover") return item.status === "intercepted";
-  return item.status !== "done" && item.status !== "cancelled";
+  return !isChatClosed(kind, item);
 }
+
+// Все поля сообщения: так список не ломается, даже если новых колонок
+// (channel) в базе ещё нет.
+const MESSAGE_FIELDS = "*";
 
 // Список чатов пользователя (как список переписок в WhatsApp):
 // последнее сообщение, число непрочитанных, сортировка по времени.
@@ -212,7 +272,7 @@ export async function loadMyChats(user) {
     preMessages = await safe(
       supabase
         .from(CHAT_TABLE)
-        .select("id, order_id, leftover_id, sender_role, sender_name, message, audio_url, created_at, read_at")
+        .select(MESSAGE_FIELDS)
         .order("created_at", { ascending: false })
         .limit(2000)
     );
@@ -246,9 +306,8 @@ export async function loadMyChats(user) {
     orders = await safe(
       supabase
         .from("orders")
-        .select(ORDER_FIELDS + ", plant_id")
+        .select(ORDER_FIELDS)
         .eq("plant_id", user.id)
-        .not("driver_id", "is", null)
         .order("created_date", { ascending: false })
         .limit(300)
     );
@@ -259,7 +318,7 @@ export async function loadMyChats(user) {
         supabase
           .from("orders")
           .select(ORDER_FIELDS)
-          .not("driver_id", "is", null)
+          .or("driver_id.not.is.null,plant_id.not.is.null")
           .order("created_date", { ascending: false })
           .limit(1000)
       ),
@@ -280,7 +339,7 @@ export async function loadMyChats(user) {
   if (!messages) {
     const oIds = orders.map((o) => o.id);
     const lIds = leftovers.map((l) => l.id);
-    const fields = "id, order_id, leftover_id, sender_role, sender_name, message, audio_url, created_at, read_at";
+    const fields = MESSAGE_FIELDS;
     const [mo, ml] = await Promise.all([
       oIds.length
         ? safe(
@@ -308,13 +367,13 @@ export async function loadMyChats(user) {
 
   const byKey = {};
   messages.forEach((m) => {
-    const key = m.leftover_id ? `leftover:${m.leftover_id}` : `order:${m.order_id}`;
-    (byKey[key] ||= []).push(m);
+    (byKey[messageChatKey(m)] ||= []).push(m);
   });
 
   const build = (kind, item) => {
     const role = isAdmin ? "admin" : getChatRole(user, kind, item);
     if (!role) return null;
+    if (role !== "admin" && !chatAvailable(kind, item)) return null;
     const key = `${kind}:${item.id}`;
     const list = (byKey[key] || []).sort(
       (a, b) => new Date(b.created_at) - new Date(a.created_at)
@@ -325,13 +384,19 @@ export async function loadMyChats(user) {
         ? 0
         : list.filter((m) => m.sender_role !== role && !m.read_at).length;
     const active = isActive(kind, item);
-    if (!last && !active) return null;
+    // Участникам — только идущие сделки; у админа — вся история с сообщениями.
+    if (role === "admin" ? !last : !active) return null;
     return {
       key,
       kind,
       id: item.id,
       role,
-      title: kind === "leftover" ? leftoverTitle(item, role) : orderTitle(item, role),
+      title:
+        kind === "leftover"
+          ? leftoverTitle(item, role)
+          : kind === "plant"
+          ? plantChatTitle(item, role)
+          : orderTitle(item, role),
       subtitle: itemSubtitle(kind, item, role),
       last,
       unread,
@@ -341,7 +406,8 @@ export async function loadMyChats(user) {
   };
 
   return [
-    ...orders.map((o) => build("order", o)),
+    ...orders.map((o) => (user.account_type === "plant" && !isAdmin ? null : build("order", o))),
+    ...orders.map((o) => (o.plant_id ? build("plant", o) : null)),
     ...leftovers.map((l) => build("leftover", l)),
   ]
     .filter(Boolean)
@@ -372,10 +438,11 @@ export function useChatUnread(kind, id, role) {
     if (!id || !role) return undefined;
     const col = chatColumn(kind);
     const load = async () => {
-      const { data, error } = await supabase
-        .from(CHAT_TABLE)
-        .select("id, sender_role, message, audio_url, created_at, read_at")
-        .eq(col, id)
+      const { data, error } = await filterChat(
+        supabase.from(CHAT_TABLE).select("id, sender_role, message, audio_url, created_at, read_at"),
+        kind,
+        id
+      )
         .order("created_at", { ascending: false })
         .limit(50);
       if (error || !mounted.current) return;
@@ -432,7 +499,7 @@ export function useTotalUnread(user, onNewMessage) {
     const unsub = subscribeChatChanges((payload) => {
       const m = payload?.new;
       if (payload?.eventType === "INSERT" && m) {
-        const key = `${m.leftover_id ? "leftover" : "order"}:${m.leftover_id || m.order_id}`;
+        const key = messageChatKey(m);
         const check = () => {
           const chat = chatsRef.current[key];
           if (chat && m.sender_role !== chat.role) onNewRef.current?.({ ...chat, message: m });

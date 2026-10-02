@@ -151,6 +151,7 @@ export default function OrderDetail() {
   // миксерист общаются через чат, не видя номеров друг друга.
   const canSeePhones = user?.role === "admin" || user?.account_type === "plant";
   const chatRole = getChatRole(user, "order", o);
+  const plantChatRole = getChatRole(user, "plant", o);
   const hideDriverMap = isPlant && o.plant_id !== user?.id;
   // Отменить заказ может админ или сам заказчик (по номеру телефона), и
   // заказчик — только пока бетон не начали готовить. Водитель отменить
@@ -318,10 +319,28 @@ export default function OrderDetail() {
         </div>
       )}
 
+      {o.plant_id && plantChatRole && (
+        <ChatButton
+          kind="plant"
+          id={o.id}
+          item={o}
+          role={plantChatRole}
+          label={
+            plantChatRole === "admin"
+              ? t("Переписка завода и заказчика")
+              : plantChatRole === "plant"
+              ? t("Написать заказчику")
+              : t("Написать заводу{name}", { name: o.plant_name ? ` · ${o.plant_name}` : "" })
+          }
+          className="rounded-xl"
+        />
+      )}
+
       {o.driver_id && chatRole && (
         <ChatButton
           kind="order"
           id={o.id}
+          item={o}
           role={chatRole}
           label={
             chatRole === "admin"

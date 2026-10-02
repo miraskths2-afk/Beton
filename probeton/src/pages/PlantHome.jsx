@@ -26,6 +26,7 @@ import { ORDER_STATUSES } from "@/lib/orderStatuses";
 import { plantName, plantsErrorText } from "@/lib/plants";
 import AssignFleetDriverDialog from "@/components/AssignFleetDriverDialog";
 import OrderExtras from "@/components/OrderExtras";
+import ChatButton from "@/components/ChatButton";
 
 // Кабинет завода / БСУ.
 // - Принимает свободные заявки клиентов из общей ленты.
@@ -261,6 +262,14 @@ export default function PlantHome() {
                 <div key={o.id} className="bg-white rounded-2xl p-4 border border-purple-200 shadow-sm space-y-2">
                   {renderHead(o)}
                   {renderInfo(o, true)}
+                  <ChatButton
+                    kind="plant"
+                    id={o.id}
+                    item={o}
+                    role="plant"
+                    compact
+                    label={t("Написать заказчику")}
+                  />
                   <div className="grid grid-cols-[1fr_auto] gap-2">
                     <button
                       onClick={() => setAssignOrder(o)}
@@ -292,6 +301,14 @@ export default function PlantHome() {
                 <div key={o.id} className="bg-white rounded-2xl p-4 border border-amber-200 shadow-sm space-y-2">
                   {renderHead(o)}
                   {renderInfo(o, true)}
+                  <ChatButton
+                    kind="plant"
+                    id={o.id}
+                    item={o}
+                    role="plant"
+                    compact
+                    label={t("Написать заказчику")}
+                  />
                   <div className="flex items-center justify-between gap-2 text-sm bg-neutral-50 rounded-lg px-3 py-2">
                     <span className="flex items-center gap-1.5 font-semibold text-neutral-800 min-w-0">
                       <Truck className="w-4 h-4 text-neutral-400 shrink-0" />
@@ -337,7 +354,7 @@ export default function PlantHome() {
                     onClick={() => navigate(`/order/${o.id}`)}
                     className="w-full text-xs font-bold py-2 rounded-lg bg-neutral-900 text-white"
                   >
-                    {t("Открыть заявку и чат")}
+                    {t("Открыть заявку")}
                   </button>
                 </div>
               ))}

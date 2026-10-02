@@ -37,6 +37,10 @@ import {
   VOICE_LABEL,
   deleteChatMessage,
   deleteChatThread,
+  filterChat,
+  messageInChat,
+  isChatClosed,
+  chatDetailsPath,
 } from "@/lib/chat";
 import { t, locale } from "@/lib/i18n";
 
@@ -152,6 +156,21 @@ export default function ChatPage() {
     }
     let mounted = true;
     const load = async () => {
+      if (role === "client" && kind === "plant") {
+        if (!item.plant_id) return;
+        const { data } = await supabase
+          .from("app_users")
+          .select("plant_name, full_name, photo_url")
+          .eq("id", item.plant_id)
+          .maybeSingle();
+        if (mounted)
+          setPeer({
+            name: data?.plant_name || item.plant_name || data?.full_name || t("Завод"),
+            photo: data?.photo_url || null,
+            role: "plant",
+          });
+        return;
+      }
       if (role === "client") {
         if (!item.driver_id) return;
         const { data } = await supabase
@@ -194,10 +213,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!role) return undefined;
     let mounted = true;
-    supabase
-      .from(CHAT_TABLE)
-      .select("*")
-      .eq(col, id)
+    filterChat(supabase.from(CHAT_TABLE).select("*"), kind, id)
       .order("created_at", { ascending: true })
       .limit(1000)
       .then(({ data, error }) => {
@@ -217,7 +233,8 @@ export default function ChatPage() {
             return;
           }
           const m = payload.new;
-          if (!m?.id) return;
+          // У заявки два чата (с миксеристом и с заводом) — берём только свой.
+          if (!m?.id || !messageInChat(m, kind)) return;
           setMessages((prev) => {
             const idx = prev.findIndex((x) => x.id === m.id);
             if (idx === -1) return [...prev, m];
@@ -420,7 +437,7 @@ export default function ChatPage() {
     else navigate("/chats");
   };
 
-  const detailsPath = kind === "leftover" ? `/leftover/${id}` : `/order/${id}`;
+  const detailsPath = chatDetailsPath(kind, id);
 
   // Админ может удалять сообщения и всю переписку, чтобы история не
   // забивалась. Собеседники ничего не удаляют.
@@ -454,6 +471,21 @@ export default function ChatPage() {
     );
   }
 
+  // Сделка завершена — у участников чат закрыт, история остаётся у диспетчера.
+  if (item && role && role !== "admin" && isChatClosed(kind, item)) {
+    return (
+      <div className="h-[100dvh] flex flex-col items-center justify-center gap-3 bg-neutral-50 p-6 text-center">
+        <MessageCircle className="w-10 h-10 text-neutral-300" />
+        <p className="text-sm text-neutral-500">
+          {t("Сделка завершена — чат закрыт. Если нужна помощь, напишите диспетчеру.")}
+        </p>
+        <button onClick={() => navigate("/chats")} className="text-sm font-bold underline">
+          {t("К списку чатов")}
+        </button>
+      </div>
+    );
+  }
+
   if (!item || !role) {
     return (
       <div className="h-[100dvh] flex flex-col items-center justify-center gap-3 bg-neutral-50 p-6 text-center">
@@ -481,7 +513,9 @@ export default function ChatPage() {
           .join(" · ");
 
   const title = isAdmin
-    ? `${item.driver_name || t("Миксерист")} ↔ ${kind === "leftover" ? t("Прораб") : t("Заказчик")}`
+    ? `${
+        kind === "plant" ? item.plant_name || t("Завод") : item.driver_name || t("Миксерист")
+      } ↔ ${kind === "leftover" ? t("Прораб") : t("Заказчик")}`
     : peer?.name || "…";
 
   const isClosed =

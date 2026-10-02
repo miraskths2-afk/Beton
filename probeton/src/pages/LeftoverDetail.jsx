@@ -259,6 +259,7 @@ export default function LeftoverDetail() {
           <ChatButton
             kind="leftover"
             id={l.id}
+            item={l}
             role={chatRole}
             label={
               chatRole === "admin"

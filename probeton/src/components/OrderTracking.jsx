@@ -115,10 +115,21 @@ function OrderCard({ o, busy, onPay, onRate, onCancel, onReorder, ratePick, setR
 
       <OrderExtras o={o} showPhoto={false} />
 
+      {o.plant_id && (
+        <ChatButton
+          kind="plant"
+          id={o.id}
+          item={o}
+          role="client"
+          label={t("Написать заводу{name}", { name: o.plant_name ? ` · ${o.plant_name}` : "" })}
+        />
+      )}
+
       {o.driver_id && (
         <ChatButton
           kind="order"
           id={o.id}
+          item={o}
           role="client"
           label={t("Написать миксеристу")}
         />

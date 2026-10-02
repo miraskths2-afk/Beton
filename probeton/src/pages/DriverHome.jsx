@@ -328,6 +328,7 @@ export default function DriverHome() {
               <ChatButton
                 kind="order"
                 id={o.id}
+                item={o}
                 role="driver"
                 label={t("Написать заказчику")}
               />
