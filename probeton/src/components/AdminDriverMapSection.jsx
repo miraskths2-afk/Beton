@@ -1,21 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLocations, subscribeToLocations } from "@/lib/driverLocation";
+import { vehicleIcon } from "@/lib/mapIcons";
 import { base44, supabase } from "@/api/base44Client";
 import { Phone, Eye, LogOut, Trash2, Loader2 } from "lucide-react";
 import { t, locale } from "@/lib/i18n";
-
-const truckIcon = (highlighted) =>
-  L.divIcon({
-    className: "",
-    html: `<div style="background:${
-      highlighted ? "#f59e0b" : "#22c55e"
-    };width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #171717;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,0,0,.3)"><span style="transform:rotate(45deg);font-size:16px">🚚</span></div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 34],
-  });
 
 function FlyTo({ position }) {
   const map = useMap();
@@ -27,7 +17,10 @@ function FlyTo({ position }) {
 
 const ALMATY = [43.238, 76.945];
 
-export default function AdminDriverMapSection({ showContact = true }) {
+// Живая карта для админа. kind: "driver" — миксеристы, "pump" — насосники
+// АБН. Видит её только админ (страница «Партнёры»): заказчик и завод
+// чужих миксеристов на линии не видят.
+export default function AdminDriverMapSection({ showContact = true, kind = "driver" }) {
   const [drivers, setDrivers] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -42,21 +35,26 @@ export default function AdminDriverMapSection({ showContact = true }) {
         setDrivers([]);
         return;
       }
-      if (!showContact) {
-        // Заказчику контакты водителя не нужны и не должны даже
-        // приходить в браузер — просто точки на карте с именем.
-        setDrivers(locs);
-        return;
-      }
       const ids = locs.map((l) => l.driver_id);
-      const { data: users } = await supabase
+      const fields = showContact ? "id, account_type, phone, vehicle_plate" : "id, account_type";
+      let { data: users, error } = await supabase
         .from("app_users")
-        .select("id, phone, vehicle_plate")
+        .select(showContact ? `${fields}, pump_boom` : fields)
         .in("id", ids);
-      const merged = locs.map((l) => {
-        const u = users?.find((x) => x.id === l.driver_id);
-        return { ...l, phone: u?.phone, vehicle_plate: u?.vehicle_plate };
-      });
+      // Если supabase_pump.sql ещё не выполнен — без длины стрелы.
+      if (error) ({ data: users } = await supabase.from("app_users").select(fields).in("id", ids));
+      const merged = locs
+        .map((l) => {
+          const u = users?.find((x) => x.id === l.driver_id);
+          return {
+            ...l,
+            account_type: u?.account_type,
+            phone: showContact ? u?.phone : undefined,
+            vehicle_plate: showContact ? u?.vehicle_plate : undefined,
+            pump_boom: u?.pump_boom,
+          };
+        })
+        .filter((d) => (kind === "pump" ? d.account_type === "pump" : d.account_type !== "pump"));
       setDrivers(merged);
     };
 
@@ -67,7 +65,7 @@ export default function AdminDriverMapSection({ showContact = true }) {
       unsub();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showContact]);
+  }, [showContact, kind]);
 
   const selected = drivers.find((d) => d.driver_id === selectedId);
   const center = drivers[0] ? [drivers[0].lat, drivers[0].lng] : ALMATY;
@@ -124,7 +122,7 @@ export default function AdminDriverMapSection({ showContact = true }) {
             <Marker
               key={d.driver_id}
               position={[d.lat, d.lng]}
-              icon={truckIcon(d.driver_id === selectedId)}
+              icon={vehicleIcon(d.driver_id === selectedId, kind === "pump")}
               eventHandlers={{ click: () => setSelectedId(d.driver_id) }}
             >
               <Popup>
@@ -144,7 +142,9 @@ export default function AdminDriverMapSection({ showContact = true }) {
 
       <div className="space-y-2">
         <h3 className="font-bold text-neutral-900 px-1 text-sm">
-          {t("Миксеристы на линии ({n})", { n: drivers.length })}
+          {kind === "pump"
+            ? t("Насосники на линии ({n})", { n: drivers.length })
+            : t("Миксеристы на линии ({n})", { n: drivers.length })}
         </h3>
         {drivers.length === 0 ? (
           <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-neutral-400">
@@ -165,8 +165,12 @@ export default function AdminDriverMapSection({ showContact = true }) {
                   <div className="font-bold text-sm text-neutral-900 truncate">
                     {d.driver_name || t("Водитель")}
                   </div>
-                  {showContact && d.vehicle_plate && (
-                    <div className="text-xs text-neutral-500">{d.vehicle_plate}</div>
+                  {showContact && (d.vehicle_plate || d.pump_boom) && (
+                    <div className="text-xs text-neutral-500">
+                      {[d.vehicle_plate, d.pump_boom ? t("стрела {m} м", { m: d.pump_boom }) : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">

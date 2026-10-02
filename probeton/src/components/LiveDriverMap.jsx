@@ -1,26 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLocations, subscribeToLocations } from "@/lib/driverLocation";
+import { vehicleIcon } from "@/lib/mapIcons";
 import { t, locale } from "@/lib/i18n";
-
-const truckIcon = L.divIcon({
-  className: "",
-  html: `<div style="background:#22c55e;width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #171717;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,0,0,.3)"><span style="transform:rotate(45deg);font-size:16px">🚚</span></div>`,
-  iconSize: [34, 34],
-  iconAnchor: [17, 34],
-});
 
 // driverIds: необязательный массив ID водителей, чтобы показать только
 // конкретного водителя (для заказчика). Если не передать — показываются
 // все, кто сейчас "на линии" (для админа).
-export default function LiveDriverMap({ driverIds, height = "40vh" }) {
+// pumpIds: кто из них насосник АБН — у них свой значок 🏗️.
+// emptyText: что написать, если никого из них сейчас нет на линии.
+export default function LiveDriverMap({ driverIds, pumpIds = [], height = "40vh", emptyText }) {
   const [drivers, setDrivers] = useState([]);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
+      // Пустой список — значит показывать некого (а не «всех на линии»).
+      if (Array.isArray(driverIds) && driverIds.length === 0) {
+        if (mounted) setDrivers([]);
+        return;
+      }
       const data = await fetchLocations(driverIds);
       if (mounted) setDrivers(data);
     };
@@ -36,7 +36,7 @@ export default function LiveDriverMap({ driverIds, height = "40vh" }) {
   if (drivers.length === 0) {
     return (
       <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-neutral-400">
-        {t("Пока нет водителей на линии")}
+        {emptyText || t("Пока нет водителей на линии")}
       </div>
     );
   }
@@ -56,7 +56,7 @@ export default function LiveDriverMap({ driverIds, height = "40vh" }) {
           attribution="&copy; OpenStreetMap"
         />
         {drivers.map((d) => (
-          <Marker key={d.driver_id} position={[d.lat, d.lng]} icon={truckIcon}>
+          <Marker key={d.driver_id} position={[d.lat, d.lng]} icon={vehicleIcon(false, pumpIds.includes(d.driver_id))}>
             <Popup>
               <div style={{ minWidth: "140px" }}>
                 <div style={{ fontWeight: 700, fontSize: "14px" }}>

@@ -25,3 +25,23 @@ export const normPhone = (p) => (p || "").replace(/\D/g, "").slice(-10);
 export const CLIENT_CANCELLABLE = ["new", "in_progress"];
 export const canClientCancel = (o) =>
   CLIENT_CANCELLABLE.includes(o?.status || "new");
+
+// Подпись статуса с учётом типа заявки: у заявки АБН вместо «миксера» —
+// «насос». Используйте её вместо ORDER_STATUSES[...].label в карточках.
+const PUMP_STATUS_LABELS = {
+  new: "Поиск насоса",
+  sent_to_plant: "Назначен насос",
+  en_route: "Насос в пути",
+};
+export function statusLabel(o) {
+  const s = o?.status || "new";
+  if (o?.service_type === "pump" && PUMP_STATUS_LABELS[s]) return PUMP_STATUS_LABELS[s];
+  return ORDER_STATUSES[s]?.label || s;
+}
+
+// Шаги для полоски статусов: у АБН нет «Бетон изготавливается».
+export function statusFlowFor(o) {
+  return o?.service_type === "pump"
+    ? STATUS_FLOW.filter((s) => s !== "manufacturing")
+    : STATUS_FLOW;
+}

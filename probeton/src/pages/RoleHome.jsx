@@ -25,7 +25,7 @@ export default function RoleHome() {
     <Suspense fallback={<Loader />}>
       {role === "admin" ? (
         <AdminHome />
-      ) : role === "driver" ? (
+      ) : role === "driver" || role === "pump" ? (
         <DriverHome />
       ) : role === "plant" ? (
         <PlantHome />

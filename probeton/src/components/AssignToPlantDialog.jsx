@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { distanceKm, formatKm } from "@/lib/geo";
 import { t } from "@/lib/i18n";
 import { fetchPlants, fetchDriverState, plantName, plantsErrorText } from "@/lib/plants";
+import { isPumpOrder, attachPumpOrdersToPlant } from "@/lib/pump";
 
 // Админ передаёт заявку клиента заводу. Дальше завод сам выделяет
 // миксериста из своего парка. Ближайшие работающие заводы — наверху.
@@ -95,6 +96,8 @@ export default function AssignToPlantDialog({ order, open, onOpenChange, onAssig
         })
         .eq("id", order.id);
       if (upErr) throw upErr;
+      // АБН, заказанный к этой заявке бетона, тоже переходит к заводу.
+      if (!isPumpOrder(order)) await attachPumpOrdersToPlant(order.id, { id: p.id, name: plantName(p) });
       onAssigned?.();
       onOpenChange(false);
     } catch (e) {

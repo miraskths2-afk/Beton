@@ -88,6 +88,8 @@ export default function DriverApproval() {
           <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
             {d.account_type === "driver"
               ? t("Водитель")
+              : d.account_type === "pump"
+              ? t("Насосник АБН")
               : d.account_type === "plant"
               ? t("Завод / БСУ")
               : t("Заказчик")}
@@ -99,7 +101,7 @@ export default function DriverApproval() {
                 {d.phone}
               </span>
             )}
-            {d.account_type === "driver" && d.vehicle_plate && (
+            {(d.account_type === "driver" || d.account_type === "pump") && d.vehicle_plate && (
               <span className="inline-flex items-center gap-1">
                 <Car className="w-3 h-3" />
                 {d.vehicle_plate}
@@ -150,6 +152,8 @@ export default function DriverApproval() {
                 <span className="text-xs text-neutral-500">
                   {d.account_type === "driver"
                     ? d.vehicle_plate
+                    : d.account_type === "pump"
+                    ? t("Насосник АБН")
                     : d.account_type === "plant"
                     ? t("Завод / БСУ")
                     : t("Заказчик")}

@@ -13,9 +13,9 @@ export default function PlantFleet() {
   return (
     <div className="p-4 space-y-4">
       <div className="px-1">
-        <h1 className="text-xl font-black text-neutral-900">{t("Парк миксеров")}</h1>
+        <h1 className="text-xl font-black text-neutral-900">{t("Парк: миксеры и насосы")}</h1>
         <p className="text-sm text-neutral-500">
-          {t("Добавляйте миксеристов по номеру телефона. Оплату сбора по-прежнему подтверждает админ.")}
+          {t("Добавляйте миксеристов и насосников АБН по номеру телефона. В парк они попадают после одобрения админом.")}
         </p>
       </div>
       <FleetManager plantId={user.id} />

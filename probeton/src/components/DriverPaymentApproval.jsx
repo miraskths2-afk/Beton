@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { BadgeCheck, Loader2, Truck } from "lucide-react";
 import { t, locale } from "@/lib/i18n";
+import { isPumpOrder } from "@/lib/pump";
 
 export default function DriverPaymentApproval() {
   const [orders, setOrders] = useState([]);
@@ -81,7 +82,12 @@ export default function DriverPaymentApproval() {
               </div>
             </div>
             <div className="text-xs text-neutral-500">
-              {t("{cubes} куб × 1 000 ₸ · клиент: {phone}", { cubes: o.cubes || 0, phone: o.phone })}
+              {isPumpOrder(o)
+                ? t("АБН: насосник отметил работу выполненной ({n} ч) · клиент: {phone}", {
+                    n: o.pump_hours_actual || o.pump_hours || "?",
+                    phone: o.phone,
+                  })
+                : t("{cubes} куб × 1 000 ₸ · клиент: {phone}", { cubes: o.cubes || 0, phone: o.phone })}
             </div>
             <button
               onClick={() => approve(o.id)}

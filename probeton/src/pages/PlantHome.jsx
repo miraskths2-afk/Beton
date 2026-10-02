@@ -18,15 +18,19 @@ import {
   Hourglass,
   UserCog,
   Headphones,
+  Construction,
+  Search,
+  UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
 import { t, locale } from "@/lib/i18n";
-import { ORDER_STATUSES } from "@/lib/orderStatuses";
+import { ORDER_STATUSES, statusLabel } from "@/lib/orderStatuses";
 import { plantName, plantsErrorText } from "@/lib/plants";
 import AssignFleetDriverDialog from "@/components/AssignFleetDriverDialog";
 import OrderExtras from "@/components/OrderExtras";
 import ChatButton from "@/components/ChatButton";
+import { isPumpOrder, attachPumpOrdersToPlant, pumpErrorText, workerLabel } from "@/lib/pump";
 
 // Кабинет завода / БСУ.
 // - Принимает свободные заявки клиентов из общей ленты.
@@ -34,6 +38,9 @@ import ChatButton from "@/components/ChatButton";
 // - Выделяет на заявку миксериста из своего парка и ведёт статусы
 //   (изготовление → в пути). Завершение заказа — только через
 //   подтверждение оплаты админом, как и раньше.
+// - Заявки на АБН: выделяет насосника из парка; если своего насоса нет —
+//   нанимает насосника на сайте (общение всё равно через завод) или
+//   отдаёт заявку АБН клиенту, и тот сам находит насосника на сайте.
 export default function PlantHome() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -98,7 +105,7 @@ export default function PlantHome() {
       await load();
     } catch (err) {
       console.error(err);
-      setError(t(plantsErrorText(err)));
+      setError(t(pumpErrorText(plantsErrorText(err))));
     } finally {
       setBusy(null);
     }
@@ -125,6 +132,8 @@ export default function PlantHome() {
       if (!data || data.length === 0) {
         throw new Error(t("Заявку уже забрали."));
       }
+      // АБН, заказанный к этой заявке бетона, тоже переходит к заводу.
+      if (!isPumpOrder(o)) await attachPumpOrdersToPlant(o.id, { id: user.id, name: plantName(user) });
     });
 
   const giveBack = (o) => {
@@ -136,8 +145,55 @@ export default function PlantHome() {
         .eq("id", o.id)
         .eq("plant_id", user.id);
       if (upErr) throw upErr;
+      // Вместе с бетоном возвращаем и его АБН, если насос ещё не выделен.
+      if (!isPumpOrder(o)) {
+        await supabase
+          .from("orders")
+          .update({ plant_id: null, plant_name: null, pump_hire_open: false })
+          .eq("pump_for_order_id", o.id)
+          .eq("plant_id", user.id)
+          .is("driver_id", null);
+      }
     });
   };
+
+  // АБН: своего насоса нет — нанять насосника на сайте. Заявку видят все
+  // насосники, но заказчик по-прежнему общается только с заводом.
+  const hirePump = (o, open) =>
+    run(o.id, async () => {
+      const { error: upErr } = await supabase
+        .from("orders")
+        .update({ pump_hire_open: open })
+        .eq("id", o.id)
+        .eq("plant_id", user.id)
+        .is("driver_id", null);
+      if (upErr) throw upErr;
+    });
+
+  // АБН: насоса нет, нанимать не будем — заказчик сам найдёт насосника
+  // на сайте и будет общаться с ним напрямую.
+  const leavePumpToClient = (o) => {
+    if (!confirm(t("Отдать заявку на АБН клиенту? Её увидят все насосники на сайте, клиент договорится с насосником сам."))) return;
+    run(o.id, async () => {
+      const { error: upErr } = await supabase
+        .from("orders")
+        .update({ plant_id: null, plant_name: null, pump_hire_open: false })
+        .eq("id", o.id)
+        .eq("plant_id", user.id)
+        .is("driver_id", null);
+      if (upErr) throw upErr;
+    });
+  };
+
+  const confirmPrepay = (o) =>
+    run(o.id, async () => {
+      const { error: upErr } = await supabase
+        .from("orders")
+        .update({ pump_prepaid_confirmed: true })
+        .eq("id", o.id)
+        .eq("plant_id", user.id);
+      if (upErr) throw upErr;
+    });
 
   const setStatus = (o, status) =>
     run(o.id, async () => {
@@ -207,8 +263,14 @@ export default function PlantHome() {
         <div className="flex items-center gap-2">
           {o.order_number && <span className="text-xs font-bold text-neutral-400">{o.order_number}</span>}
           <span className={cn("inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold", st.cls)}>
-            {t(st.label)}
+            {t(statusLabel(o))}
           </span>
+          {isPumpOrder(o) && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-sky-100 text-sky-700">
+              <Construction className="w-3 h-3" />
+              {t("АБН")}
+            </span>
+          )}
         </div>
         <span className="text-xs text-neutral-400 flex items-center gap-1">
           <Clock className="w-3 h-3" />
@@ -226,13 +288,13 @@ export default function PlantHome() {
         </div>
         <div className="min-w-0">
           <h1 className="text-xl font-black text-neutral-900 truncate">{plantName(user)}</h1>
-          <p className="text-sm text-neutral-500">{t("Заявки клиентов и ваш парк миксеров")}</p>
+          <p className="text-sm text-neutral-500">{t("Заявки клиентов и ваш парк миксеров и насосов")}</p>
         </div>
       </div>
 
       {user?.role === "admin" && (
         <div className="text-xs font-semibold text-sky-800 bg-sky-50 border border-sky-200 rounded-xl px-3 py-2.5">
-          {t("Режим просмотра: так видит сайт завод. У вашего админ-аккаунта нет своего парка и заявок, поэтому списки пустые. Заводом аккаунт делается на странице «Заводы».")}
+          {t("Режим просмотра: так видит сайт завод. У вашего админ-аккаунта нет своего парка и заявок, поэтому списки пустые. Заводом аккаунт делается на странице «Партнёры» → «Заводы».")}
         </div>
       )}
 
@@ -256,7 +318,7 @@ export default function PlantHome() {
           {needDriver.length > 0 && (
             <div className="space-y-3">
               <div className="text-xs font-bold text-purple-600 uppercase tracking-wide px-1">
-                {t("Нужно выделить миксер ({count})", { count: needDriver.length })}
+                {t("Нужно выделить машину ({count})", { count: needDriver.length })}
               </div>
               {needDriver.map((o) => (
                 <div key={o.id} className="bg-white rounded-2xl p-4 border border-purple-200 shadow-sm space-y-2">
@@ -270,13 +332,56 @@ export default function PlantHome() {
                     compact
                     label={t("Написать заказчику")}
                   />
+                  {isPumpOrder(o) && (
+                    <div className="space-y-2 rounded-lg bg-sky-50 border border-sky-200 p-2.5">
+                      {o.pump_hire_open ? (
+                        <>
+                          <div className="text-xs font-semibold text-sky-800 flex items-center gap-1.5">
+                            <Search className="w-3.5 h-3.5" />
+                            {t("Ищем насосника на сайте — заявку видят все насосники. Клиент общается только с вами.")}
+                          </div>
+                          <button
+                            onClick={() => hirePump(o, false)}
+                            disabled={busy === o.id}
+                            className="w-full text-xs font-bold py-2 rounded-lg bg-white text-sky-700 border border-sky-200 disabled:opacity-50"
+                          >
+                            {t("Отменить найм")}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-xs font-semibold text-sky-800">
+                            {t("Нет своего насоса? Наймите насосника на сайте или отдайте заявку АБН клиенту.")}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => hirePump(o, true)}
+                              disabled={busy === o.id}
+                              className="text-xs font-bold py-2 rounded-lg bg-sky-600 text-white inline-flex items-center justify-center gap-1 disabled:opacity-50"
+                            >
+                              <Search className="w-3.5 h-3.5" />
+                              {t("Нанять на сайте")}
+                            </button>
+                            <button
+                              onClick={() => leavePumpToClient(o)}
+                              disabled={busy === o.id}
+                              className="text-xs font-bold py-2 rounded-lg bg-white text-neutral-700 border border-neutral-200 inline-flex items-center justify-center gap-1 disabled:opacity-50"
+                            >
+                              <UserX className="w-3.5 h-3.5" />
+                              {t("Клиент найдёт сам")}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                   <div className="grid grid-cols-[1fr_auto] gap-2">
                     <button
                       onClick={() => setAssignOrder(o)}
                       className="text-sm font-bold py-2.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 inline-flex items-center justify-center gap-1"
                     >
                       <Send className="w-4 h-4" />
-                      {t("Выделить миксер(ы)")}
+                      {isPumpOrder(o) ? t("Выделить насос из парка") : t("Выделить миксер(ы)")}
                     </button>
                     <button
                       onClick={() => giveBack(o)}
@@ -311,43 +416,76 @@ export default function PlantHome() {
                   />
                   <div className="flex items-center justify-between gap-2 text-sm bg-neutral-50 rounded-lg px-3 py-2">
                     <span className="flex items-center gap-1.5 font-semibold text-neutral-800 min-w-0">
-                      <Truck className="w-4 h-4 text-neutral-400 shrink-0" />
-                      <span className="truncate">{o.driver_name || t("Водитель")}</span>
+                      {isPumpOrder(o) ? (
+                        <Construction className="w-4 h-4 text-sky-500 shrink-0" />
+                      ) : (
+                        <Truck className="w-4 h-4 text-neutral-400 shrink-0" />
+                      )}
+                      <span className="truncate">{o.driver_name || t(workerLabel(o))}</span>
                     </span>
-                    <button
-                      onClick={() => setAssignOrder(o)}
-                      className="shrink-0 text-xs font-bold text-blue-600 inline-flex items-center gap-1"
-                    >
-                      <UserCog className="w-3.5 h-3.5" />
-                      {t("Сменить")}
-                    </button>
+                    {!o.pump_hire_open && (
+                      <button
+                        onClick={() => setAssignOrder(o)}
+                        className="shrink-0 text-xs font-bold text-blue-600 inline-flex items-center gap-1"
+                      >
+                        <UserCog className="w-3.5 h-3.5" />
+                        {t("Сменить")}
+                      </button>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <ChatButton
+                    kind="fleet"
+                    id={o.id}
+                    item={o}
+                    role="plant"
+                    compact
+                    label={isPumpOrder(o) ? t("Написать насоснику") : t("Написать миксеристу")}
+                  />
+                  {isPumpOrder(o) && !o.pump_prepaid_confirmed && (
                     <button
-                      onClick={() => setStatus(o, "manufacturing")}
-                      disabled={busy === o.id || o.status === "manufacturing" || o.status === "en_route"}
-                      className="text-xs font-bold py-2.5 rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 disabled:opacity-40 inline-flex items-center justify-center gap-1"
+                      onClick={() => confirmPrepay(o)}
+                      disabled={busy === o.id}
+                      className="w-full text-xs font-bold py-2 rounded-lg bg-sky-600 text-white disabled:opacity-50"
                     >
-                      <Droplets className="w-3.5 h-3.5" />
-                      {t("Начать заливку")}
+                      {o.pump_prepaid
+                        ? t("Клиент оплатил — подтвердить предоплату")
+                        : t("Предоплата от клиента получена")}
                     </button>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    {isPumpOrder(o) ? (
+                      <div />
+                    ) : (
+                      <button
+                        onClick={() => setStatus(o, "manufacturing")}
+                        disabled={busy === o.id || o.status === "manufacturing" || o.status === "en_route"}
+                        className="text-xs font-bold py-2.5 rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 disabled:opacity-40 inline-flex items-center justify-center gap-1"
+                      >
+                        <Droplets className="w-3.5 h-3.5" />
+                        {t("Начать заливку")}
+                      </button>
+                    )}
                     <button
                       onClick={() => setStatus(o, "en_route")}
                       disabled={busy === o.id || o.status === "en_route"}
                       className="text-xs font-bold py-2.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-40 inline-flex items-center justify-center gap-1"
                     >
                       <Truck className="w-3.5 h-3.5" />
-                      {t("Миксер выехал")}
+                      {isPumpOrder(o) ? t("Насос выехал") : t("Миксер выехал")}
                     </button>
                   </div>
                   {o.driver_paid ? (
                     <div className="text-xs font-bold py-2 rounded-lg bg-amber-100 text-amber-700 inline-flex w-full items-center justify-center gap-1">
                       <Hourglass className="w-3.5 h-3.5" />
-                      {t("Миксерист оплатил сбор — ждёт подтверждения админом")}
+                      {isPumpOrder(o)
+                        ? t("Насосник закончил работу — ждёт подтверждения админом")
+                        : t("Миксерист оплатил сбор — ждёт подтверждения админом")}
                     </div>
                   ) : (
                     <div className="text-[11px] text-neutral-400 text-center">
-                      {t("Заказ закроется, когда миксерист оплатит сбор и админ подтвердит оплату")}
+                      {isPumpOrder(o)
+                        ? t("Заказ закроется, когда насосник отметит работу выполненной и админ подтвердит")
+                        : t("Заказ закроется, когда миксерист оплатит сбор и админ подтвердит оплату")}
                     </div>
                   )}
                   <button

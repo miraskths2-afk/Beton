@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   Factory,
   RefreshCcw,
+  Construction,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { base44, supabase } from "@/api/base44Client";
@@ -30,10 +31,13 @@ import InstallAppCard from "@/components/InstallAppCard";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { t, LANGS, getLang, setLang } from "@/lib/i18n";
 import { THEMES, getTheme, setTheme } from "@/lib/theme";
+import { PUMP_BOOMS, pumpErrorText } from "@/lib/pump";
+import { cn } from "@/lib/utils";
 
 function roleLabel(user) {
   if (user?.role === "admin") return t("Администратор");
   if (user?.account_type === "driver") return t("Водитель");
+  if (user?.account_type === "pump") return t("Насосник АБН");
   if (user?.account_type === "plant") return t("Завод / БСУ");
   return t("Заказчик / Прораб");
 }
@@ -56,6 +60,23 @@ export default function Profile() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef(null);
   const [theme, setThemeState] = useState(getTheme);
+  const [savingBoom, setSavingBoom] = useState(false);
+  const isWorker = user?.account_type === "driver" || user?.account_type === "pump";
+
+  // Насосник указывает длину стрелы своего АБН — по ней лента подсказывает,
+  // какие заявки ему подходят.
+  const saveBoom = async (b) => {
+    setSavingBoom(true);
+    try {
+      await base44.auth.updateMe({ pump_boom: b });
+      await checkUserAuth();
+    } catch (e) {
+      console.error(e);
+      alert(pumpErrorText(e));
+    } finally {
+      setSavingBoom(false);
+    }
+  };
 
   const chooseTheme = (id) => {
     setTheme(id);
@@ -154,7 +175,7 @@ export default function Profile() {
                 <UserCircle className="w-8 h-8 text-amber-600" />
               )}
             </div>
-            {user?.account_type === "driver" && (
+            {isWorker && (
               <>
                 <button
                   onClick={handlePhotoPick}
@@ -234,7 +255,34 @@ export default function Profile() {
             {user?.phone}
           </div>
 
-          {user?.account_type === "driver" && (
+          {user?.account_type === "pump" && (
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center gap-2 text-neutral-600">
+                <Construction className="w-4 h-4 text-neutral-400 shrink-0" />
+                {t("Длина стрелы вашего АБН")}
+                {savingBoom && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {PUMP_BOOMS.map((b) => (
+                  <button
+                    key={b}
+                    onClick={() => saveBoom(b)}
+                    disabled={savingBoom}
+                    className={cn(
+                      "h-9 rounded-lg text-xs font-bold border",
+                      user?.pump_boom === b
+                        ? "bg-sky-600 text-white border-sky-600"
+                        : "bg-white text-neutral-700 border-neutral-200"
+                    )}
+                  >
+                    {b} м
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isWorker && (
             <>
               {user?.vehicle_plate && (
                 <div className="flex items-center gap-2 text-neutral-600">
@@ -266,11 +314,12 @@ export default function Profile() {
           <p className="text-xs text-neutral-500 -mt-2">
             {t("Ваша роль остаётся администратором — это просто переключение, какой интерфейс сейчас показывать.")}
           </p>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-5 gap-1.5">
             {[
               { id: "admin", label: "Админ", icon: LayoutDashboard },
               { id: "client", label: "Заказчик", icon: Truck },
               { id: "driver", label: "Водитель", icon: UserCircle },
+              { id: "pump", label: "АБН", icon: Construction },
               { id: "plant", label: "Завод", icon: Factory },
             ].map((opt) => (
               <button
@@ -381,7 +430,10 @@ export default function Profile() {
         )}
       </section>
 
-      {user?.role !== "admin" && user?.account_type !== "driver" && user?.account_type !== "plant" && (
+      {user?.role !== "admin" &&
+        user?.account_type !== "driver" &&
+        user?.account_type !== "pump" &&
+        user?.account_type !== "plant" && (
         <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
           <button
             onClick={() => toggle("myIntercepts")}

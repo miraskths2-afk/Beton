@@ -13,8 +13,9 @@ import {
   plantsErrorText,
 } from "@/lib/plants";
 import { setOffline } from "@/lib/driverLocation";
+import { pumpErrorText } from "@/lib/pump";
 
-// Парк миксеристов одного завода. Используется и самим заводом
+// Парк одного завода: миксеристы и насосники АБН. Используется и самим заводом
 // (страница «Парк»), и админом (страница «Заводы»).
 // Завод добавляет миксериста по номеру телефона (в парк он попадает
 // после одобрения админом), ставит на линию и снимает с неё, убирает
@@ -66,11 +67,11 @@ export default function FleetManager({ plantId, isAdmin = false }) {
     try {
       const u = await findUserByPhone(phone);
       if (!u) {
-        setError(t("Миксерист с таким номером не найден. Пусть он сначала войдёт на сайт как водитель."));
+        setError(t("Миксерист или насосник с таким номером не найден. Пусть он сначала войдёт на сайт как водитель или насосник."));
         return;
       }
-      if (u.account_type !== "driver") {
-        setError(t("Этот номер зарегистрирован не как водитель."));
+      if (u.account_type !== "driver" && u.account_type !== "pump") {
+        setError(t("Этот номер зарегистрирован не как миксерист или насосник."));
         return;
       }
       if (u.plant_id === plantId) {
@@ -104,7 +105,7 @@ export default function FleetManager({ plantId, isAdmin = false }) {
       await load();
     } catch (err) {
       console.error(err);
-      setError(t(plantsErrorText(err)));
+      setError(pumpErrorText(t(plantsErrorText(err))));
     } finally {
       setAdding(false);
     }
@@ -182,7 +183,7 @@ export default function FleetManager({ plantId, isAdmin = false }) {
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder={t("Номер миксериста")}
+          placeholder={t("Номер миксериста или насосника")}
           className="flex-1 min-w-0 px-3 py-2.5 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
         />
         <button
@@ -239,7 +240,7 @@ export default function FleetManager({ plantId, isAdmin = false }) {
       ) : fleet.length === 0 ? (
         <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-neutral-400">
           <Truck className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          {t("В парке пока нет миксеристов")}
+          {t("В парке пока нет миксеристов и насосников")}
         </div>
       ) : (
         <div className="space-y-2">
@@ -257,6 +258,18 @@ export default function FleetManager({ plantId, isAdmin = false }) {
                 <div className="min-w-0">
                   <div className="font-bold text-sm text-neutral-900 truncate">{driverName(d)}</div>
                   <div className="text-xs text-neutral-500 flex flex-wrap items-center gap-x-2">
+                    <span
+                      className={cn(
+                        "font-bold",
+                        d.account_type === "pump" ? "text-sky-700" : "text-neutral-700"
+                      )}
+                    >
+                      {d.account_type === "pump"
+                        ? d.pump_boom
+                          ? t("АБН {m} м", { m: d.pump_boom })
+                          : t("Насосник")
+                        : t("Миксерист")}
+                    </span>
                     {d.vehicle_plate && <span>{d.vehicle_plate}</span>}
                     <span className={cn("font-semibold", online ? "text-green-600" : "text-neutral-400")}>
                       {online ? t("На линии") : t("Не на линии")}

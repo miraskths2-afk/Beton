@@ -5,9 +5,14 @@ import { useWallet } from "@/lib/balance";
 import DriverWallet from "@/components/DriverWallet";
 import { CheckCircle2, Loader2, BarChart3, Wallet } from "lucide-react";
 import { t, locale } from "@/lib/i18n";
+import { getEffectiveRole } from "@/lib/effectiveRole";
+import { isPumpOrder, pumpFinalTotal, PUMP_MIN_HOURS } from "@/lib/pump";
 
 export default function DriverBalance() {
-  const { user } = useAuth();
+  const { user, viewMode } = useAuth();
+  // У насосника АБН кошелька нет (он нужен только для Кубовика) — только
+  // статистика: часы и сумма по выполненным заявкам.
+  const isPump = getEffectiveRole(user, viewMode) === "pump";
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const wallet = useWallet(user?.id);
@@ -32,7 +37,11 @@ export default function DriverBalance() {
     (o) =>
       o.driver_id === user?.id && o.status !== "done" && o.status !== "cancelled"
   );
-  const totalSum = done.reduce((sum, o) => sum + (o.cubes || 0) * 1000, 0);
+  const pumpHours = (o) =>
+    Math.max(PUMP_MIN_HOURS, Number(o.pump_hours || 0), Number(o.pump_hours_actual || 0));
+  const orderSum = (o) => (isPumpOrder(o) ? pumpFinalTotal(o) || 0 : (o.cubes || 0) * 1000);
+  const totalSum = done.reduce((sum, o) => sum + orderSum(o), 0);
+  const totalHours = done.filter(isPumpOrder).reduce((sum, o) => sum + pumpHours(o), 0);
   const totalCubes = done.reduce((sum, o) => sum + (o.cubes || 0), 0);
 
   const fmtDate = (d) =>
@@ -52,7 +61,7 @@ export default function DriverBalance() {
         </p>
       </div>
 
-      <DriverWallet wallet={wallet} />
+      {!isPump && <DriverWallet wallet={wallet} />}
 
       <div className="rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-700 text-white p-5 shadow-md">
         <div className="flex items-center gap-2 text-neutral-300 text-sm">
@@ -64,7 +73,9 @@ export default function DriverBalance() {
         </div>
         <div className="flex items-center gap-1.5 text-xs text-neutral-400 mt-2">
           <BarChart3 className="w-3.5 h-3.5" />
-          {t("{cubes} куб всего · 1 000 ₸ за куб", { cubes: totalCubes })}
+          {isPump
+            ? t("{n} ч отработано на АБН", { n: totalHours })
+            : t("{cubes} куб всего · 1 000 ₸ за куб", { cubes: totalCubes })}
         </div>
       </div>
 
@@ -115,12 +126,13 @@ export default function DriverBalance() {
                     </div>
                     <div className="text-xs text-neutral-400">
                       {o.cubes ? `${t("{cubes} куб", { cubes: o.cubes })} · ` : ""}
+                      {isPumpOrder(o) ? `${t("{n} ч", { n: pumpHours(o) })} · ` : ""}
                       {fmtDate(o.completed_at || o.created_date)}
                     </div>
                   </div>
                 </div>
                 <div className="text-sm font-black text-neutral-900 tabular-nums">
-                  {((o.cubes || 0) * 1000).toLocaleString(locale())} ₸
+                  {orderSum(o).toLocaleString(locale())} ₸
                 </div>
               </div>
             ))}

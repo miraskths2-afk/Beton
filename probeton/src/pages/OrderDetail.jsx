@@ -2,7 +2,14 @@ import React, { useEffect, useState, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44, supabase } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { ORDER_STATUSES, STATUS_FLOW, normPhone, canClientCancel } from "@/lib/orderStatuses";
+import {
+  ORDER_STATUSES,
+  normPhone,
+  canClientCancel,
+  statusLabel,
+  statusFlowFor,
+} from "@/lib/orderStatuses";
+import { isPumpOrder, workerLabel } from "@/lib/pump";
 import { getEffectiveRole } from "@/lib/effectiveRole";
 import {
   ArrowLeft,
@@ -18,6 +25,8 @@ import {
   Trash2,
   UserCircle,
   Factory,
+  Construction,
+  Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DetailPageSkeleton } from "@/components/Skeleton";
@@ -42,6 +51,8 @@ export default function OrderDetail() {
   const [driverPhone, setDriverPhone] = useState(null);
   const [driverPhoto, setDriverPhoto] = useState(null);
   const [trips, setTrips] = useState([]);
+  // Связанные заявки: АБН к этой заявке бетона, или бетон для этой заявки АБН.
+  const [linked, setLinked] = useState([]);
 
   const load = async () => {
     try {
@@ -110,6 +121,31 @@ export default function OrderDetail() {
     };
   }, [tripRoot, order?.status]);
 
+  const linkKey = order ? `${order.id}:${order.pump_for_order_id || ""}:${order.service_type || ""}` : "";
+  useEffect(() => {
+    if (!order) {
+      setLinked([]);
+      return;
+    }
+    let mounted = true;
+    const fields = "id, order_number, service_type, pump_boom, cubes, grade, driver_name, status";
+    const q = isPumpOrder(order)
+      ? order.pump_for_order_id
+        ? supabase.from("orders").select(fields).eq("id", order.pump_for_order_id)
+        : null
+      : supabase.from("orders").select(fields).eq("pump_for_order_id", order.id);
+    if (!q) {
+      setLinked([]);
+      return;
+    }
+    q.then(({ data, error }) => {
+      if (mounted) setLinked(error ? [] : data || []);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [linkKey, order?.status]);
+
   if (loading) {
     return <DetailPageSkeleton />;
   }
@@ -130,8 +166,11 @@ export default function OrderDetail() {
   }
 
   const o = order;
-  const st = ORDER_STATUSES[o.status || "new"];
-  const currentIdx = STATUS_FLOW.indexOf(o.status || "new");
+  const st = ORDER_STATUSES[o.status || "new"] || ORDER_STATUSES.new;
+  const isPump = isPumpOrder(o);
+  const worker = workerLabel(o);
+  const flow = statusFlowFor(o);
+  const currentIdx = flow.indexOf(o.status || "new");
   const isDone = o.status === "done";
   const isCancelled = o.status === "cancelled";
   const isOrderActive = !isDone && !isCancelled;
@@ -152,6 +191,7 @@ export default function OrderDetail() {
   const canSeePhones = user?.role === "admin" || user?.account_type === "plant";
   const chatRole = getChatRole(user, "order", o);
   const plantChatRole = getChatRole(user, "plant", o);
+  const fleetChatRole = getChatRole(user, "fleet", o);
   const hideDriverMap = isPlant && o.plant_id !== user?.id;
   // Отменить заказ может админ или сам заказчик (по номеру телефона), и
   // заказчик — только пока бетон не начали готовить. Водитель отменить
@@ -232,11 +272,12 @@ export default function OrderDetail() {
       </button>
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-black text-neutral-900">
+        <h1 className="text-xl font-black text-neutral-900 inline-flex items-center gap-2">
+          {isPump && <Construction className="w-5 h-5 text-sky-600" />}
           {o.order_number || t("Заказ")}
         </h1>
         <span className={cn("px-2.5 py-1 rounded-lg text-xs font-bold", st.cls)}>
-          {t(st.label)}
+          {t(statusLabel(o))}
         </span>
       </div>
 
@@ -247,7 +288,7 @@ export default function OrderDetail() {
         </div>
       ) : (
         <div className="flex flex-wrap gap-1.5">
-          {STATUS_FLOW.map((s, i) => (
+          {flow.map((s, i) => (
             <span
               key={s}
               className={cn(
@@ -257,7 +298,7 @@ export default function OrderDetail() {
                   : "bg-neutral-200 text-neutral-400"
               )}
             >
-              {t(ORDER_STATUSES[s].label)}
+              {t(statusLabel({ ...o, status: s }))}
             </span>
           ))}
         </div>
@@ -269,12 +310,12 @@ export default function OrderDetail() {
             <div className="flex items-center gap-2 bg-green-600 text-white rounded-lg px-3 py-2.5">
               <Truck className="w-5 h-5" />
               <span className="font-bold text-sm">
-                {t("Миксер выехал — ожидайте подачи!")}
+                {isPump ? t("Насос выехал — скоро будет на объекте!") : t("Миксер выехал — ожидайте подачи!")}
               </span>
             </div>
           )}
           <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide px-1">
-            {hideDriverMap ? t("Миксерист") : t("Миксерист и маршрут до объекта")}
+            {hideDriverMap ? t(worker) : t("{who} и маршрут до объекта", { who: t(worker) })}
           </div>
           {!hideDriverMap && (
           <Suspense
@@ -313,7 +354,9 @@ export default function OrderDetail() {
               className="flex items-center justify-center gap-2 text-sm font-bold text-white bg-green-600 rounded-lg px-3 py-2.5"
             >
               <Phone className="w-4 h-4" />
-              {t("Позвонить миксеристу: {phone}", { phone: driverPhone })}
+              {isPump
+                ? t("Позвонить насоснику: {phone}", { phone: driverPhone })
+                : t("Позвонить миксеристу: {phone}", { phone: driverPhone })}
             </a>
           )}
         </div>
@@ -344,17 +387,67 @@ export default function OrderDetail() {
           role={chatRole}
           label={
             chatRole === "admin"
-              ? t("Переписка миксериста и заказчика")
+              ? isPump
+                ? t("Переписка насосника и заказчика")
+                : t("Переписка миксериста и заказчика")
               : chatRole === "driver"
               ? t("Написать заказчику")
+              : isPump
+              ? t("Написать насоснику")
               : t("Написать миксеристу")
           }
           className="rounded-xl"
         />
       )}
 
-      {o.driver_id && (
+      {o.plant_id && o.driver_id && fleetChatRole && (
+        <ChatButton
+          kind="fleet"
+          id={o.id}
+          item={o}
+          role={fleetChatRole}
+          label={
+            fleetChatRole === "admin"
+              ? isPump
+                ? t("Переписка завода и насосника")
+                : t("Переписка завода и миксериста")
+              : fleetChatRole === "plant"
+              ? isPump
+                ? t("Написать насоснику")
+                : t("Написать миксеристу")
+              : t("Написать заводу{name}", { name: o.plant_name ? ` · ${o.plant_name}` : "" })
+          }
+          className="rounded-xl"
+        />
+      )}
+
+      {o.driver_id && !isPump && (
         <DowntimeTimer o={o} role={timerRole} userId={user?.id} onChanged={load} />
+      )}
+
+      {linked.length > 0 && (
+        <div className="bg-white rounded-2xl border border-sky-200 shadow-sm p-3 space-y-1.5">
+          <div className="text-xs font-bold text-sky-700 uppercase tracking-wide flex items-center gap-1">
+            <Link2 className="w-3.5 h-3.5" />
+            {isPump ? t("Заявка на бетон для этого насоса") : t("АБН к этой заявке")}
+          </div>
+          {linked.map((l) => (
+            <button
+              key={l.id}
+              onClick={() => navigate(`/order/${l.id}`)}
+              className="w-full flex items-center justify-between gap-2 text-left text-sm rounded-lg px-3 py-2 bg-neutral-50"
+            >
+              <span className="truncate">
+                {l.order_number || t("Заказ")} ·{" "}
+                {isPumpOrder(l)
+                  ? t("АБН {m} м", { m: l.pump_boom || "?" })
+                  : [l.grade, l.cubes ? t("{n} куб", { n: l.cubes }) : null].filter(Boolean).join(" · ")}
+                {l.driver_name ? ` · ${l.driver_name}` : ""}
+              </span>
+              <span className="shrink-0 text-xs text-neutral-500">{t(statusLabel(l))}</span>
+            </button>
+          ))}
+        </div>
       )}
 
       {trips.length > 1 && (
@@ -382,9 +475,11 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {isOrderActive && !o.driver_id && (
+      {isOrderActive && !o.driver_id && !o.plant_id && (
         <div className="text-xs text-neutral-400 text-center px-3 py-2 bg-neutral-100 rounded-lg">
-          {t("Чат с миксеристом появится здесь, как только он примет заказ")}
+          {isPump
+            ? t("Чат с насосником появится здесь, как только он примет заказ")
+            : t("Чат с миксеристом появится здесь, как только он примет заказ")}
         </div>
       )}
 
@@ -508,7 +603,7 @@ export default function OrderDetail() {
               </div>
               <div className="pb-1">
                 <div className="text-sm font-semibold text-neutral-800">
-                  {t("Миксерист принял заказ")}
+                  {isPump ? t("Насосник принял заказ") : t("Миксерист принял заказ")}
                   {o.driver_name ? ` — ${o.driver_name}` : ""}
                 </div>
                 <div className="text-xs text-neutral-400">
@@ -536,7 +631,7 @@ export default function OrderDetail() {
 
           {!o.accepted_at && !o.completed_at && (
             <div className="text-xs text-neutral-400 pl-5">
-              {t("Пока заказ ещё не принят миксеристом")}
+              {isPump ? t("Пока заказ ещё не принят насосником") : t("Пока заказ ещё не принят миксеристом")}
             </div>
           )}
         </div>
@@ -548,17 +643,35 @@ export default function OrderDetail() {
             {t("Управление")}
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {STATUS_FLOW.map((s) => (
+            {flow.map((s) => (
               <button
                 key={s}
                 onClick={() => setStatus(s)}
                 disabled={busy || o.status === s}
                 className="text-[11px] font-bold py-2.5 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-neutral-200 disabled:opacity-40"
               >
-                {t(ORDER_STATUSES[s].label)}
+                {t(statusLabel({ ...o, status: s }))}
               </button>
             ))}
           </div>
+          {isPump && !o.pump_prepaid_confirmed && (
+            <button
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await base44.entities.Order.update(o.id, { pump_prepaid_confirmed: true });
+                } catch (err) {
+                  console.error(err);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              disabled={busy}
+              className="w-full text-xs font-bold py-2.5 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 disabled:opacity-40"
+            >
+              {t("Предоплата АБН получена")}
+            </button>
+          )}
           <button
             onClick={removeOrder}
             disabled={busy}

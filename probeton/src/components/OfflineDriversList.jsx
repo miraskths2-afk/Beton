@@ -3,7 +3,8 @@ import { base44, supabase } from "@/api/base44Client";
 import { Phone, Trash2, Loader2, UserX } from "lucide-react";
 import { t } from "@/lib/i18n";
 
-export default function OfflineDriversList() {
+// kind: "driver" — миксеристы, "pump" — насосники АБН.
+export default function OfflineDriversList({ kind = "driver" }) {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -16,7 +17,7 @@ export default function OfflineDriversList() {
       ]);
       const onlineIds = new Set((onlineRows.data || []).map((r) => r.driver_id));
       const offline = allDrivers.filter(
-        (u) => u.account_type === "driver" && !onlineIds.has(u.id)
+        (u) => u.account_type === kind && !onlineIds.has(u.id)
       );
       setDrivers(offline);
     } catch (e) {
@@ -43,7 +44,7 @@ export default function OfflineDriversList() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [kind]);
 
   const deleteDriver = async (id, name) => {
     if (
@@ -76,7 +77,7 @@ export default function OfflineDriversList() {
   if (drivers.length === 0) {
     return (
       <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center text-sm text-neutral-400">
-        {t("Все водители сейчас на линии")}
+        {kind === "pump" ? t("Все насосники сейчас на линии") : t("Все водители сейчас на линии")}
       </div>
     );
   }
@@ -95,6 +96,7 @@ export default function OfflineDriversList() {
             </div>
             <div className="text-xs text-neutral-500">
               {d.vehicle_plate || "—"} ·{" "}
+              {d.pump_boom ? `${t("стрела {m} м", { m: d.pump_boom })} · ` : ""}
               {d.approval_status === "approved" ? t("Одобрен") : t("На одобрении")}
             </div>
           </div>

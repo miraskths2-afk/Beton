@@ -2,7 +2,12 @@
 // (плюс диспетчер):
 //   kind "order"    — заказчик ↔ миксерист по заявке;
 //   kind "plant"    — заказчик ↔ завод, который ведёт его заявку;
+//   kind "fleet"    — завод ↔ свой миксерист или насосник по заявке
+//                     завода (channel = 'fleet', supabase_pump.sql);
 //   kind "leftover" — прораб ↔ миксерист по остатку из Кубовика.
+// Если заявку ведёт завод, заказчик пишет только заводу: отдельного
+// чата с миксеристом или насосником у него нет.
+// Насосник АБН в чатах — та же роль "driver", что и миксерист.
 // Когда сделка завершена (заказ выполнен/отменён, остаток забран), чат у
 // участников пропадает, а у админа остаётся в истории — админ может
 // удалить его сам.
@@ -22,6 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
 import { t } from "@/lib/i18n";
+import { isPumpOrder, workerLabel } from "@/lib/pump";
 
 export const CHAT_TABLE = "order_messages";
 
@@ -32,15 +38,24 @@ export const ROLE_LABEL = {
   plant: "Завод",
 };
 
+export const CHAT_KINDS = ["order", "plant", "fleet", "leftover"];
+
+// Подпись роли с учётом заявки: у заявки АБН "driver" — это насосник.
+export function roleLabelFor(role, item) {
+  if (role === "driver" && item && isPumpOrder(item)) return "Насосник";
+  return ROLE_LABEL[role] || "";
+}
+
 export function chatColumn(kind) {
   return kind === "leftover" ? "leftover_id" : "order_id";
 }
 
-// Отбор сообщений одного чата: у заявки два отдельных чата —
-// с миксеристом (channel пустой) и с заводом (channel = 'plant').
+// Отбор сообщений одного чата: у заявки до трёх отдельных чатов —
+// с миксеристом (channel пустой), заказчика с заводом (channel = 'plant')
+// и завода со своим миксеристом (channel = 'fleet').
 export function filterChat(query, kind, id) {
   const q = query.eq(chatColumn(kind), id);
-  if (kind === "plant") return q.eq("channel", "plant");
+  if (kind === "plant" || kind === "fleet") return q.eq("channel", kind);
   if (kind === "order") return q.is("channel", null);
   return q;
 }
@@ -48,12 +63,14 @@ export function filterChat(query, kind, id) {
 // К какому чату относится сообщение.
 export function messageChatKey(m) {
   if (m.leftover_id) return `leftover:${m.leftover_id}`;
-  return `${m.channel === "plant" ? "plant" : "order"}:${m.order_id}`;
+  const kind = m.channel === "plant" || m.channel === "fleet" ? m.channel : "order";
+  return `${kind}:${m.order_id}`;
 }
 
 export function messageInChat(m, kind) {
   if (kind === "leftover") return !!m.leftover_id;
-  return (m.channel === "plant") === (kind === "plant");
+  const ch = m.channel || null;
+  return kind === "order" ? !ch : ch === kind;
 }
 
 // Сделка завершена — участникам чат больше не показываем.
@@ -82,11 +99,21 @@ export function getChatRole(user, kind, item) {
     if (myPhone && normPhone(item.phone) === myPhone) return "client";
     return null;
   }
-  if (item.driver_id && user.id === item.driver_id) return "driver";
+  if (kind === "fleet") {
+    if (!item.plant_id || !item.driver_id) return null;
+    if (user.account_type === "plant" && item.plant_id === user.id) return "plant";
+    if (user.id === item.driver_id) return "driver";
+    return null;
+  }
   if (kind === "order") {
+    // Заявку ведёт завод — заказчик и исполнитель напрямую не пишут
+    // друг другу: заказчик пишет заводу, исполнитель — тоже заводу.
+    if (item.plant_id) return null;
+    if (item.driver_id && user.id === item.driver_id) return "driver";
     if (myPhone && normPhone(item.phone) === myPhone) return "client";
     return null;
   }
+  if (item.driver_id && user.id === item.driver_id) return "driver";
   if (myPhone && normPhone(item.intercepted_by_phone) === myPhone) return "client";
   return null;
 }
@@ -96,6 +123,7 @@ export function getChatRole(user, kind, item) {
 export function chatAvailable(kind, item) {
   if (!item) return false;
   if (kind === "plant") return !!item.plant_id;
+  if (kind === "fleet") return !!item.plant_id && !!item.driver_id;
   return kind === "leftover" ? !!item.intercepted_by_phone : !!item.driver_id;
 }
 
@@ -144,7 +172,7 @@ export async function sendChatMessage({ kind, id, user, role, name, message, aud
       sender_role: role,
       sender_name: name,
       message,
-      ...(kind === "plant" ? { channel: "plant" } : {}),
+      ...(kind === "plant" || kind === "fleet" ? { channel: kind } : {}),
       ...(audioUrl ? { audio_url: audioUrl, audio_duration: audioDuration ?? null } : {}),
     })
     .select()
@@ -200,8 +228,9 @@ export async function markChatRead(kind, id, role) {
   if (error) console.error(error);
 }
 
-const ORDER_FIELDS =
+const ORDER_FIELDS_BASE =
   "id, order_number, phone, driver_id, driver_name, plant_id, plant_name, status, grade, cubes, what_needed, delivery_address, created_date";
+const ORDER_FIELDS = `${ORDER_FIELDS_BASE}, service_type, pump_boom, pump_hours`;
 const LEFTOVER_FIELDS =
   "id, grade, cubes, direction, price, phone, driver_id, driver_name, intercepted_by_phone, status, created_date";
 
@@ -214,9 +243,17 @@ async function safe(query) {
   return data || [];
 }
 
+// Заявки для списка чатов. Если supabase_pump.sql ещё не выполнен (нет
+// колонок АБН) — повторяем без них, чтобы чаты не пропали.
+async function safeOrders(makeQuery) {
+  const { data, error } = await makeQuery(ORDER_FIELDS);
+  if (!error) return data || [];
+  return safe(makeQuery(ORDER_FIELDS_BASE));
+}
+
 function orderTitle(o, role) {
   const num = o.order_number ? `№${o.order_number}` : t("Заказ");
-  if (role === "client") return o.driver_name || t("Миксерист");
+  if (role === "client") return o.driver_name || t(workerLabel(o));
   if (role === "admin") return `${t("Заказ")} ${num}`;
   return `${t("Заказчик")} · ${num}`;
 }
@@ -226,6 +263,13 @@ function plantChatTitle(o, role) {
   if (role === "client") return o.plant_name || t("Завод");
   if (role === "admin") return `${t("Заказ")} ${num} · ${t("завод")}`;
   return `${t("Заказчик")} · ${num}`;
+}
+
+function fleetTitle(o, role) {
+  const num = o.order_number ? `№${o.order_number}` : "";
+  if (role === "driver") return o.plant_name || t("Завод");
+  if (role === "admin") return `${t("Заказ")} ${num} · ${t("завод")}`;
+  return `${o.driver_name || t(workerLabel(o))} · ${num}`;
 }
 
 function leftoverTitle(l, role) {
@@ -242,12 +286,16 @@ function itemSubtitle(kind, item, role) {
       return `${item.driver_name || t("Миксерист")} ↔ ${t("Прораб")} · ${cubes}`;
     return [t("Кубовик"), gc].filter(Boolean).join(" · ");
   }
+  const what = isPumpOrder(item) ? t("АБН {m} м", { m: item.pump_boom || "?" }) : gc;
   if (role === "admin") {
-    const who = kind === "plant" ? item.plant_name || t("Завод") : item.driver_name || t("Миксерист");
-    return `${who} ↔ ${t("Заказчик")}${gc ? " · " + gc : ""}`;
+    if (kind === "fleet")
+      return `${item.plant_name || t("Завод")} ↔ ${item.driver_name || t(workerLabel(item))}${what ? " · " + what : ""}`;
+    const who = kind === "plant" ? item.plant_name || t("Завод") : item.driver_name || t(workerLabel(item));
+    return `${who} ↔ ${t("Заказчик")}${what ? " · " + what : ""}`;
   }
-  const num = role === "client" && item.order_number ? `№${item.order_number}` : "";
-  return [num, gc].filter(Boolean).join(" · ") || item.what_needed || "";
+  const num =
+    (role === "client" || kind === "fleet") && item.order_number ? `№${item.order_number}` : "";
+  return [num, what].filter(Boolean).join(" · ") || item.what_needed || "";
 }
 
 function isActive(kind, item) {
@@ -279,15 +327,15 @@ export async function loadMyChats(user) {
     const oIds = [...new Set(preMessages.map((m) => m.order_id).filter(Boolean))];
     const lIds = [...new Set(preMessages.map((m) => m.leftover_id).filter(Boolean))];
     [orders, leftovers] = await Promise.all([
-      oIds.length ? safe(supabase.from("orders").select(ORDER_FIELDS).in("id", oIds)) : [],
+      oIds.length ? safeOrders((f) => supabase.from("orders").select(f).in("id", oIds)) : [],
       lIds.length ? safe(supabase.from("leftovers").select(LEFTOVER_FIELDS).in("id", lIds)) : [],
     ]);
-  } else if (user.account_type === "driver") {
+  } else if (user.account_type === "driver" || user.account_type === "pump") {
     [orders, leftovers] = await Promise.all([
-      safe(
+      safeOrders((f) =>
         supabase
           .from("orders")
-          .select(ORDER_FIELDS)
+          .select(f)
           .eq("driver_id", user.id)
           .order("created_date", { ascending: false })
           .limit(300)
@@ -303,10 +351,10 @@ export async function loadMyChats(user) {
       ),
     ]);
   } else if (user.account_type === "plant") {
-    orders = await safe(
+    orders = await safeOrders((f) =>
       supabase
         .from("orders")
-        .select(ORDER_FIELDS)
+        .select(f)
         .eq("plant_id", user.id)
         .order("created_date", { ascending: false })
         .limit(300)
@@ -314,10 +362,10 @@ export async function loadMyChats(user) {
   } else {
     const mine = normPhone(user.phone);
     const [o, l] = await Promise.all([
-      safe(
+      safeOrders((f) =>
         supabase
           .from("orders")
-          .select(ORDER_FIELDS)
+          .select(f)
           .or("driver_id.not.is.null,plant_id.not.is.null")
           .order("created_date", { ascending: false })
           .limit(1000)
@@ -396,6 +444,8 @@ export async function loadMyChats(user) {
           ? leftoverTitle(item, role)
           : kind === "plant"
           ? plantChatTitle(item, role)
+          : kind === "fleet"
+          ? fleetTitle(item, role)
           : orderTitle(item, role),
       subtitle: itemSubtitle(kind, item, role),
       last,
@@ -408,6 +458,7 @@ export async function loadMyChats(user) {
   return [
     ...orders.map((o) => (user.account_type === "plant" && !isAdmin ? null : build("order", o))),
     ...orders.map((o) => (o.plant_id ? build("plant", o) : null)),
+    ...orders.map((o) => (o.plant_id && o.driver_id ? build("fleet", o) : null)),
     ...leftovers.map((l) => build("leftover", l)),
   ]
     .filter(Boolean)

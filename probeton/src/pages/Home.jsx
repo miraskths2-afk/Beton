@@ -8,11 +8,15 @@ import { base44 } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
 import { Zap, RotateCcw, Repeat } from "lucide-react";
 import RecurringOrdersManager from "@/components/RecurringOrdersManager";
+import PumpOrderForm from "@/components/PumpOrderForm";
+import { isPumpOrder } from "@/lib/pump";
 import { t } from "@/lib/i18n";
 
+// «АБН» — отдельный заказ автобетононасоса.
 const TABS = [
-  { id: "quick", label: "Быстрый заказ" },
+  { id: "quick", label: "Бетон" },
   { id: "calc", label: "Калькулятор" },
+  { id: "pump", label: "АБН" },
   { id: "track", label: "Мой заказ" },
 ];
 
@@ -29,7 +33,10 @@ export default function Home() {
     (async () => {
       try {
         const all = await base44.entities.Order.list("-created_date", 50);
-        const mine = all.filter((o) => normPhone(o.phone) === normPhone(user.phone));
+        // «Заказать снова» — только для бетона, не для АБН.
+        const mine = all.filter(
+          (o) => normPhone(o.phone) === normPhone(user.phone) && !isPumpOrder(o)
+        );
         if (mine.length > 0) setLastOrder(mine[0]);
       } catch (e) {
         console.error(e);
@@ -82,7 +89,7 @@ export default function Home() {
             key={tb.id}
             onClick={() => setTab(tb.id)}
             className={cn(
-              "flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all",
+              "flex-1 py-2.5 px-1 rounded-lg text-xs font-semibold transition-all",
               tab === tb.id
                 ? "bg-white text-neutral-900 shadow-sm"
                 : "text-neutral-500"
@@ -137,6 +144,8 @@ export default function Home() {
         )
       ) : tab === "calc" ? (
         <ConcreteCalculator onOrder={orderFromCalc} />
+      ) : tab === "pump" ? (
+        <PumpOrderForm phone={user?.phone || ""} />
       ) : (
         <OrderTracking onReorder={reorder} />
       )}

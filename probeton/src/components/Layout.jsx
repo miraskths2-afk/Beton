@@ -11,7 +11,6 @@ import {
   UserCircle,
   Sun,
   Moon,
-  Factory,
   Users,
   MessageCircle,
 } from "lucide-react";
@@ -27,22 +26,24 @@ import MixerIcon from "@/components/MixerIcon";
 import { useTotalUnread, previewText, chatPath } from "@/lib/chat";
 import { notify } from "@/lib/notifications";
 
+// Меню снизу для каждой роли. У завода и насосника нет «Остатков»
+// (Кубовика). Миксеристы, насосники и заводы у админа — на одной
+// странице «Партнёры» с переключателем сверху.
 const ALL_ITEMS = [
   { to: "/", label: "Заказ", icon: Truck, end: true, roles: ["client"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["client"] },
-  { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["client"] },
-  { to: "/", label: "Лента", icon: List, end: true, roles: ["driver"] },
+  { to: "/mapa", label: "Мои машины", icon: MapPin, end: false, roles: ["client"] },
+  { to: "/", label: "Лента", icon: List, end: true, roles: ["driver", "pump"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["driver"] },
-  { to: "/balance", label: "Баланс", icon: BarChart3, end: false, roles: ["driver"] },
+  { to: "/balance", label: "Баланс", icon: BarChart3, end: false, roles: ["driver", "pump"] },
   { to: "/", label: "Главная", icon: LayoutDashboard, end: true, roles: ["admin"] },
   { to: "/orders", label: "Заявки", icon: ClipboardList, end: false, roles: ["admin"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["admin"] },
-  { to: "/plants", label: "Заводы", icon: Factory, end: false, roles: ["admin"] },
-  { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["admin"] },
+  { to: "/plants", label: "Партнёры", icon: Users, end: false, roles: ["admin"] },
   { to: "/", label: "Заявки", icon: ClipboardList, end: true, roles: ["plant"] },
   { to: "/fleet", label: "Парк", icon: Users, end: false, roles: ["plant"] },
   { to: "/mapa", label: "Карта", icon: MapPin, end: false, roles: ["plant"] },
-  { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "admin", "plant"] },
+  { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "pump", "admin", "plant"] },
 ];
 
 export default function Layout() {
@@ -106,6 +107,8 @@ export default function Layout() {
             <div className="text-[10px] text-neutral-400 font-medium uppercase tracking-widest">
               {role === "driver"
                 ? t("Кабинет партнёра")
+                : role === "pump"
+                ? t("Кабинет АБН")
                 : role === "admin"
                 ? t("Диспетчер")
                 : role === "plant"
@@ -150,7 +153,7 @@ export default function Layout() {
         </div>
       </header>
 
-      {role === "driver" && <DriverLocationBroadcaster />}
+      {(role === "driver" || role === "pump") && <DriverLocationBroadcaster />}
 
       <main className="flex-1 pb-24 max-w-md w-full mx-auto">
         <PullToRefresh onRefresh={handleRefresh}>
