@@ -721,10 +721,11 @@ function Kubovik() {
   );
 }
 
-// У завода и насосника АБН Кубовика нет — даже по прямой ссылке.
+// Кубовик — функция миксеристов (и админа). У заказчика, завода и
+// насосника АБН его нет — даже по прямой ссылке.
 export default function KubovikPage() {
   const { user, viewMode } = useAuth();
   const role = getEffectiveRole(user, viewMode);
-  if (role === "plant" || role === "pump") return <Navigate to="/" replace />;
+  if (role !== "driver" && role !== "admin") return <Navigate to="/" replace />;
   return <Kubovik />;
 }

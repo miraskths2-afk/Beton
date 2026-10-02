@@ -26,12 +26,11 @@ import MixerIcon from "@/components/MixerIcon";
 import { useTotalUnread, previewText, chatPath } from "@/lib/chat";
 import { notify } from "@/lib/notifications";
 
-// Меню снизу для каждой роли. У завода и насосника нет «Остатков»
-// (Кубовика). Миксеристы, насосники и заводы у админа — на одной
+// Меню снизу для каждой роли. «Остатки» (Кубовик) — только у
+// миксеристов и админа. Миксеристы, насосники и заводы у админа — на одной
 // странице «Партнёры» с переключателем сверху.
 const ALL_ITEMS = [
   { to: "/", label: "Заказ", icon: Truck, end: true, roles: ["client"] },
-  { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["client"] },
   { to: "/mapa", label: "Мои машины", icon: MapPin, end: false, roles: ["client"] },
   { to: "/", label: "Лента", icon: List, end: true, roles: ["driver", "pump"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["driver"] },
