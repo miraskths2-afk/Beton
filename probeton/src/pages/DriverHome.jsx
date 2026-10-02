@@ -38,6 +38,9 @@ import {
 } from "@/lib/pump";
 import PumpWorkTimer from "@/components/PumpWorkTimer";
 import { formatTenge } from "@/lib/balance";
+import DriverCancelRequest from "@/components/DriverCancelRequest";
+import { isBlacklisted } from "@/lib/blacklist";
+import { WARN_LIMIT } from "@/lib/warnings";
 
 function Stars({ value, onChange }) {
   return (
@@ -72,6 +75,10 @@ export default function DriverHome() {
   const [ratePick, setRatePick] = useState({});
   const [myPlant, setMyPlant] = useState(null);
   const myOrderIdsRef = useRef(null);
+  // Мои открытые заказы — чтобы сообщить, если клиент отменил один из них.
+  const myOpenIdsRef = useRef(null);
+  const [complainedIds, setComplainedIds] = useState(() => new Set());
+  const [blacklisted, setBlacklisted] = useState(false);
 
   const load = async () => {
     try {
@@ -87,6 +94,31 @@ export default function DriverHome() {
         }
       }
       myOrderIdsRef.current = new Set(mine);
+      // Клиент отменил мой заказ — сообщаем, что можно брать новые.
+      const prevOpen = myOpenIdsRef.current;
+      if (prevOpen && user?.notifications_enabled !== false) {
+        const cancelledNow = all.find(
+          (o) => prevOpen.has(o.id) && o.status === "cancelled"
+        );
+        if (cancelledNow) {
+          notify(
+            t("Заказ отменён"),
+            t("Заказ {num} отменён. Вы свободны и можете брать новые заявки.", {
+              num: cancelledNow.order_number || "",
+            })
+          );
+        }
+      }
+      myOpenIdsRef.current = new Set(
+        all
+          .filter(
+            (o) =>
+              o.driver_id === user?.id &&
+              o.status !== "done" &&
+              o.status !== "cancelled"
+          )
+          .map((o) => o.id)
+      );
     } catch (err) {
       console.error(err);
     } finally {
@@ -115,6 +147,25 @@ export default function DriverHome() {
     return unsub;
      
   }, [user?.notifications_enabled, isPump]);
+
+  // Мои жалобы (чтобы не отправлять повторно) и не в чёрном ли я списке.
+  useEffect(() => {
+    if (!user?.id) return;
+    let mounted = true;
+    supabase
+      .from("complaints")
+      .select("order_id")
+      .eq("from_user_id", user.id)
+      .then(({ data }) => {
+        if (mounted && data) setComplainedIds(new Set(data.map((c) => c.order_id)));
+      });
+    isBlacklisted(user.phone).then((v) => {
+      if (mounted) setBlacklisted(v);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id, user?.phone]);
 
   // Миксерист в парке завода: завод выдаёт ему свои заказы, но личные
   // заявки из общей ленты и Кубовик остаются его — завод их не видит.
@@ -176,6 +227,10 @@ export default function DriverHome() {
   const hasUnfinishedOrder = orders.some(isMyOpenOrder);
 
   const accept = async (o) => {
+    if (blacklisted) {
+      alert(t("Ваш номер в чёрном списке. Чтобы снова брать заказы, свяжитесь с диспетчером и оплатите штраф."));
+      return;
+    }
     if (boomTooShort(o)) return;
     if (hasUnfinishedOrder) {
       alert(t("Сначала завершите и оплатите текущий заказ — новые заявки пока недоступны."));
@@ -256,17 +311,25 @@ export default function DriverHome() {
     }
   };
 
+  // Жалоба не заносит клиента в чёрный список сразу — она уходит
+  // диспетчеру, и он решает, что делать.
   const complain = async (o) => {
-    if (!confirm(t("Подать жалобу на прораба и внести номер в чёрный список?"))) return;
+    if (!confirm(t("Отправить диспетчеру жалобу, что клиент не оплатил? Диспетчер разберётся и при необходимости внесёт клиента в чёрный список."))) return;
     setBusy(o.id);
     try {
-      await base44.entities.Blacklist.create({
-        phone: o.phone,
-        reason: "Неоплата от прораба",
+      const { error } = await supabase.from("complaints").insert({
+        order_id: o.id,
+        from_user_id: user.id,
+        from_name: user.full_name || user.phone,
+        against_phone: o.phone,
+        reason: "Клиент не оплатил",
       });
+      if (error) throw error;
+      setComplainedIds((prev) => new Set(prev).add(o.id));
       alert(t("Жалоба отправлена. Диспетчер рассмотрит обращение."));
     } catch (e) {
       console.error(e);
+      alert(t("Не удалось отправить жалобу. Попробуйте ещё раз."));
     } finally {
       setBusy(null);
     }
@@ -300,6 +363,16 @@ export default function DriverHome() {
           </button>
         )}
       </div>
+
+      {blacklisted ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          {t("Ваш номер в чёрном списке: брать заказы нельзя. Чтобы выйти из списка, свяжитесь с диспетчером и оплатите штраф — сумму обговорите с ним.")}
+        </div>
+      ) : (user?.warnings || 0) > 0 ? (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2.5 text-xs font-semibold">
+          {t("Предупреждений: {n} из {limit}. После {limit}-го номер попадёт в чёрный список.", { n: user.warnings, limit: WARN_LIMIT })}
+        </div>
+      ) : null}
 
       {inFleet && (
         <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 text-purple-800 rounded-xl px-3 py-2.5 text-xs font-semibold">
@@ -437,6 +510,8 @@ export default function DriverHome() {
               {isPumpOrder(o) && (
                 <PumpWorkTimer o={o} role="driver" userId={user?.id} onChanged={load} />
               )}
+              {/* Сам отменить заказ миксерист не может — только через диспетчера. */}
+              {!o.driver_paid && <DriverCancelRequest order={o} onChanged={load} />}
               {o.driver_payment_confirmed ? (
                 <div className="w-full text-xs font-bold py-2.5 rounded-lg bg-green-100 text-green-700 inline-flex items-center justify-center gap-1">
                   <CheckCircle2 className="w-4 h-4" />
@@ -578,7 +653,11 @@ export default function DriverHome() {
                 </div>
               )}
               {/* Если клиент уже оплатил — жаловаться на неоплату незачем. */}
-              {!o.client_paid && !o.commission_paid && (
+              {complainedIds.has(o.id) ? (
+                <div className="w-full text-xs font-semibold py-2 rounded-lg bg-neutral-100 text-neutral-500 text-center">
+                  {t("Жалоба у диспетчера")}
+                </div>
+              ) : !o.client_paid && !o.commission_paid && (
                 <button
                   onClick={() => complain(o)}
                   disabled={busy === o.id}

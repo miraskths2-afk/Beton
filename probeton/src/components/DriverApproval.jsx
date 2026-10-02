@@ -2,14 +2,8 @@ import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Check, X, UserCheck, Loader2, Phone, Car } from "lucide-react";
 import { t } from "@/lib/i18n";
+import { EQUIPMENT } from "@/lib/equipment";
 
-const EQUIPMENT = {
-  mixer: "Миксер (АБС)",
-  pump_16: "АБН 16м",
-  pump_24: "АБН 24м",
-  pump_36: "АБН 36м",
-  pump_52: "АБН 52м",
-};
 
 export default function DriverApproval() {
   const [drivers, setDrivers] = useState([]);

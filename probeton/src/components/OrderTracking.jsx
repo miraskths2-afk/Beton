@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
+import { cancelOrderAsClient } from "@/lib/warnings";
 import { t, locale } from "@/lib/i18n";
 import ChatButton from "@/components/ChatButton";
 import OrderExtras from "@/components/OrderExtras";
@@ -423,7 +424,7 @@ function OrderCard({ o, busy, onPay, onPrepay, onRate, onCancel, onReorder, rate
 }
 
 export default function OrderTracking({ onReorder }) {
-  const { user } = useAuth();
+  const { user, checkUserAuth } = useAuth();
   const activePhone = normPhone(user?.phone);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -528,12 +529,19 @@ export default function OrderTracking({ onReorder }) {
   };
 
   const cancelOrder = async (id) => {
-    if (!confirm(t("Отменить этот заказ? Действие нельзя будет вернуть."))) return;
+    const order = orders.find((o) => o.id === id);
+    if (!order) return;
     setBusy(id);
     try {
-      await base44.entities.Order.update(id, { status: "cancelled" });
+      // Отмена заказчиком = предупреждение (3 — чёрный список).
+      const done = await cancelOrderAsClient(order, user);
+      if (done) {
+        await checkUserAuth();
+        fetchMine(activePhone);
+      }
     } catch (e) {
       console.error(e);
+      alert(t("Не удалось отменить заказ. Попробуйте ещё раз."));
     } finally {
       setBusy(null);
     }

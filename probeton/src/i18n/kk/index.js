@@ -12,6 +12,7 @@ import balance from "./balance";
 import plant from "./plant";
 import chat from "./chat";
 import pump from "./pump";
+import warnings from "./warnings";
 
 export default {
   ...features,
@@ -23,4 +24,5 @@ export default {
   ...plant,
   ...chat,
   ...pump,
+  ...warnings,
 };
