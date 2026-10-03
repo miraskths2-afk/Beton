@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { getEffectiveRole } from "@/lib/effectiveRole";
 import { cn } from "@/lib/utils";
 import DriverLocationBroadcaster from "@/components/DriverLocationBroadcaster";
+import PushPrompt from "@/components/PushPrompt";
 import MixerIcon from "@/components/MixerIcon";
 import { useTotalUnread, previewText, chatPath } from "@/lib/chat";
 import { notify } from "@/lib/notifications";
@@ -149,6 +150,8 @@ export default function Layout() {
       </header>
 
       {(role === "driver" || role === "pump") && <DriverLocationBroadcaster />}
+
+      <PushPrompt />
 
       <main className="flex-1 pb-24 max-w-md w-full mx-auto">
         <PullToRefresh onRefresh={handleRefresh}>

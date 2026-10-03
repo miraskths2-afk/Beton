@@ -221,6 +221,8 @@ export default function DriverHome() {
           driver_name: user.full_name || user.driver_name || "Водитель",
           status: "in_progress",
           accepted_at: new Date().toISOString(),
+          // Взял сам — push «вам назначен заказ» ему не придёт.
+          self_accepted: true,
         })
         .eq("id", o.id)
         .eq("status", "new")

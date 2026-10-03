@@ -28,7 +28,7 @@ import BlacklistManager from "@/components/BlacklistManager";
 import DriverHistory from "@/components/DriverHistory";
 import MyIntercepts from "@/components/MyIntercepts";
 import InstallAppCard from "@/components/InstallAppCard";
-import { requestNotificationPermission } from "@/lib/notifications";
+import { disablePush, enablePush, isIos, isStandalone } from "@/lib/push";
 import { t, LANGS, getLang, setLang } from "@/lib/i18n";
 import { THEMES, getTheme, setTheme } from "@/lib/theme";
 import { PUMP_BOOMS, PUMP_STATIONARY, boomLabel, pumpErrorText } from "@/lib/pump";
@@ -55,6 +55,7 @@ export default function Profile() {
   const [openSection, setOpenSection] = useState(null);
   const [notif, setNotif] = useState(user?.notifications_enabled !== false);
   const [savingNotif, setSavingNotif] = useState(false);
+  const [notifHint, setNotifHint] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(user?.full_name || "");
   const [savingName, setSavingName] = useState(false);
@@ -141,10 +142,26 @@ export default function Profile() {
     setNotif(next);
     setSavingNotif(true);
     try {
+      setNotifHint("");
+      // Разрешение спрашиваем сразу по нажатию — на iPhone после других
+      // запросов браузер может его уже не показать.
+      const res = next ? await enablePush(user) : null;
       await base44.auth.updateMe({ notifications_enabled: next });
       await checkUserAuth();
       if (next) {
-        await requestNotificationPermission();
+        if (res === "denied") {
+          setNotifHint(t("Уведомления запрещены в настройках браузера — разрешите их для этого сайта"));
+        } else if (res === "unsupported") {
+          setNotifHint(
+            isIos() && !isStandalone()
+              ? t("На iPhone уведомления приходят, только если установить приложение на экран «Домой»")
+              : t("Этот браузер не поддерживает уведомления на телефон")
+          );
+        } else if (res === "error") {
+          setNotifHint(t("Не удалось включить уведомления. Попробуйте ещё раз."));
+        }
+      } else {
+        await disablePush();
       }
     } catch (err) {
       console.error(err);
@@ -385,6 +402,9 @@ export default function Profile() {
                 />
               </button>
             </div>
+            {notifHint && (
+              <div className="mt-2 text-xs text-amber-700">{notifHint}</div>
+            )}
 
             <div className="pt-4 space-y-2">
               <div>

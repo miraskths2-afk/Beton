@@ -10,6 +10,8 @@ import React, {
   useRef,
 } from "react";
 import { base44 } from "@/api/base44Client";
+import { disablePush, syncPush } from "@/lib/push";
+import { listenForPushMessages } from "@/lib/notifications";
 
 const AuthContext = createContext();
 
@@ -60,7 +62,17 @@ export const AuthProvider = ({ children }) => {
     checkUserAuth();
   }, [checkUserAuth]);
 
+  // Уведомления на телефон: при входе обновляем подписку этого устройства.
+  const userId = user?.id;
+  useEffect(() => {
+    listenForPushMessages();
+    if (userId) syncPush(user);
+    // user меняется при каждой проверке — достаточно следить за id
+  }, [userId]);
+
   const logout = async () => {
+    // Телефон больше не должен получать уведомления этого аккаунта.
+    await disablePush();
     await base44.auth.logout();
     localStorage.removeItem("probeton_role");
     setUser(null);
