@@ -178,7 +178,17 @@ export default function ChatPage() {
       }
       const clientPhone = normPhone(kind === "leftover" ? item.intercepted_by_phone : item.phone);
       let name = null;
-      if (clientPhone) {
+      // Заказ из аккаунта клиента — имя берём по аккаунту, а не по номеру
+      // в заявке (номер мог быть чужой, например прораба).
+      if (kind === "order" && item.client_id) {
+        const { data } = await supabase
+          .from("app_users")
+          .select("full_name")
+          .eq("id", item.client_id)
+          .maybeSingle();
+        name = data?.full_name || null;
+      }
+      if (!name && clientPhone) {
         const { data } = await supabase
           .from("app_users")
           .select("full_name, photo_url")

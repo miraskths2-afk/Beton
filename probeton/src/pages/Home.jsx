@@ -5,13 +5,13 @@ import OrderTracking from "@/components/OrderTracking";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
-import { normPhone } from "@/lib/orderStatuses";
 import { Zap, RotateCcw, Repeat } from "lucide-react";
 import RecurringOrdersManager from "@/components/RecurringOrdersManager";
 import PumpOrderForm from "@/components/PumpOrderForm";
 import { isPumpOrder } from "@/lib/pump";
 import { t } from "@/lib/i18n";
 import { WARN_LIMIT } from "@/lib/warnings";
+import { isMyOrder } from "@/lib/orderOwner";
 
 // «АБН» — отдельный заказ автобетононасоса.
 const TABS = [
@@ -36,7 +36,7 @@ export default function Home() {
         const all = await base44.entities.Order.list("-created_date", 50);
         // «Заказать снова» — только для бетона, не для АБН.
         const mine = all.filter(
-          (o) => normPhone(o.phone) === normPhone(user.phone) && !isPumpOrder(o)
+          (o) => isMyOrder(o, user) && !isPumpOrder(o)
         );
         if (mine.length > 0) setLastOrder(mine[0]);
       } catch (e) {
@@ -156,7 +156,7 @@ export default function Home() {
       ) : tab === "calc" ? (
         <ConcreteCalculator onOrder={orderFromCalc} />
       ) : tab === "pump" ? (
-        <PumpOrderForm phone={user?.phone || ""} />
+        <PumpOrderForm phone={user?.phone || ""} clientId={user?.id} />
       ) : (
         <OrderTracking onReorder={reorder} />
       )}

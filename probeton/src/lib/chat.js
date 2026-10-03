@@ -23,6 +23,7 @@ import { supabase } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
 import { t } from "@/lib/i18n";
 import { isPumpOrder, pumpTitle, workerLabel } from "@/lib/pump";
+import { isMyOrder } from "@/lib/orderOwner";
 
 export const CHAT_TABLE = "order_messages";
 
@@ -95,7 +96,7 @@ export function getChatRole(user, kind, item, viewMode) {
   const myPhone = normPhone(user.phone);
   if (kind === "order") {
     if (item.driver_id && user.id === item.driver_id) return "driver";
-    if (myPhone && normPhone(item.phone) === myPhone) return "client";
+    if (isMyOrder(item, user)) return "client";
     return null;
   }
   if (item.driver_id && user.id === item.driver_id) return "driver";
@@ -225,11 +226,14 @@ async function safe(query) {
   return data || [];
 }
 
-// Заявки для списка чатов. Если supabase_pump.sql ещё не выполнен (нет
-// колонок АБН) — повторяем без них, чтобы чаты не пропали.
+// Заявки для списка чатов. Если supabase_v2_zakaz_klienta.sql (client_id) или
+// supabase_pump.sql (колонки АБН) ещё не выполнены — повторяем без этих
+// колонок, чтобы чаты не пропали.
 async function safeOrders(makeQuery) {
-  const { data, error } = await makeQuery(ORDER_FIELDS);
+  const { data, error } = await makeQuery(`${ORDER_FIELDS}, client_id`);
   if (!error) return data || [];
+  const second = await makeQuery(ORDER_FIELDS);
+  if (!second.error) return second.data || [];
   return safe(makeQuery(ORDER_FIELDS_BASE));
 }
 
@@ -335,7 +339,7 @@ export async function loadMyChats(user) {
           .limit(1000)
       ),
     ]);
-    orders = o.filter((x) => mine && normPhone(x.phone) === mine);
+    orders = o.filter((x) => isMyOrder(x, user));
     leftovers = l.filter((x) => mine && normPhone(x.intercepted_by_phone) === mine);
   }
 

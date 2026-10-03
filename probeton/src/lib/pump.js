@@ -8,6 +8,7 @@
 // Колонки в базе — supabase_pump.sql.
 
 import { supabase } from "@/api/base44Client";
+import { insertWithClientId } from "@/lib/orderOwner";
 import { t } from "@/lib/i18n";
 
 // Оплата АБН — почасовая, минимум 3 часа сразу.
@@ -152,31 +153,32 @@ export async function createPumpOrder({
   comment,
   neededBy,
   linkedOrder,
+  clientId,
 }) {
   const h = Math.max(PUMP_MIN_HOURS, Number(hours) || PUMP_MIN_HOURS);
-  const { data, error } = await supabase
-    .from("orders")
-    .insert({
-      order_number: "АБН-" + Date.now().toString().slice(-6),
-      service_type: "pump",
-      what_needed: `${Number(boom) === PUMP_STATIONARY ? "Стационарный насос" : `АБН ${boom} м`} на ${h} ч, адрес: ${address}`,
-      pump_boom: boom,
-      pump_hours: h,
-      pump_rate: rate || null,
-      delivery_address: address,
-      delivery_lat: lat ?? null,
-      delivery_lng: lng ?? null,
-      phone,
-      comment: comment || null,
-      needed_by: neededBy || null,
-      pump_for_order_id: linkedOrder?.id || null,
-      order_type: "quick",
-      status: "new",
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  const insert = async (row) => {
+    const { data, error } = await supabase.from("orders").insert(row).select().single();
+    if (error) throw error;
+    return data;
+  };
+  return insertWithClientId(insert, {
+    client_id: clientId || null,
+    order_number: "АБН-" + Date.now().toString().slice(-6),
+    service_type: "pump",
+    what_needed: `${Number(boom) === PUMP_STATIONARY ? "Стационарный насос" : `АБН ${boom} м`} на ${h} ч, адрес: ${address}`,
+    pump_boom: boom,
+    pump_hours: h,
+    pump_rate: rate || null,
+    delivery_address: address,
+    delivery_lat: lat ?? null,
+    delivery_lng: lng ?? null,
+    phone,
+    comment: comment || null,
+    needed_by: neededBy || null,
+    pump_for_order_id: linkedOrder?.id || null,
+    order_type: "quick",
+    status: "new",
+  });
 }
 
 // Таймер насоса: время идёт с момента, как насос встал на лапы.
