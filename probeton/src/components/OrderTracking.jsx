@@ -42,6 +42,7 @@ import ChatButton from "@/components/ChatButton";
 import OrderExtras from "@/components/OrderExtras";
 import DowntimeTimer from "@/components/DowntimeTimer";
 import PumpWorkTimer from "@/components/PumpWorkTimer";
+import { isMyOrder } from "@/lib/orderOwner";
 const LiveDriverMap = lazy(() => import("@/components/LiveDriverMap"));
 
 function Stars({ value, onChange }) {
@@ -429,7 +430,7 @@ export default function OrderTracking({ onReorder }) {
     setLoading(true);
     try {
       const all = await base44.entities.Order.list("-created_date", 200);
-      const mine = all.filter((o) => normPhone(o.phone) === num);
+      const mine = all.filter((o) => isMyOrder(o, user));
       if (notifiedAccepted.current === null) {
         notifiedAccepted.current = new Set(
           mine.filter((o) => o.driver_id).map((o) => o.id)
@@ -460,8 +461,7 @@ export default function OrderTracking({ onReorder }) {
       const alreadyNotified =
         !!orderId && !!notifiedAccepted.current?.has(orderId);
       const nowAssigned = !!payload?.new?.driver_id;
-      const belongsToMe =
-        payload?.new?.phone && normPhone(payload.new.phone) === activePhone;
+      const belongsToMe = isMyOrder(payload?.new, user);
       if (
         payload?.eventType === "UPDATE" &&
         !alreadyNotified &&

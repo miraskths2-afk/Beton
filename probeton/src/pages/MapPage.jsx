@@ -3,10 +3,10 @@ import { Navigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { getEffectiveRole } from "@/lib/effectiveRole";
-import { normPhone } from "@/lib/orderStatuses";
 import { isPumpOrder } from "@/lib/pump";
 import LiveDriverMap from "@/components/LiveDriverMap";
 import { t } from "@/lib/i18n";
+import { isMyOrder } from "@/lib/orderOwner";
 
 // Кто кого видит на карте:
 // - админ — всех миксеристов и насосников на линии (страница «Партнёры»);
@@ -27,7 +27,7 @@ export default function MapPage() {
           const mine = all.filter(
             (o) =>
               o.driver_id &&
-              normPhone(o.phone) === normPhone(user?.phone) &&
+              isMyOrder(o, user) &&
               o.status !== "done" &&
               o.status !== "cancelled"
           );

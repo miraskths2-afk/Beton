@@ -18,7 +18,7 @@ const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
 // Отдельный заказ автобетононасоса (вкладка «АБН» у заказчика).
 // Заявку видят все насосники на линии.
-export default function PumpOrderForm({ phone: initialPhone }) {
+export default function PumpOrderForm({ phone: initialPhone, clientId }) {
   const [settings, setSettings] = useState(null);
   const [boom, setBoom] = useState(null);
   const [hours, setHours] = useState(String(PUMP_MIN_HOURS));
@@ -61,6 +61,7 @@ export default function PumpOrderForm({ phone: initialPhone }) {
         lat: location?.lat,
         lng: location?.lng,
         phone: phoneFull(phone),
+        clientId,
         comment: comment.trim(),
         neededBy: timing === "scheduled" ? new Date(neededBy).toISOString() : null,
       });

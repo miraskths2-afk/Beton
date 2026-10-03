@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import PhoneInput from "@/components/PhoneInput";
 import { isPhoneComplete, phoneFull } from "@/lib/phone";
+import { insertWithClientId } from "@/lib/orderOwner";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -59,7 +60,9 @@ export default function QuickOrderForm({ prefill }) {
       : null
   );
   const [comment, setComment] = useState("");
-  const [phone, setPhone] = useState(prefill?.phone || "");
+  // Номер подставляется из аккаунта, его можно поменять. Заказ всё равно
+  // останется у этого клиента: он привязан к аккаунту (client_id).
+  const [phone, setPhone] = useState(prefill?.phone || user?.phone || "");
   // Как выгружают бетон: "slide" (слив на землю) | "pump" (в насос).
   const [unloadMethod, setUnloadMethod] = useState(prefill?.unload_method || "");
   // Лоток при сливе: "yes" | "no" | "" (ещё не выбрано).
@@ -142,7 +145,8 @@ export default function QuickOrderForm({ prefill }) {
       const sitePhotoUrl = photoFile ? await uploadSitePhoto(photoFile) : null;
       const cubesNum = parseFloat(cubes);
       const pricePerCube = prefill?.price_per_cube ?? null;
-      const created = await base44.entities.Order.create({
+      const created = await insertWithClientId((row) => base44.entities.Order.create(row), {
+        client_id: user?.id || null,
         order_number: "PB-" + Date.now().toString().slice(-6),
         what_needed: `${cubes} м³ бетона ${grade}, адрес: ${address.trim()}`,
         grade,
@@ -182,6 +186,7 @@ export default function QuickOrderForm({ prefill }) {
             comment: comment.trim(),
             neededBy: timing === "scheduled" ? new Date(neededBy).toISOString() : null,
             linkedOrder: created,
+            clientId: user?.id,
           });
         } catch (pumpErr) {
           console.error(pumpErr);

@@ -4,7 +4,6 @@ import { base44, supabase } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import {
   ORDER_STATUSES,
-  normPhone,
   canClientCancel,
   statusLabel,
   statusFlowFor,
@@ -37,6 +36,7 @@ import DowntimeTimer from "@/components/DowntimeTimer";
 import PumpWorkTimer from "@/components/PumpWorkTimer";
 import { cancelOrderAsClient, cancelOrderAsAdmin } from "@/lib/warnings";
 import DriverCancelRequest from "@/components/DriverCancelRequest";
+import { isMyOrder } from "@/lib/orderOwner";
 
 const OrderRouteMap = lazy(() => import("@/components/OrderRouteMap"));
 const StaticPointMap = lazy(() => import("@/components/StaticPointMap"));
@@ -188,7 +188,7 @@ export default function OrderDetail() {
   // и номеров — так же, как увидит настоящий насосник или заказчик.
   const effRole = getEffectiveRole(user, viewMode);
   const isMeDriver = !!o.driver_id && o.driver_id === user?.id;
-  const isMyPhone = !!user?.phone && normPhone(user.phone) === normPhone(o.phone);
+  const isMyPhone = isMyOrder(o, user);
   const actsAsParticipant =
     user?.role === "admin" &&
     effRole !== "admin" &&
