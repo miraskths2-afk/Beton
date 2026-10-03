@@ -5,6 +5,7 @@ import MixerIcon from "@/components/MixerIcon";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { t } from "@/lib/i18n";
+import LanguagePicker from "@/components/LanguagePicker";
 import { canChangeRole, roleChangeFields } from "@/lib/roleChange";
 
 const ROLE_KEY = "probeton_role";
@@ -65,6 +66,9 @@ export default function RoleSelect() {
       </header>
 
       <div className="flex-1 flex flex-col justify-center px-5 max-w-md mx-auto w-full">
+        <div className="flex justify-center pt-5 mb-6">
+          <LanguagePicker />
+        </div>
         {changing && (
           <button
             onClick={() => navigate(isAuthenticated ? "/" : "/login", { replace: true })}

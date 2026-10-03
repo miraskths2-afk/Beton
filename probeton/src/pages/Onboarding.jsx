@@ -7,6 +7,7 @@ import { CURRENT_TERMS_VERSION } from "@/lib/terms";
 import TermsContent from "@/components/TermsContent";
 import MixerIcon from "@/components/MixerIcon";
 import { t } from "@/lib/i18n";
+import LanguagePicker from "@/components/LanguagePicker";
 import { EQUIPMENT, equipmentFor, needsVehicleInfo } from "@/lib/equipment";
 import { PUMP_BOOMS, boomLabel, pumpErrorText } from "@/lib/pump";
 import { CHANGE_ROLE_PATH, canChangeRole } from "@/lib/roleChange";
@@ -130,6 +131,9 @@ export default function Onboarding() {
           <div className="font-black text-lg tracking-tight text-neutral-900">
             Кубовик
           </div>
+        </div>
+        <div className="flex justify-center">
+          <LanguagePicker />
         </div>
 
         {step === "name" && (
