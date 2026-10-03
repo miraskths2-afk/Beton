@@ -8,6 +8,7 @@ import TopupApproval from "@/components/TopupApproval";
 import DriverPaymentApproval from "@/components/DriverPaymentApproval";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import CancelRequestsApproval from "@/components/CancelRequestsApproval";
+import LeftoverCloseRequests from "@/components/LeftoverCloseRequests";
 import ComplaintsReview from "@/components/ComplaintsReview";
 import QuickOrderForm from "@/components/QuickOrderForm";
 import { runRecurringNow } from "@/components/RecurringOrdersManager";
@@ -137,6 +138,7 @@ export default function AdminHome() {
         <div className="p-2 space-y-3">
           <DriverApproval />
           <CancelRequestsApproval />
+          <LeftoverCloseRequests />
           <ComplaintsReview />
           <DriverPaymentApproval />
           <CommissionApproval />
