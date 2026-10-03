@@ -4,7 +4,8 @@ import "leaflet/dist/leaflet.css";
 import { fetchLocations, subscribeToLocations } from "@/lib/driverLocation";
 import { vehicleIcon } from "@/lib/mapIcons";
 import { base44, supabase } from "@/api/base44Client";
-import { Phone, Eye, LogOut, Trash2, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Phone, Eye, LogOut, Trash2, Loader2, ChevronRight } from "lucide-react";
 import { t, locale } from "@/lib/i18n";
 import { pumpTitle } from "@/lib/pump";
 
@@ -134,6 +135,12 @@ export default function AdminDriverMapSection({ showContact = true, kind = "driv
                   <div style={{ color: "#666", fontSize: "11px" }}>
                     {t("Обновлено: {time}", { time: new Date(d.updated_at).toLocaleTimeString(locale()) })}
                   </div>
+                  <Link
+                    to={`/partners/driver/${d.driver_id}`}
+                    style={{ display: "inline-block", marginTop: "6px", fontSize: "12px", fontWeight: 600 }}
+                  >
+                    {t("Открыть страницу")} →
+                  </Link>
                 </div>
               </Popup>
             </Marker>
@@ -162,9 +169,10 @@ export default function AdminDriverMapSection({ showContact = true, kind = "driv
                     : "border-neutral-200"
                 }`}
               >
-                <div className="min-w-0">
-                  <div className="font-bold text-sm text-neutral-900 truncate">
+                <Link to={`/partners/driver/${d.driver_id}`} className="min-w-0 flex-1">
+                  <div className="font-bold text-sm text-neutral-900 truncate flex items-center gap-1">
                     {d.driver_name || t("Водитель")}
+                    <ChevronRight className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                   </div>
                   {showContact && (d.vehicle_plate || d.pump_boom) && (
                     <div className="text-xs text-neutral-500">
@@ -173,7 +181,7 @@ export default function AdminDriverMapSection({ showContact = true, kind = "driv
                         .join(" · ")}
                     </div>
                   )}
-                </div>
+                </Link>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => setSelectedId(d.driver_id)}
