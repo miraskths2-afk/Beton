@@ -2,16 +2,18 @@ import React from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { getEffectiveRole } from "@/lib/effectiveRole";
-import { Truck, Construction } from "lucide-react";
+import { Truck, Construction, Factory } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import AdminDriverMapSection from "@/components/AdminDriverMapSection";
 import OfflineDriversList from "@/components/OfflineDriversList";
 import PumpRatesSettings from "@/components/PumpRatesSettings";
+import AdminSuppliersTab from "@/components/AdminSuppliersTab";
 
 const TABS = [
   { id: "drivers", label: "Миксеристы", icon: Truck },
   { id: "pumps", label: "АБН", icon: Construction },
+  { id: "suppliers", label: "Поставщики", icon: Factory },
 ];
 
 // Миксеристы и насосники АБН — на одной странице. Сверху переключатель,
@@ -65,7 +67,11 @@ export default function AdminPartnersPage() {
           ))}
         </div>
       </div>
-      <DriversTab key={tab} kind={tab === "pumps" ? "pump" : "driver"} />
+      {tab === "suppliers" ? (
+        <AdminSuppliersTab />
+      ) : (
+        <DriversTab key={tab} kind={tab === "pumps" ? "pump" : "driver"} />
+      )}
     </div>
   );
 }

@@ -85,6 +85,8 @@ export default function DriverApproval() {
               ? t("Водитель")
               : d.account_type === "pump"
               ? t("Насосник АБН")
+              : d.account_type === "supplier"
+              ? t("Поставщик")
               : t("Заказчик")}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
@@ -153,6 +155,8 @@ export default function DriverApproval() {
                     ? d.vehicle_plate
                     : d.account_type === "pump"
                     ? t("Насосник АБН")
+                    : d.account_type === "supplier"
+                    ? t("Поставщик")
                     : t("Заказчик")}
                 </span>
                 <button

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Outlet, NavLink, Link, useLocation } from "react-router-dom";
+import { Outlet, NavLink, Link, Navigate, useLocation } from "react-router-dom";
 import {
   Truck,
   MapPin,
@@ -13,6 +13,7 @@ import {
   Moon,
   Users,
   MessageCircle,
+  Factory,
 } from "lucide-react";
 import { queryClientInstance } from "@/lib/query-client";
 import { t, getLang, setLang } from "@/lib/i18n";
@@ -40,8 +41,13 @@ const ALL_ITEMS = [
   { to: "/orders", label: "Заявки", icon: ClipboardList, end: false, roles: ["admin"] },
   { to: "/kubovik", label: "Остатки", icon: Flame, end: false, roles: ["admin"] },
   { to: "/partners", label: "Партнёры", icon: Users, end: false, roles: ["admin"] },
-  { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "pump", "admin"] },
+  { to: "/", label: "Миксеры", icon: Truck, end: true, roles: ["supplier"] },
+  { to: "/my-plant", label: "Мой завод", icon: Factory, end: false, roles: ["supplier"] },
+  { to: "/profile", label: "Профиль", icon: UserCircle, end: false, roles: ["client", "driver", "pump", "supplier", "admin"] },
 ];
+
+// Поставщик не видит заявок, остатков и чатов — только свои страницы.
+const SUPPLIER_PATHS = ["/", "/my-plant", "/profile"];
 
 export default function Layout() {
   const { user, viewMode } = useAuth();
@@ -106,6 +112,8 @@ export default function Layout() {
                 ? t("Кабинет партнёра")
                 : role === "pump"
                 ? t("Кабинет АБН")
+                : role === "supplier"
+                ? t("Кабинет поставщика")
                 : role === "admin"
                 ? t("Диспетчер")
                 : t("Биржа бетона")}
@@ -116,19 +124,21 @@ export default function Layout() {
           <div className="text-xs text-neutral-300 font-medium hidden sm:block">
             {t("Алматинская область")}
           </div>
-          <Link
-            to="/chats"
-            className="relative w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center"
-            aria-label={t("Чаты")}
-            title={t("Чаты")}
-          >
-            <MessageCircle className="w-4 h-4" />
-            {unreadChats > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[10px] font-black flex items-center justify-center">
-                {unreadChats > 99 ? "99+" : unreadChats}
-              </span>
-            )}
-          </Link>
+          {role !== "supplier" && (
+            <Link
+              to="/chats"
+              className="relative w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center"
+              aria-label={t("Чаты")}
+              title={t("Чаты")}
+            >
+              <MessageCircle className="w-4 h-4" />
+              {unreadChats > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[10px] font-black flex items-center justify-center">
+                  {unreadChats > 99 ? "99+" : unreadChats}
+                </span>
+              )}
+            </Link>
+          )}
           <button
             onClick={() => setLang(getLang() === "kk" ? "ru" : "kk")}
             className="h-8 px-2 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-black tracking-wide"
@@ -152,7 +162,11 @@ export default function Layout() {
 
       <main className="flex-1 pb-24 max-w-md w-full mx-auto">
         <PullToRefresh onRefresh={handleRefresh}>
-          <Outlet key={refreshKey} />
+          {role === "supplier" && !SUPPLIER_PATHS.includes(location.pathname) ? (
+            <Navigate to="/" replace />
+          ) : (
+            <Outlet key={refreshKey} />
+          )}
         </PullToRefresh>
       </main>
 

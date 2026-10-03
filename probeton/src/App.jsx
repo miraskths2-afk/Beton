@@ -37,6 +37,8 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const AdminPartners = lazy(() => import("@/pages/AdminPartners"));
 const ChatsPage = lazy(() => import("@/pages/ChatsPage"));
 const ChatPage = lazy(() => import("@/pages/ChatPage"));
+const SupplierPlant = lazy(() => import("@/pages/SupplierPlant"));
+const FindSupplier = lazy(() => import("@/pages/FindSupplier"));
 
 // Страница «Заявки» — только для настоящего админа. Раньше заказчик или
 // водитель мог открыть /orders по прямой ссылке и видеть/удалять все заказы.
@@ -111,6 +113,8 @@ const AuthenticatedApp = () => {
             {/* Старый адрес страницы «Партнёры» (до версии 2.0) */}
             <Route path="/plants" element={<Navigate to="/partners" replace />} />
             <Route path="/chats" element={<ChatsPage />} />
+            <Route path="/my-plant" element={<SupplierPlant />} />
+            <Route path="/suppliers" element={<FindSupplier />} />
           </Route>
         </Route>
         <Route path="*" element={<PageNotFound />} />

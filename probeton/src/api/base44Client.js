@@ -133,10 +133,11 @@ async function findOrCreateUserByPhone(phone, extra = {}) {
     .insert({
       phone: phoneDigits,
       role: "user",
-      // Заказчик получает доступ сразу при первом входе. Водителю и
-      // насоснику АБН для первого входа нужно одобрение диспетчера.
+      // Заказчик получает доступ сразу при первом входе. Водителю,
+      // насоснику АБН и поставщику для первого входа нужно одобрение
+      // диспетчера.
       approval_status:
-        extra.account_type === "driver" || extra.account_type === "pump"
+        ["driver", "pump", "supplier"].includes(extra.account_type)
           ? "pending"
           : "approved",
       ...extra,

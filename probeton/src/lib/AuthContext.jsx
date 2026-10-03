@@ -15,7 +15,7 @@ const AuthContext = createContext();
 
 const VIEW_MODE_KEY = "admin_view_mode";
 
-const VIEW_MODES = ["admin", "client", "driver", "pump"];
+const VIEW_MODES = ["admin", "client", "driver", "pump", "supplier"];
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
