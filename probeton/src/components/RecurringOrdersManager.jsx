@@ -1,6 +1,8 @@
 import React, { lazy, Suspense, useEffect, useState } from "react";
 import { supabase } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
+import PhoneInput from "@/components/PhoneInput";
+import { isPhoneComplete, phoneFull } from "@/lib/phone";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -117,14 +119,14 @@ export default function RecurringOrdersManager({ phone, clientName }) {
   const isValid =
     Number(form.cubes) > 0 &&
     form.address.trim() &&
-    form.phone.trim() &&
+    isPhoneComplete(form.phone) &&
     form.weekdays.length > 0 &&
     /^\d{2}:\d{2}$/.test(form.time);
 
   const save = async (e) => {
     e.preventDefault();
     if (!isValid) return;
-    if (await isBlacklisted(form.phone.trim())) {
+    if (await isBlacklisted(form.phone)) {
       alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен."));
       return;
     }
@@ -132,7 +134,7 @@ export default function RecurringOrdersManager({ phone, clientName }) {
     setError("");
     try {
       const { error: err } = await supabase.from(TABLE).insert({
-        phone: form.phone.trim(),
+        phone: phoneFull(form.phone),
         client_name: clientName || null,
         grade: form.grade,
         cubes: parseFloat(form.cubes),
@@ -379,11 +381,9 @@ export default function RecurringOrdersManager({ phone, clientName }) {
               <Label className="text-xs font-semibold text-neutral-700">
                 {t("Номер телефона клиента")}
               </Label>
-              <Input
-                type="tel"
+              <PhoneInput
                 value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                placeholder="+7 (___) ___-__-__"
+                onChange={(v) => set("phone", v)}
                 className="h-10"
                 required
               />

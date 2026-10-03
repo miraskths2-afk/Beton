@@ -3,11 +3,13 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone, Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import AuthLayout from "@/components/AuthLayout";
 import MixerIcon from "@/components/MixerIcon";
+import PhoneInput from "@/components/PhoneInput";
+import { isPhoneComplete, phoneFull } from "@/lib/phone";
 import { t } from "@/lib/i18n";
 
 const ROLE_KEY = "probeton_role";
@@ -21,8 +23,7 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 10) {
+    if (!isPhoneComplete(phone)) {
       setError(t("Введите корректный номер телефона"));
       return;
     }
@@ -31,7 +32,7 @@ export default function Login() {
     setError("");
     try {
       const accountType = localStorage.getItem(ROLE_KEY) || "client";
-      await base44.auth.loginWithPhone(digits, { account_type: accountType });
+      await base44.auth.loginWithPhone(phoneFull(phone), { account_type: accountType });
       await checkUserAuth();
       navigate("/", { replace: true });
     } catch (err) {
@@ -53,18 +54,13 @@ export default function Login() {
           <label className="block text-sm font-medium mb-1">
             {t("Номер телефона")}
           </label>
-          <div className="relative">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+7 700 000 00 00"
-              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-800"
-              required
-              autoFocus
-            />
-          </div>
+          <PhoneInput
+            value={phone}
+            onChange={setPhone}
+            className="h-10 rounded-lg border-slate-200 shadow-none focus-visible:ring-2 focus-visible:ring-slate-800"
+            required
+            autoFocus
+          />
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

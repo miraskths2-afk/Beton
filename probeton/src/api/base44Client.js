@@ -111,27 +111,31 @@ function makeEntity(table) {
 const USERS_TABLE = TABLES.User;
 const CURRENT_PHONE_KEY = "probeton_current_phone";
 
-function cleanPhone(phone) {
-  return (phone || "").replace(/\D/g, "");
+// Последние 10 цифр номера: в базе номера лежат в разных видах
+// (7071234567, 87071234567, +77071234567), а человек один и тот же.
+function phoneLast10(phone) {
+  return (phone || "").replace(/\D/g, "").slice(-10);
 }
 
 async function findOrCreateUserByPhone(phone, extra = {}) {
-  const phoneDigits = cleanPhone(phone);
-  if (!phoneDigits) throw new Error("Введите номер телефона");
+  const last10 = phoneLast10(phone);
+  if (last10.length < 10) throw new Error("Введите номер телефона");
 
-  const { data: existing, error: findError } = await supabase
+  const { data: candidates, error: findError } = await supabase
     .from(USERS_TABLE)
     .select("*")
-    .eq("phone", phoneDigits)
-    .maybeSingle();
+    .like("phone", `%${last10}`);
   if (findError) throw findError;
 
+  const existing = (candidates || []).find(
+    (u) => phoneLast10(u.phone) === last10
+  );
   if (existing) return existing;
 
   const { data: created, error: createError } = await supabase
     .from(USERS_TABLE)
     .insert({
-      phone: phoneDigits,
+      phone: `+7${last10}`,
       role: "user",
       // Заказчик получает доступ сразу при первом входе. Водителю и
       // насоснику АБН для первого входа нужно одобрение диспетчера.

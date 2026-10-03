@@ -4,6 +4,8 @@ import { base44, supabase } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { getEffectiveRole } from "@/lib/effectiveRole";
 import { Input } from "@/components/ui/input";
+import PhoneInput from "@/components/PhoneInput";
+import { isPhoneComplete, phoneFull } from "@/lib/phone";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import VoiceInputButton, { appendSpoken } from "@/components/VoiceInputButton";
@@ -118,7 +120,7 @@ function Kubovik() {
 
   const post = async (e) => {
     e.preventDefault();
-    if (!cubes || !direction.trim() || !price || !phone.trim()) return;
+    if (!cubes || !direction.trim() || !price || !isPhoneComplete(phone)) return;
     setSubmitting(true);
     setPostError("");
     try {
@@ -130,7 +132,7 @@ function Kubovik() {
         cubes: parseFloat(cubes),
         direction: direction.trim(),
         price: parseFloat(price),
-        phone: phone.trim(),
+        phone: phoneFull(phone),
         minutes: duration,
       });
       wallet.reload();
@@ -167,7 +169,7 @@ function Kubovik() {
     });
 
   const intercept = async (l) => {
-    if (clientPhone.trim().length < 6) {
+    if (!isPhoneComplete(clientPhone)) {
       alert(t("Введите ваш номер телефона, чтобы перехватить остаток"));
       return;
     }
@@ -179,7 +181,7 @@ function Kubovik() {
         .from("leftovers")
         .update({
           status: "intercepted",
-          intercepted_by_phone: clientPhone.trim(),
+          intercepted_by_phone: phoneFull(clientPhone),
           intercepted_lat: pos?.lat ?? null,
           intercepted_lng: pos?.lng ?? null,
           intercepted_at: new Date().toISOString(),
@@ -364,11 +366,9 @@ function Kubovik() {
             <p className="text-xs text-neutral-400 -mt-1">
               {t("Виден только диспетчеру. Прораб напишет вам в чат.")}
             </p>
-            <Input
-              type="tel"
+            <PhoneInput
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+7 700 000 00 00"
+              onChange={setPhone}
               className="h-12 rounded-xl"
               required
             />
@@ -557,11 +557,9 @@ function Kubovik() {
           <Label className="text-sm font-semibold text-neutral-700">
             {t("Ваш телефон (для перехвата)")}
           </Label>
-          <Input
-            type="tel"
+          <PhoneInput
             value={clientPhone}
-            onChange={(e) => setClientPhone(e.target.value)}
-            placeholder="+7 700 000 00 00"
+            onChange={setClientPhone}
             className="h-12 rounded-xl"
           />
         </div>

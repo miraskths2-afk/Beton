@@ -2,6 +2,8 @@ import React, { useEffect, useState, lazy, Suspense } from "react";
 import { Loader2, CheckCircle2, Clock, Construction } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import PhoneInput from "@/components/PhoneInput";
+import { isPhoneComplete, phoneFull } from "@/lib/phone";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -38,13 +40,13 @@ export default function PumpOrderForm({ phone: initialPhone }) {
     !!boom &&
     address.trim() &&
     !!location &&
-    phone.trim() &&
+    isPhoneComplete(phone) &&
     (timing === "asap" || !!neededBy);
 
   const submit = async (e) => {
     e.preventDefault();
     if (!isValid) return;
-    if (await isBlacklisted(phone.trim())) {
+    if (await isBlacklisted(phone)) {
       alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен."));
       return;
     }
@@ -58,7 +60,7 @@ export default function PumpOrderForm({ phone: initialPhone }) {
         address: address.trim(),
         lat: location?.lat,
         lng: location?.lng,
-        phone: phone.trim(),
+        phone: phoneFull(phone),
         comment: comment.trim(),
         neededBy: timing === "scheduled" ? new Date(neededBy).toISOString() : null,
       });
@@ -186,12 +188,10 @@ export default function PumpOrderForm({ phone: initialPhone }) {
         <Label htmlFor="pump-phone" className="text-sm font-semibold text-neutral-700">
           {t("Номер телефона клиента")}
         </Label>
-        <Input
+        <PhoneInput
           id="pump-phone"
-          type="tel"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+7 (___) ___-__-__"
+          onChange={setPhone}
           className="h-11"
           required
         />

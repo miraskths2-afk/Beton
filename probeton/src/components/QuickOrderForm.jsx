@@ -3,6 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import PhoneInput from "@/components/PhoneInput";
+import { isPhoneComplete, phoneFull } from "@/lib/phone";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -114,7 +116,7 @@ export default function QuickOrderForm({ prefill }) {
     cubes &&
     Number(cubes) > 0 &&
     address.trim() &&
-    phone.trim() &&
+    isPhoneComplete(phone) &&
     !!location &&
     unloadValid &&
     accessValid &&
@@ -128,7 +130,7 @@ export default function QuickOrderForm({ prefill }) {
     // чёрного списка можно было бы выйти, просто вписав другой номер.
     const ownPhone = user?.role !== "admin" ? user?.phone : null;
     if (
-      (await isBlacklisted(phone.trim())) ||
+      (await isBlacklisted(phone)) ||
       (ownPhone && (await isBlacklisted(ownPhone)))
     ) {
       alert(t("Этот номер в чёрном списке PROBETON. Заказ недоступен. Чтобы выйти из списка, свяжитесь с диспетчером и оплатите штраф."));
@@ -149,7 +151,7 @@ export default function QuickOrderForm({ prefill }) {
         delivery_lat: location?.lat ?? null,
         delivery_lng: location?.lng ?? null,
         comment: comment.trim() || null,
-        phone: phone.trim(),
+        phone: phoneFull(phone),
         order_type: prefill?.order_type === "calculator" ? "calculator" : "quick",
         price_per_cube: pricePerCube,
         total: pricePerCube != null ? pricePerCube * cubesNum : null,
@@ -176,7 +178,7 @@ export default function QuickOrderForm({ prefill }) {
             address: address.trim(),
             lat: location?.lat,
             lng: location?.lng,
-            phone: phone.trim(),
+            phone: phoneFull(phone),
             comment: comment.trim(),
             neededBy: timing === "scheduled" ? new Date(neededBy).toISOString() : null,
             linkedOrder: created,
@@ -564,12 +566,10 @@ export default function QuickOrderForm({ prefill }) {
         <Label htmlFor="phone" className="text-sm font-semibold text-neutral-700">
           {t("Номер телефона клиента")}
         </Label>
-        <Input
+        <PhoneInput
           id="phone"
-          type="tel"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+7 (___) ___-__-__"
+          onChange={setPhone}
           className="h-11"
           required
         />
