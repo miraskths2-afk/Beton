@@ -212,6 +212,11 @@ export default function OrderDetail() {
     ? "admin"
     : "view";
   const canCancel = canManage || (isOrderClient && canClientCancel(o));
+  // Заказчику полоска всех стадий не нужна — ему хватает значка текущего
+  // этапа рядом с номером. Админ и исполнитель видят полоску как раньше.
+  const showStatusFlow = asAdmin || !isOrderClient;
+  const commission = (o.cubes || 0) * 1000;
+  const material = o.total != null ? Math.max(o.total - commission, 0) : null;
 
   const cancelOrder = async () => {
     setCancelling(true);
@@ -300,7 +305,7 @@ export default function OrderDetail() {
           <XCircle className="w-5 h-5" />
           <span className="font-bold text-sm">{t("Заказ отменён")}</span>
         </div>
-      ) : (
+      ) : !showStatusFlow ? null : (
         <div className="flex flex-wrap gap-1.5">
           {flow.map((s, i) => (
             <span
@@ -481,6 +486,57 @@ export default function OrderDetail() {
               height="28vh"
             />
           </Suspense>
+        </div>
+      )}
+
+      {isDone && (
+        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4 space-y-2">
+          <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
+            {t("Итог заказа")}
+          </div>
+          {o.driver_name && (
+            <div className="flex items-center gap-2 text-sm text-neutral-800">
+              {driverPhoto ? (
+                <img src={driverPhoto} alt="" className="w-6 h-6 rounded-full object-cover" />
+              ) : (
+                <UserCircle className="w-5 h-5 text-neutral-300" />
+              )}
+              {isPump
+                ? t("Насосник: {name}", { name: o.driver_name })
+                : t("Миксерист: {name}", { name: o.driver_name })}
+            </div>
+          )}
+          {o.completed_at && (
+            <div className="flex justify-between text-sm">
+              <span className="text-neutral-500">{t("Выполнен")}</span>
+              <span className="font-semibold text-neutral-800">{fmtDate(o.completed_at)}</span>
+            </div>
+          )}
+          {!isPump && material != null && (
+            <div className="flex justify-between text-sm">
+              <span className="text-neutral-500">{t("За материал водителю")}</span>
+              <span className="font-semibold text-neutral-800">{material.toLocaleString(locale())} ₸</span>
+            </div>
+          )}
+          {!isPump && (
+            <div className="flex justify-between text-sm">
+              <span className="text-neutral-500">{t("Сервисный сбор")}</span>
+              <span className="font-semibold text-neutral-800">
+                {commission.toLocaleString(locale())} ₸ ·{" "}
+                {o.commission_paid
+                  ? t("оплачен")
+                  : o.client_paid
+                  ? t("ждёт подтверждения")
+                  : t("не оплачен")}
+              </span>
+            </div>
+          )}
+          {o.client_rating ? (
+            <div className="flex justify-between text-sm">
+              <span className="text-neutral-500">{t("Оценка заказчика")}</span>
+              <span className="font-semibold text-neutral-800">{o.client_rating}★</span>
+            </div>
+          ) : null}
         </div>
       )}
 
