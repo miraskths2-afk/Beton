@@ -4,6 +4,7 @@ import { upsertMyLocation, setOffline, subscribeToLocations } from "@/lib/driver
 import { Navigation, NavigationOff } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { onDriverPosition } from "@/lib/autoArrival";
+import { checkEta } from "@/lib/etaNotify";
 
 // Показывается только водителям. Даёт им переключатель "На линии" —
 // пока он включён, браузер каждые несколько секунд отправляет координаты
@@ -40,6 +41,8 @@ export default function DriverLocationBroadcaster() {
         );
         // Забыл нажать «Я на объекте» / «Насос встал на лапы» — запустим сами.
         onDriverPosition(user.id, pos.coords.latitude, pos.coords.longitude);
+        // Заказчику — «машина будет через ~15 минут».
+        checkEta(user.id, pos.coords.latitude, pos.coords.longitude);
       },
       (err) => {
         console.error(err);
