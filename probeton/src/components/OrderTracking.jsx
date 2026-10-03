@@ -8,7 +8,6 @@ import {
   normPhone,
   canClientCancel,
   statusLabel,
-  statusFlowFor,
 } from "@/lib/orderStatuses";
 import {
   isPumpOrder,
@@ -33,6 +32,7 @@ import {
   Ban,
   Repeat,
   Construction,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
@@ -137,8 +137,6 @@ function OrderCard({ o, busy, onPay, onPrepay, onRate, onCancel, onReorder, rate
   const navigate = useNavigate();
   const isPump = isPumpOrder(o);
   const st = ORDER_STATUSES[o.status || "new"] || ORDER_STATUSES.new;
-  const flow = statusFlowFor(o);
-  const currentIdx = flow.indexOf(o.status || "new");
   const isEnRoute = o.status === "en_route";
   const isDone = o.status === "done";
   const isCancelled = o.status === "cancelled";
@@ -167,7 +165,11 @@ function OrderCard({ o, busy, onPay, onPrepay, onRate, onCancel, onReorder, rate
           : "border-neutral-200 bg-neutral-50"
       )}
     >
-      <div className="flex items-center justify-between">
+      <button
+        type="button"
+        onClick={() => navigate(`/order/${o.id}`)}
+        className="w-full flex items-center justify-between text-left"
+      >
         <span className="font-bold text-neutral-900 inline-flex items-center gap-1.5">
           {isPump && <Construction className="w-4 h-4 text-sky-600" />}
           {o.order_number || t("Заказ")}
@@ -175,7 +177,7 @@ function OrderCard({ o, busy, onPay, onPrepay, onRate, onCancel, onReorder, rate
         <span className={cn("px-2 py-1 rounded-lg text-xs font-bold", st.cls)}>
           {t(statusLabel(o))}
         </span>
-      </div>
+      </button>
 
       {isActive && (
         <button
@@ -256,26 +258,12 @@ function OrderCard({ o, busy, onPay, onPrepay, onRate, onCancel, onReorder, rate
         </div>
       )}
 
-      {isCancelled ? (
+      {/* Заказчику — только текущий этап (значок вверху карточки), без
+          полоски всех стадий: так карточка не перегружена. */}
+      {isCancelled && (
         <div className="flex items-center gap-2 bg-red-100 text-red-700 rounded-lg px-3 py-2.5">
           <XCircle className="w-5 h-5" />
           <span className="font-bold text-sm">{t("Заказ отменён")}</span>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {flow.map((s, i) => (
-            <span
-              key={s}
-              className={cn(
-                "text-[10px] font-semibold px-1.5 py-0.5 rounded",
-                i <= currentIdx
-                  ? "bg-neutral-900 text-white"
-                  : "bg-neutral-200 text-neutral-400"
-              )}
-            >
-              {t(statusLabel({ ...o, status: s }))}
-            </span>
-          ))}
         </div>
       )}
 
@@ -412,6 +400,73 @@ function OrderCard({ o, busy, onPay, onPrepay, onRate, onCancel, onReorder, rate
   );
 }
 
+// Выполненный заказ без незавершённых дел требует ещё оплаты сервисного
+// сбора или оценки — такой остаётся полной карточкой (там кнопки).
+function needsClientAction(o) {
+  if (o.status !== "done") return false;
+  if (!o.client_rating) return true;
+  if (!isPumpOrder(o) && !o.client_paid && !o.commission_paid) return true;
+  return false;
+}
+
+// Маленькая карточка завершённого заказа в конце списка. Нажатие
+// открывает полную страницу заказа.
+function HistoryRow({ o, onReorder }) {
+  const navigate = useNavigate();
+  const isPump = isPumpOrder(o);
+  const isCancelled = o.status === "cancelled";
+  const st = ORDER_STATUSES[o.status || "new"] || ORDER_STATUSES.new;
+  const when = o.completed_at || o.created_date;
+  const summary = [o.grade, o.cubes ? t("{n} куб", { n: o.cubes }) : null]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border",
+        isCancelled ? "border-red-200 bg-red-50" : "border-neutral-200 bg-white"
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => navigate(`/order/${o.id}`)}
+        className="w-full flex items-center gap-3 px-3 py-2.5 text-left active:bg-neutral-50 rounded-xl"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-sm font-bold text-neutral-900">
+            {isPump && <Construction className="w-3.5 h-3.5 text-sky-600 shrink-0" />}
+            <span className="shrink-0">{o.order_number || t("Заказ")}</span>
+            {summary && (
+              <span className="truncate font-normal text-xs text-neutral-500">· {summary}</span>
+            )}
+          </div>
+          <div className="text-[11px] text-neutral-500 truncate">
+            {when
+              ? new Date(when).toLocaleDateString(locale(), { day: "2-digit", month: "2-digit", year: "2-digit" })
+              : ""}
+            {o.delivery_address ? ` · ${o.delivery_address}` : ""}
+          </div>
+        </div>
+        <span className={cn("shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold", st.cls)}>
+          {t(statusLabel(o))}
+        </span>
+        <ChevronRight className="w-4 h-4 text-neutral-400 shrink-0" />
+      </button>
+      {o.status === "done" && o.may_reorder && onReorder && (
+        <button
+          type="button"
+          onClick={() => onReorder(o)}
+          className="mx-3 mb-2.5 w-[calc(100%-1.5rem)] flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-lg bg-amber-400 text-neutral-900"
+        >
+          <Repeat className="w-3.5 h-3.5" />
+          {t("Дозаказать бетон на этот объект")}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function OrderTracking({ onReorder }) {
   const { user, checkUserAuth } = useAuth();
   const activePhone = normPhone(user?.phone);
@@ -536,12 +591,12 @@ export default function OrderTracking({ onReorder }) {
     }
   };
 
-  const activeOrders = orders.filter(
-    (o) => o.status !== "done" && o.status !== "cancelled"
-  );
-  const historyOrders = orders.filter(
-    (o) => o.status === "done" || o.status === "cancelled"
-  );
+  // Наверху — полными карточками: текущие заказы и выполненные, где ещё
+  // нужно оплатить или оценить. Внизу — история маленькими карточками.
+  const isOpen = (o) =>
+    (o.status !== "done" && o.status !== "cancelled") || needsClientAction(o);
+  const activeOrders = orders.filter(isOpen);
+  const historyOrders = orders.filter((o) => !isOpen(o));
 
   return (
     <div className="bg-white rounded-2xl p-5 border border-neutral-200 shadow-sm space-y-4">
@@ -597,20 +652,9 @@ export default function OrderTracking({ onReorder }) {
           <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-500 px-1">
             {t("История заказов")}
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {historyOrders.map((o) => (
-              <OrderCard
-                key={o.id}
-                o={o}
-                busy={busy}
-                onPay={payDone}
-                onPrepay={prepayPump}
-                onRate={rateDriver}
-                onCancel={cancelOrder}
-                onReorder={onReorder}
-                ratePick={ratePick}
-                setRatePick={setRatePick}
-              />
+              <HistoryRow key={o.id} o={o} onReorder={onReorder} />
             ))}
           </div>
         </div>

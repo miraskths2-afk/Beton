@@ -9,6 +9,7 @@ import { normPhone } from "@/lib/orderStatuses";
 import { Zap, RotateCcw, Repeat } from "lucide-react";
 import RecurringOrdersManager from "@/components/RecurringOrdersManager";
 import PumpOrderForm from "@/components/PumpOrderForm";
+import OrderHelp from "@/components/OrderHelp";
 import { isPumpOrder } from "@/lib/pump";
 import { t } from "@/lib/i18n";
 import { WARN_LIMIT } from "@/lib/warnings";
@@ -110,6 +111,9 @@ export default function Home() {
           </button>
         ))}
       </div>
+
+      {/* Кнопка помощи рядом с оформлением заявки. */}
+      {tab !== "track" && <OrderHelp />}
 
       {tab === "quick" ? (
         showQuickForm ? (
