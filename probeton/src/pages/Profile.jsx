@@ -20,6 +20,7 @@ import {
   LayoutDashboard,
   RefreshCcw,
   Construction,
+  Factory,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { base44, supabase } from "@/api/base44Client";
@@ -40,6 +41,7 @@ function roleLabel(user) {
   if (user?.role === "admin") return t("Администратор");
   if (user?.account_type === "driver") return t("Водитель");
   if (user?.account_type === "pump") return t("Насосник АБН");
+  if (user?.account_type === "supplier") return t("Поставщик");
   return t("Заказчик / Прораб");
 }
 
@@ -321,17 +323,18 @@ export default function Profile() {
           <p className="text-xs text-neutral-500 -mt-2">
             {t("Ваша роль остаётся администратором — это просто переключение, какой интерфейс сейчас показывать.")}
           </p>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-5 gap-1.5">
             {[
               { id: "admin", label: "Админ", icon: LayoutDashboard },
               { id: "client", label: "Заказчик", icon: Truck },
               { id: "driver", label: "Водитель", icon: UserCircle },
               { id: "pump", label: "АБН", icon: Construction },
+              { id: "supplier", label: "Завод", icon: Factory },
             ].map((opt) => (
               <button
                 key={opt.id}
                 onClick={() => setViewMode(opt.id)}
-                className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-bold transition-colors ${
+                className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border text-[11px] font-bold transition-colors ${
                   (viewMode || "admin") === opt.id
                     ? "bg-neutral-900 text-white border-neutral-900"
                     : "bg-white text-neutral-600 border-neutral-200"
@@ -438,7 +441,8 @@ export default function Profile() {
 
       {user?.role !== "admin" &&
         user?.account_type !== "driver" &&
-        user?.account_type !== "pump" && (
+        user?.account_type !== "pump" &&
+        user?.account_type !== "supplier" && (
         <section className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
           <button
             onClick={() => toggle("myIntercepts")}

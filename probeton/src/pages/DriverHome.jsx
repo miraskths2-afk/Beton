@@ -16,6 +16,7 @@ import {
   Headphones,
   Ban,
   Navigation,
+  Factory,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notifications";
@@ -372,6 +373,15 @@ export default function DriverHome() {
                 <MapPin className="w-4 h-4" />
                 {t("Открыть — карта, маршрут и чат")}
               </button>
+              {!isPump && !isPumpOrder(o) && (
+                <button
+                  onClick={() => navigate(`/suppliers?order=${o.id}`)}
+                  className="w-full flex items-center justify-center gap-2 text-sm font-bold py-2.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200"
+                >
+                  <Factory className="w-4 h-4" />
+                  {t("Где загрузить бетон — поставщики")}
+                </button>
+              )}
               <div className="flex items-start gap-2">
                 <Package className="w-4 h-4 text-neutral-400 mt-0.5 shrink-0" />
                 <p className="text-sm text-neutral-800 font-medium leading-snug">

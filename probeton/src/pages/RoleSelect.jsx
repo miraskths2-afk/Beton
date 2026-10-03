@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Truck, Wrench, ChevronRight, Construction, ArrowLeft, Loader2 } from "lucide-react";
+import { Truck, Wrench, ChevronRight, Construction, ArrowLeft, Loader2, Factory } from "lucide-react";
 import MixerIcon from "@/components/MixerIcon";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -82,7 +82,7 @@ export default function RoleSelect() {
         </p>
         {changing && isAuthenticated && user?.approval_status === "approved" && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3 -mt-4 mb-6 text-center">
-            {t("Водителю и насоснику после смены роли нужно новое одобрение диспетчера")}
+            {t("Водителю, насоснику и поставщику после смены роли нужно новое одобрение диспетчера")}
           </p>
         )}
         {error && <p className="text-sm text-red-600 text-center -mt-4 mb-6">{error}</p>}
@@ -144,6 +144,25 @@ export default function RoleSelect() {
             </div>
             <div className="text-xs text-neutral-500 mt-0.5">
               {t("Подаю бетон автобетононасосом")}
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-neutral-300" />
+        </button>
+
+        <button
+          disabled={busy}
+          onClick={() => choose("supplier")}
+          className="w-full bg-white rounded-2xl border border-neutral-200 shadow-sm p-5 flex items-center gap-4 active:scale-[0.98] transition-transform mt-4"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center shrink-0">
+            <Factory className="w-7 h-7 text-indigo-600" />
+          </div>
+          <div className="text-left flex-1">
+            <div className="text-lg font-black text-neutral-900">
+              {t("Я Поставщик (завод)")}
+            </div>
+            <div className="text-xs text-neutral-500 mt-0.5">
+              {t("Продаю бетон миксеристам на своём заводе")}
             </div>
           </div>
           <ChevronRight className="w-5 h-5 text-neutral-300" />

@@ -7,6 +7,7 @@ import { getEffectiveRole } from "@/lib/effectiveRole";
 const Home = lazy(() => import("@/pages/Home"));
 const AdminHome = lazy(() => import("@/pages/AdminHome"));
 const DriverHome = lazy(() => import("@/pages/DriverHome"));
+const SupplierHome = lazy(() => import("@/pages/SupplierHome"));
 
 function Loader() {
   return (
@@ -26,6 +27,8 @@ export default function RoleHome() {
         <AdminHome />
       ) : role === "driver" || role === "pump" ? (
         <DriverHome />
+      ) : role === "supplier" ? (
+        <SupplierHome />
       ) : (
         <Home />
       )}
