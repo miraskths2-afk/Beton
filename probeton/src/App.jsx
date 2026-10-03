@@ -35,6 +35,7 @@ const DriverBalance = lazy(() => import("@/pages/DriverBalance"));
 const Kubovik = lazy(() => import("@/pages/Kubovik"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const AdminPartners = lazy(() => import("@/pages/AdminPartners"));
+const AdminDriverPage = lazy(() => import("@/pages/AdminDriverPage"));
 const ChatsPage = lazy(() => import("@/pages/ChatsPage"));
 const ChatPage = lazy(() => import("@/pages/ChatPage"));
 
@@ -108,6 +109,15 @@ const AuthenticatedApp = () => {
             <Route path="/kubovik" element={<Kubovik />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/partners" element={<AdminPartners />} />
+            {/* Страница одного миксериста / насосника — только настоящему админу */}
+            <Route
+              path="/partners/driver/:id"
+              element={
+                <AdminOnly>
+                  <AdminDriverPage />
+                </AdminOnly>
+              }
+            />
             {/* Старый адрес страницы «Партнёры» (до версии 2.0) */}
             <Route path="/plants" element={<Navigate to="/partners" replace />} />
             <Route path="/chats" element={<ChatsPage />} />

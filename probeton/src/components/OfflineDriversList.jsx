@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { base44, supabase } from "@/api/base44Client";
-import { Phone, Trash2, Loader2, UserX } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Phone, Trash2, Loader2, UserX, ChevronRight } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { pumpTitle } from "@/lib/pump";
 
@@ -90,17 +91,18 @@ export default function OfflineDriversList({ kind = "driver" }) {
           key={d.id}
           className="bg-white rounded-xl p-3 border border-neutral-200 flex items-center justify-between gap-2"
         >
-          <div className="min-w-0">
+          <Link to={`/partners/driver/${d.id}`} className="min-w-0 flex-1">
             <div className="font-bold text-sm text-neutral-900 truncate flex items-center gap-1.5">
               <UserX className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
               {d.full_name || d.driver_name || d.phone}
+              <ChevronRight className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
             </div>
             <div className="text-xs text-neutral-500">
               {d.vehicle_plate || "—"} ·{" "}
               {d.pump_boom ? `${pumpTitle(d.pump_boom)} · ` : ""}
               {d.approval_status === "approved" ? t("Одобрен") : t("На одобрении")}
             </div>
-          </div>
+          </Link>
           <div className="flex items-center gap-1.5 shrink-0">
             {d.phone && (
               <a
