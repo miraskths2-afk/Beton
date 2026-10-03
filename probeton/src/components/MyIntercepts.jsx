@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { normPhone } from "@/lib/orderStatuses";
-import { Flame, MapPin, CheckCircle2, Loader2, Package } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Flame, MapPin, CheckCircle2, Loader2, Package, Phone, Send } from "lucide-react";
+import { askAdminToClose } from "@/lib/kubovik";
 import ChatButton from "@/components/ChatButton";
 import { cn } from "@/lib/utils";
 import { t, locale } from "@/lib/i18n";
@@ -47,7 +49,7 @@ export default function MyIntercepts({ phone }) {
     return (
       <div className="text-center py-8 text-neutral-400">
         <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
-        <p className="text-sm">{t("Вы пока ничего не перехватывали в Кубовике")}</p>
+        <p className="text-sm">{t("Вы пока ничего не брали в Кубовике")}</p>
       </div>
     );
   }
@@ -85,10 +87,12 @@ export default function MyIntercepts({ phone }) {
                 {isGone ? t("Завершено") : t("В процессе")}
               </span>
             </div>
-            <div className="text-xs text-neutral-500 flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5" />
-              {l.direction}
-            </div>
+            {l.direction && (
+              <div className="text-xs text-neutral-500 flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5" />
+                {l.direction}
+              </div>
+            )}
             <div className="text-sm font-black text-orange-600">
               {l.price?.toLocaleString(locale())} ₸
             </div>
@@ -102,10 +106,38 @@ export default function MyIntercepts({ phone }) {
                 name: l.driver_name ? ` · ${l.driver_name}` : "",
               })}
             />
+            {!isGone && l.phone && (
+              <a
+                href={`tel:${l.phone}`}
+                className="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-lg px-3 py-2"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                {l.phone}
+              </a>
+            )}
+            {!isGone &&
+              (l.close_requested_at ? (
+                <div className="text-xs font-semibold text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  {t("Запрос на завершение отправлен админу")}
+                </div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    if (await askAdminToClose(l, "client")) load();
+                  }}
+                  className="w-full text-xs font-bold py-2 rounded-lg bg-neutral-900 text-white inline-flex items-center justify-center gap-1"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {t("Попросить админа завершить")}
+                </button>
+              ))}
+            <Link to={`/leftover/${l.id}`} className="block text-xs font-bold text-neutral-600 underline">
+              {t("Подробнее")}
+            </Link>
             {isGone && (
               <div className="flex items-center gap-1.5 text-xs text-neutral-400">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                {t("Забрано {date}", { date: fmtDate(l.created_date) })}
+                {t("Забрано {date}", { date: fmtDate(l.completed_at || l.created_date) })}
               </div>
             )}
           </div>

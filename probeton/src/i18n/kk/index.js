@@ -12,6 +12,7 @@ import balance from "./balance";
 import chat from "./chat";
 import pump from "./pump";
 import warnings from "./warnings";
+import kubovik from "./kubovik";
 
 export default {
   ...features,
@@ -23,4 +24,5 @@ export default {
   ...chat,
   ...pump,
   ...warnings,
+  ...kubovik,
 };
